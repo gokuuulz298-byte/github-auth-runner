@@ -1,0 +1,188 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Trash2, Plus, Minus, ShoppingCart as CartIcon } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+
+export interface CartItem {
+  id: string;
+  barcode: string;
+  name: string;
+  price: number;
+  quantity: number;
+  tax_rate: number;
+  price_type?: string;
+  category?: string;
+  discountInfo?: string | null;
+}
+
+interface ShoppingCartProps {
+  items: CartItem[];
+  onUpdateQuantity: (id: string, quantity: number) => void;
+  onRemoveItem: (id: string) => void;
+  onCheckout: () => void;
+  couponDiscount?: number;
+  additionalGstAmount?: number;
+  couponCode?: string;
+  additionalGstRate?: string;
+}
+
+const ShoppingCart = ({ 
+  items, 
+  onUpdateQuantity, 
+  onRemoveItem, 
+  onCheckout, 
+  couponDiscount = 0,
+  additionalGstAmount = 0,
+  couponCode,
+  additionalGstRate
+}: ShoppingCartProps) => {
+  const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const productTaxAmount = items.reduce((sum, item) => {
+    const itemTotal = item.price * item.quantity;
+    return sum + (itemTotal * item.tax_rate / 100);
+  }, 0);
+  const subtotalWithProductTax = subtotal + productTaxAmount;
+  const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
+  const totalTaxAmount = productTaxAmount + additionalGstAmount;
+  const total = afterCouponDiscount + additionalGstAmount;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CartIcon className="h-5 w-5" />
+          Shopping Cart
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {items.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <CartIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Cart is empty</p>
+            <p className="text-sm">Scan products to add them</p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto mb-4">
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-medium">{item.name}</h4>
+                    {item.discountInfo && (
+                      <p className="text-xs text-green-600 font-medium">({item.discountInfo})</p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      ₹{item.price.toFixed(2)}
+                      {item.price_type === 'weight' && '/kg'}
+                      {item.category && ` • ${item.category}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8"
+                      onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      step={item.price_type === 'weight' ? "0.1" : "1"}
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '') {
+                          onUpdateQuantity(item.id, 0);
+                        } else {
+                          const parsed = parseFloat(value);
+                          onUpdateQuantity(item.id, Math.max(item.price_type === 'weight' ? 0.1 : 1, parsed || 0));
+                        }
+                      }}
+                      onBlur={(e) => {
+                        if (e.target.value === '' || parseFloat(e.target.value) <= 0) {
+                          onUpdateQuantity(item.id, item.price_type === 'weight' ? 0.1 : 1);
+                        }
+                      }}
+                      className="w-20 text-center"
+                      min={item.price_type === 'weight' ? "0.1" : "1"}
+                    />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8"
+                      onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="text-right min-w-[80px]">
+                    <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => onRemoveItem(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span>₹{subtotal.toFixed(2)}</span>
+              </div>
+              {productTaxAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Product Tax</span>
+                  <span>₹{productTaxAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Coupon {couponCode ? `(${couponCode})` : ''}</span>
+                  <span>-₹{couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {additionalGstAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">GST {additionalGstRate ? `(${additionalGstRate}%)` : ''}</span>
+                  <span>₹{additionalGstAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {totalTaxAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Tax</span>
+                  <span>₹{totalTaxAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <Separator />
+              <div className="flex justify-between text-lg font-bold">
+                <span>Total</span>
+                <span>₹{total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <Button 
+              className="w-full mt-4" 
+              size="lg"
+              onClick={onCheckout}
+              disabled={items.length === 0}
+            >
+              Complete Sale
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+export default ShoppingCart;
