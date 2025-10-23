@@ -242,10 +242,15 @@ const ManualBilling = () => {
 
     const billNumber = `INV-${Date.now()}`;
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Calculate SGST and CGST for products
     const productTaxAmount = cartItems.reduce((sum, item) => {
       const itemTotal = item.price * item.quantity;
       return sum + (itemTotal * item.tax_rate / 100);
     }, 0);
+    const productSGST = productTaxAmount / 2;
+    const productCGST = productTaxAmount / 2;
+    
     const subtotalWithProductTax = subtotal + productTaxAmount;
     
     // Calculate coupon discount
@@ -263,200 +268,35 @@ const ManualBilling = () => {
     
     const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
     
-    // Calculate additional GST if provided
+    // Calculate additional GST if provided (split into SGST/CGST)
     const additionalGstAmount = additionalGstRate ? (afterCouponDiscount * parseFloat(additionalGstRate) / 100) : 0;
+    const additionalSGST = additionalGstAmount / 2;
+    const additionalCGST = additionalGstAmount / 2;
+    
+    const totalSGST = productSGST + additionalSGST;
+    const totalCGST = productCGST + additionalCGST;
     const taxAmount = productTaxAmount + additionalGstAmount;
     const total = afterCouponDiscount + additionalGstAmount;
 
     // Calculate required height based on content
     const headerHeight = 45;
-    const itemsHeight = cartItems.length * 5 + 15; // Each item ~5mm + header
+    const itemsHeight = cartItems.length * 5 + 15;
     const totalsHeight = (couponDiscount > 0 ? 4 : 0) + (additionalGstRate ? 4 : 0) + 30;
     const footerHeight = 15;
-    const requiredHeight = headerHeight + itemsHeight + totalsHeight + footerHeight + 10; // 10mm padding
+    const requiredHeight = headerHeight + itemsHeight + totalsHeight + footerHeight + 10;
     
     // Generate PDF based on selected format
-    const doc = invoiceFormat === 'thermal' 
-      ? new jsPDF({
-          unit: 'mm',
-          format: [80, Math.max(requiredHeight, 100)]
-        })
-      : new jsPDF({
-          unit: 'mm',
-          format: 'a4'
-        });
-    
-    // Company Header
-    const pageWidth = invoiceFormat === 'thermal' ? 80 : 210;
-    const centerX = pageWidth / 2;
-    const leftMargin = invoiceFormat === 'thermal' ? 5 : 20;
-    const rightMargin = invoiceFormat === 'thermal' ? 75 : 190;
-    
-    let currentY = invoiceFormat === 'thermal' ? 10 : 20;
-    if (companyProfile) {
-      doc.setFontSize(invoiceFormat === 'thermal' ? 12 : 16);
-      doc.setFont(undefined, 'bold');
-      doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
-      
-      doc.setFontSize(invoiceFormat === 'thermal' ? 8 : 10);
-      doc.setFont(undefined, 'normal');
-      currentY += invoiceFormat === 'thermal' ? 5 : 7;
-      if (companyProfile.address) {
-        doc.text(companyProfile.address, centerX, currentY, { align: "center" });
-        currentY += invoiceFormat === 'thermal' ? 4 : 5;
-      }
-      if (companyProfile.city || companyProfile.state || companyProfile.pincode) {
-        const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
-        doc.text(location, centerX, currentY, { align: "center" });
-        currentY += invoiceFormat === 'thermal' ? 4 : 5;
-      }
-      if (companyProfile.phone) {
-        doc.text(`Ph: ${companyProfile.phone}`, centerX, currentY, { align: "center" });
-        currentY += invoiceFormat === 'thermal' ? 4 : 5;
-      }
-      if (companyProfile.gstin) {
-        doc.text(`GSTIN: ${companyProfile.gstin}`, centerX, currentY, { align: "center" });
-        currentY += invoiceFormat === 'thermal' ? 4 : 5;
-      }
-    }
-    
-    // Separator line
-    currentY += 2;
-    doc.setLineWidth(0.3);
-    doc.line(leftMargin, currentY, rightMargin, currentY);
-    
-    // Invoice details
-    currentY += invoiceFormat === 'thermal' ? 5 : 7;
-    doc.setFontSize(invoiceFormat === 'thermal' ? 10 : 14);
-    doc.setFont(undefined, 'bold');
-    doc.text("INVOICE", centerX, currentY, { align: "center" });
-    
-    currentY += invoiceFormat === 'thermal' ? 5 : 7;
-    doc.setFontSize(invoiceFormat === 'thermal' ? 8 : 10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Bill: ${billNumber}`, leftMargin, currentY);
-    currentY += invoiceFormat === 'thermal' ? 4 : 5;
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin, currentY);
-    currentY += invoiceFormat === 'thermal' ? 4 : 5;
-    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin, currentY);
-    
-    // Customer details
-    currentY += invoiceFormat === 'thermal' ? 5 : 7;
-    doc.line(leftMargin, currentY, rightMargin, currentY);
-    currentY += invoiceFormat === 'thermal' ? 4 : 5;
-    doc.text(`Customer: ${customerName}`, leftMargin, currentY);
-    currentY += invoiceFormat === 'thermal' ? 4 : 5;
-    doc.text(`Phone: ${customerPhone}`, leftMargin, currentY);
-    currentY += invoiceFormat === 'thermal' ? 4 : 5;
-    if (loyaltyPoints > 0) {
-      doc.text(`Loyalty Points: ${loyaltyPoints}`, leftMargin, currentY);
-      currentY += invoiceFormat === 'thermal' ? 4 : 5;
-    }
-    doc.line(leftMargin, currentY, rightMargin, currentY);
-    
-    // Products table
-    currentY += invoiceFormat === 'thermal' ? 5 : 7;
-    doc.setFont(undefined, 'bold');
-    doc.setFontSize(invoiceFormat === 'thermal' ? 7 : 9);
-    
-    if (invoiceFormat === 'thermal') {
-      doc.text("Item", leftMargin, currentY);
-      doc.text("Qty", 45, currentY);
-      doc.text("Rate", 55, currentY);
-      doc.text("Amt", 68, currentY);
+    if (invoiceFormat === 'a4') {
+      generateA4Invoice(billNumber, subtotal, productSGST, productCGST, couponDiscount, additionalSGST, additionalCGST, totalSGST, totalCGST, taxAmount, total);
     } else {
-      doc.text("Item", leftMargin, currentY);
-      doc.text("Qty", 100, currentY);
-      doc.text("Rate", 130, currentY);
-      doc.text("Amt", 170, currentY);
+      generateThermalInvoice(billNumber, subtotal, productTaxAmount, couponDiscount, additionalGstAmount, taxAmount, total, requiredHeight);
     }
-    
-    currentY += 3;
-    doc.line(leftMargin, currentY, rightMargin, currentY);
-    
-    currentY += 4;
-    doc.setFont(undefined, 'normal');
-    cartItems.forEach(item => {
-      const itemName = invoiceFormat === 'thermal' 
-        ? (item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name)
-        : (item.name.length > 40 ? item.name.substring(0, 40) + '...' : item.name);
-      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)}kg` : item.quantity.toString();
-      
-      if (invoiceFormat === 'thermal') {
-        doc.text(itemName, leftMargin, currentY);
-        doc.text(qtyLabel, 45, currentY);
-        doc.text(item.price.toFixed(2), 55, currentY);
-        doc.text((item.price * item.quantity).toFixed(2), 68, currentY);
-      } else {
-        doc.text(itemName, leftMargin, currentY);
-        doc.text(qtyLabel, 100, currentY);
-        doc.text(item.price.toFixed(2), 130, currentY);
-        doc.text((item.price * item.quantity).toFixed(2), 170, currentY);
-      }
-      currentY += 4;
-    });
-    
-    // Bottom line
-    doc.line(leftMargin, currentY, rightMargin, currentY);
-    currentY += 4;
-    
-    // Totals
-    const totalsX = invoiceFormat === 'thermal' ? 68 : 170;
-    doc.setFontSize(invoiceFormat === 'thermal' ? 8 : 10);
-    doc.text("Subtotal:", leftMargin, currentY);
-    doc.text(subtotal.toFixed(2), totalsX, currentY, { align: "right" });
-    currentY += 4;
-    
-    if (productTaxAmount > 0) {
-      doc.text("Product Tax:", leftMargin, currentY);
-      doc.text(productTaxAmount.toFixed(2), totalsX, currentY, { align: "right" });
-      currentY += 4;
-    }
-    
-    if (couponDiscount > 0) {
-      const coupon = coupons.find(c => c.id === selectedCoupon);
-      doc.text(`Coupon (${coupon?.code}):`, leftMargin, currentY);
-      doc.text(`-${couponDiscount.toFixed(2)}`, totalsX, currentY, { align: "right" });
-      currentY += 4;
-    }
-    
-    if (additionalGstAmount > 0) {
-      doc.text(`GST (${additionalGstRate}%):`, leftMargin, currentY);
-      doc.text(additionalGstAmount.toFixed(2), totalsX, currentY, { align: "right" });
-      currentY += 4;
-    }
-    
-    if (taxAmount > 0) {
-      doc.text("Total Tax:", leftMargin, currentY);
-      doc.text(taxAmount.toFixed(2), totalsX, currentY, { align: "right" });
-      currentY += 4;
-    }
-    
-    // Grand total
-    doc.line(leftMargin, currentY, rightMargin, currentY);
-    currentY += 4;
-    doc.setFont(undefined, 'bold');
-    doc.setFontSize(invoiceFormat === 'thermal' ? 9 : 12);
-    doc.text("TOTAL:", leftMargin, currentY);
-    doc.text(`₹${total.toFixed(2)}`, totalsX, currentY, { align: "right" });
-    
-    // Footer
-    currentY += invoiceFormat === 'thermal' ? 8 : 10;
-    doc.line(leftMargin, currentY, rightMargin, currentY);
-    currentY += invoiceFormat === 'thermal' ? 5 : 7;
-    doc.setFont(undefined, 'italic');
-    doc.setFontSize(invoiceFormat === 'thermal' ? 8 : 10);
-    const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
-    doc.text(thankYouNote, centerX, currentY, { align: "center" });
-    
-    doc.save(`${billNumber}.pdf`);
 
     // Save customer and invoice, and reduce stock
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (isOnline && user) {
-        // Check if customer already exists
         const { data: existingCustomer } = await supabase
           .from('customers')
           .select('*')
@@ -466,7 +306,6 @@ const ManualBilling = () => {
         let customerId = existingCustomer?.id;
 
         if (!existingCustomer) {
-          // Only create new customer if phone doesn't exist
           const { data: newCustomer } = await supabase
             .from('customers')
             .insert([{ name: customerName, phone: customerPhone, created_by: user.id }])
@@ -488,7 +327,6 @@ const ManualBilling = () => {
           counter_id: selectedCounter,
         }]);
 
-        // Update loyalty points (1 point per 100 rupees spent)
         const pointsEarned = Math.floor(total / 100);
         const { data: existingLoyalty } = await supabase
           .from('loyalty_points')
@@ -520,7 +358,6 @@ const ManualBilling = () => {
           toast.success(`Customer earned ${pointsEarned} loyalty points!`);
         }
 
-        // Reduce stock quantities
         for (const item of cartItems) {
           const { data: product } = await supabase
             .from('products')
@@ -563,6 +400,368 @@ const ManualBilling = () => {
       console.error(error);
       toast.error("Error saving invoice");
     }
+  };
+
+  const generateThermalInvoice = (
+    billNumber: string,
+    subtotal: number,
+    productTaxAmount: number,
+    couponDiscount: number,
+    additionalGstAmount: number,
+    taxAmount: number,
+    total: number,
+    requiredHeight: number
+  ) => {
+    const doc = new jsPDF({
+      unit: 'mm',
+      format: [80, Math.max(requiredHeight, 100)]
+    });
+    
+    const pageWidth = 80;
+    const centerX = pageWidth / 2;
+    const leftMargin = 5;
+    const rightMargin = 75;
+    
+    let currentY = 10;
+    if (companyProfile) {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
+      
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'normal');
+      currentY += 5;
+      if (companyProfile.address) {
+        doc.text(companyProfile.address, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
+      if (companyProfile.city || companyProfile.state || companyProfile.pincode) {
+        const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
+        doc.text(location, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
+      if (companyProfile.phone) {
+        doc.text(`Ph: ${companyProfile.phone}`, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
+      if (companyProfile.gstin) {
+        doc.text(`GSTIN: ${companyProfile.gstin}`, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
+    }
+    
+    currentY += 2;
+    doc.setLineWidth(0.3);
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 5;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text("INVOICE", centerX, currentY, { align: "center" });
+    
+    currentY += 5;
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Bill: ${billNumber}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin, currentY);
+    
+    currentY += 5;
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 4;
+    doc.text(`Customer: ${customerName}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Phone: ${customerPhone}`, leftMargin, currentY);
+    currentY += 4;
+    if (loyaltyPoints > 0) {
+      doc.text(`Loyalty Points: ${loyaltyPoints}`, leftMargin, currentY);
+      currentY += 4;
+    }
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 5;
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(7);
+    doc.text("Item", leftMargin, currentY);
+    doc.text("Qty", 45, currentY);
+    doc.text("Rate", 55, currentY);
+    doc.text("Amt", rightMargin, currentY, { align: "right" });
+    
+    currentY += 3;
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 4;
+    doc.setFont(undefined, 'normal');
+    cartItems.forEach(item => {
+      const itemName = item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name;
+      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)}kg` : item.quantity.toString();
+      
+      doc.text(itemName, leftMargin, currentY);
+      doc.text(qtyLabel, 45, currentY);
+      doc.text(item.price.toFixed(2), 55, currentY);
+      doc.text((item.price * item.quantity).toFixed(2), rightMargin, currentY, { align: "right" });
+      currentY += 4;
+    });
+    
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 4;
+    
+    doc.setFontSize(8);
+    doc.text("Subtotal:", leftMargin, currentY);
+    doc.text(subtotal.toFixed(2), rightMargin, currentY, { align: "right" });
+    currentY += 4;
+    
+    if (productTaxAmount > 0) {
+      doc.text("Product Tax:", leftMargin, currentY);
+      doc.text(productTaxAmount.toFixed(2), rightMargin, currentY, { align: "right" });
+      currentY += 4;
+    }
+    
+    if (couponDiscount > 0) {
+      const coupon = coupons.find(c => c.id === selectedCoupon);
+      doc.text(`Coupon (${coupon?.code}):`, leftMargin, currentY);
+      doc.text(`-${couponDiscount.toFixed(2)}`, rightMargin, currentY, { align: "right" });
+      currentY += 4;
+    }
+    
+    if (additionalGstAmount > 0) {
+      doc.text(`GST (${additionalGstRate}%):`, leftMargin, currentY);
+      doc.text(additionalGstAmount.toFixed(2), rightMargin, currentY, { align: "right" });
+      currentY += 4;
+    }
+    
+    if (taxAmount > 0) {
+      doc.text("Total Tax:", leftMargin, currentY);
+      doc.text(taxAmount.toFixed(2), rightMargin, currentY, { align: "right" });
+      currentY += 4;
+    }
+    
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 4;
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(9);
+    doc.text("TOTAL:", leftMargin, currentY);
+    doc.text(`₹${total.toFixed(2)}`, rightMargin, currentY, { align: "right" });
+    
+    currentY += 8;
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 5;
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(8);
+    const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
+    doc.text(thankYouNote, centerX, currentY, { align: "center" });
+    
+    doc.save(`${billNumber}.pdf`);
+  };
+
+  const generateA4Invoice = (
+    billNumber: string,
+    subtotal: number,
+    productSGST: number,
+    productCGST: number,
+    couponDiscount: number,
+    additionalSGST: number,
+    additionalCGST: number,
+    totalSGST: number,
+    totalCGST: number,
+    taxAmount: number,
+    total: number
+  ) => {
+    const doc = new jsPDF({
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    const pageWidth = 210;
+    const leftMargin = 15;
+    const rightMargin = 195;
+    const centerX = pageWidth / 2;
+    
+    // Header with company details
+    let currentY = 20;
+    doc.setFillColor(41, 128, 185);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont(undefined, 'bold');
+    if (companyProfile) {
+      doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
+      
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      currentY += 8;
+      if (companyProfile.address) {
+        doc.text(companyProfile.address, centerX, currentY, { align: "center" });
+        currentY += 5;
+      }
+      const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
+      if (location) {
+        doc.text(location, centerX, currentY, { align: "center" });
+        currentY += 5;
+      }
+      if (companyProfile.phone || companyProfile.gstin) {
+        const contact = [
+          companyProfile.phone ? `Ph: ${companyProfile.phone}` : '',
+          companyProfile.gstin ? `GSTIN: ${companyProfile.gstin}` : ''
+        ].filter(Boolean).join(' | ');
+        doc.text(contact, centerX, currentY, { align: "center" });
+      }
+    }
+    
+    doc.setTextColor(0, 0, 0);
+    currentY = 50;
+    
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.text("TAX INVOICE", centerX, currentY, { align: "center" });
+    
+    currentY += 10;
+    const boxY = currentY;
+    
+    doc.setDrawColor(41, 128, 185);
+    doc.setLineWidth(0.5);
+    doc.rect(leftMargin, boxY, 85, 30);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text("Invoice Details", leftMargin + 3, boxY + 6);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.text(`Bill No: ${billNumber}`, leftMargin + 3, boxY + 12);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin + 3, boxY + 18);
+    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin + 3, boxY + 24);
+    
+    doc.rect(110, boxY, 85, 30);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(10);
+    doc.text("Customer Details", 113, boxY + 6);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.text(`Name: ${customerName}`, 113, boxY + 12);
+    doc.text(`Phone: ${customerPhone}`, 113, boxY + 18);
+    if (loyaltyPoints > 0) {
+      doc.text(`Loyalty Points: ${loyaltyPoints}`, 113, boxY + 24);
+    }
+    
+    currentY = boxY + 40;
+    
+    doc.setFillColor(52, 152, 219);
+    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(10);
+    doc.text("Item", leftMargin + 2, currentY + 5.5);
+    doc.text("Qty", 110, currentY + 5.5);
+    doc.text("Rate", 135, currentY + 5.5);
+    doc.text("Tax %", 155, currentY + 5.5);
+    doc.text("Amount", rightMargin - 2, currentY + 5.5, { align: "right" });
+    
+    currentY += 8;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    
+    cartItems.forEach((item, index) => {
+      if (index % 2 === 0) {
+        doc.setFillColor(240, 248, 255);
+        doc.rect(leftMargin, currentY, rightMargin - leftMargin, 7, 'F');
+      }
+      
+      const itemName = item.name.length > 35 ? item.name.substring(0, 35) + '...' : item.name;
+      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : item.quantity.toString();
+      const itemAmount = item.price * item.quantity;
+      
+      doc.text(itemName, leftMargin + 2, currentY + 5);
+      doc.text(qtyLabel, 110, currentY + 5);
+      doc.text(`₹${item.price.toFixed(2)}`, 135, currentY + 5);
+      doc.text(`${item.tax_rate.toFixed(1)}%`, 155, currentY + 5);
+      doc.text(`₹${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5, { align: "right" });
+      
+      currentY += 7;
+    });
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 5;
+    const totalsStartX = 130;
+    doc.setFontSize(9);
+    
+    doc.text("Subtotal:", totalsStartX, currentY);
+    doc.text(`₹${subtotal.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+    currentY += 6;
+    
+    if (productSGST > 0) {
+      doc.text("SGST (Product):", totalsStartX, currentY);
+      doc.text(`₹${productSGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+      
+      doc.text("CGST (Product):", totalsStartX, currentY);
+      doc.text(`₹${productCGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+    }
+    
+    if (couponDiscount > 0) {
+      const coupon = coupons.find(c => c.id === selectedCoupon);
+      doc.setTextColor(220, 53, 69);
+      doc.text(`Coupon (${coupon?.code}):`, totalsStartX, currentY);
+      doc.text(`-₹${couponDiscount.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      currentY += 6;
+    }
+    
+    if (additionalSGST > 0) {
+      doc.text(`SGST (${additionalGstRate}%):`, totalsStartX, currentY);
+      doc.text(`₹${additionalSGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+      
+      doc.text(`CGST (${additionalGstRate}%):`, totalsStartX, currentY);
+      doc.text(`₹${additionalCGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+    }
+    
+    if (taxAmount > 0) {
+      doc.setDrawColor(100, 100, 100);
+      doc.line(totalsStartX, currentY, rightMargin, currentY);
+      currentY += 5;
+      
+      doc.setFont(undefined, 'bold');
+      doc.text("Total SGST:", totalsStartX, currentY);
+      doc.text(`₹${totalSGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+      
+      doc.text("Total CGST:", totalsStartX, currentY);
+      doc.text(`₹${totalCGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+      
+      doc.text("Total Tax:", totalsStartX, currentY);
+      doc.text(`₹${taxAmount.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 8;
+      doc.setFont(undefined, 'normal');
+    }
+    
+    doc.setFillColor(46, 204, 113);
+    doc.rect(totalsStartX - 5, currentY - 2, rightMargin - totalsStartX + 5, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    doc.text("GRAND TOTAL:", totalsStartX, currentY + 5);
+    doc.text(`₹${total.toFixed(2)}`, rightMargin - 2, currentY + 5, { align: "right" });
+    
+    doc.setTextColor(0, 0, 0);
+    currentY += 20;
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(10);
+    const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
+    doc.text(thankYouNote, centerX, currentY, { align: "center" });
+    
+    doc.setDrawColor(41, 128, 185);
+    doc.setLineWidth(1);
+    doc.line(leftMargin, 280, rightMargin, 280);
+    
+    doc.save(`${billNumber}.pdf`);
   };
 
   return (
@@ -636,7 +835,7 @@ const ManualBilling = () => {
                     onChange={(e) => setAdditionalGstRate(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Apply additional GST on total bill amount
+                    Apply additional GST on total bill amount (will be split into SGST/CGST)
                   </p>
                 </div>
                 <div>
@@ -671,7 +870,6 @@ const ManualBilling = () => {
                     onKeyDown={async (e) => {
                       if (e.key === 'Enter' && searchTerm) {
                         e.preventDefault();
-                        // Try to find exact barcode match
                         const product = products.find(p => p.barcode === searchTerm);
                         if (product) {
                           handleAddToCart(product);
