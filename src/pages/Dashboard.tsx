@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ShoppingCart, FileText, Users, BarChart3, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent } from "lucide-react";
+import { Package, ShoppingCart, FileText, Users, BarChart3, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { Session, User } from "@supabase/supabase-js";
 
@@ -25,6 +25,7 @@ const Dashboard = () => {
     { icon: LayoutGrid, label: "Counters", path: "/counters", color: "from-violet-500 to-purple-500" },
     { icon: Tag, label: "Coupons", path: "/coupons", color: "from-pink-500 to-rose-500" },
     { icon: Percent, label: "Limited Discounts", path: "/limited-discounts", color: "from-amber-500 to-yellow-500" },
+    { icon: QrCode, label: "Barcodes", path: "/barcodes", color: "from-cyan-500 to-blue-500" },
   ];
 
   useEffect(() => {
@@ -112,6 +113,7 @@ const Dashboard = () => {
                   {item.label === "Counters" && "Configure multiple business counters"}
                   {item.label === "Coupons" && "Create discount coupons for customers"}
                   {item.label === "Limited Discounts" && "Set time-based product discounts"}
+                  {item.label === "Barcodes" && "Generate barcodes and QR codes"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -127,6 +129,7 @@ const Dashboard = () => {
                   {item.label === "Counters" && "Manage multiple billing counters"}
                   {item.label === "Coupons" && "Create fixed or percentage-based discount coupons"}
                   {item.label === "Limited Discounts" && "Schedule promotional discounts on products"}
+                  {item.label === "Barcodes" && "Generate printable barcodes and QR codes for products"}
                 </p>
               </CardContent>
             </Card>

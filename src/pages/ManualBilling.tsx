@@ -404,31 +404,31 @@ const ManualBilling = () => {
     const totalsX = invoiceFormat === 'thermal' ? 68 : 170;
     doc.setFontSize(invoiceFormat === 'thermal' ? 8 : 10);
     doc.text("Subtotal:", leftMargin, currentY);
-    doc.text(subtotal.toFixed(2), totalsX, currentY);
+    doc.text(subtotal.toFixed(2), totalsX, currentY, { align: "right" });
     currentY += 4;
     
     if (productTaxAmount > 0) {
       doc.text("Product Tax:", leftMargin, currentY);
-      doc.text(productTaxAmount.toFixed(2), totalsX, currentY);
+      doc.text(productTaxAmount.toFixed(2), totalsX, currentY, { align: "right" });
       currentY += 4;
     }
     
     if (couponDiscount > 0) {
       const coupon = coupons.find(c => c.id === selectedCoupon);
       doc.text(`Coupon (${coupon?.code}):`, leftMargin, currentY);
-      doc.text(`-${couponDiscount.toFixed(2)}`, totalsX, currentY);
+      doc.text(`-${couponDiscount.toFixed(2)}`, totalsX, currentY, { align: "right" });
       currentY += 4;
     }
     
     if (additionalGstAmount > 0) {
       doc.text(`GST (${additionalGstRate}%):`, leftMargin, currentY);
-      doc.text(additionalGstAmount.toFixed(2), totalsX, currentY);
+      doc.text(additionalGstAmount.toFixed(2), totalsX, currentY, { align: "right" });
       currentY += 4;
     }
     
     if (taxAmount > 0) {
       doc.text("Total Tax:", leftMargin, currentY);
-      doc.text(taxAmount.toFixed(2), totalsX, currentY);
+      doc.text(taxAmount.toFixed(2), totalsX, currentY, { align: "right" });
       currentY += 4;
     }
     
@@ -438,7 +438,7 @@ const ManualBilling = () => {
     doc.setFont(undefined, 'bold');
     doc.setFontSize(invoiceFormat === 'thermal' ? 9 : 12);
     doc.text("TOTAL:", leftMargin, currentY);
-    doc.text(total.toFixed(2), totalsX, currentY);
+    doc.text(`₹${total.toFixed(2)}`, totalsX, currentY, { align: "right" });
     
     // Footer
     currentY += invoiceFormat === 'thermal' ? 8 : 10;
@@ -668,8 +668,20 @@ const ManualBilling = () => {
                   <Input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search by name or barcode..."
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && searchTerm) {
+                        e.preventDefault();
+                        // Try to find exact barcode match
+                        const product = products.find(p => p.barcode === searchTerm);
+                        if (product) {
+                          handleAddToCart(product);
+                          setSearchTerm("");
+                        }
+                      }
+                    }}
+                    placeholder="Search by name or scan barcode..."
                     className="pl-10"
+                    autoFocus
                   />
                 </div>
 
