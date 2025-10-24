@@ -183,6 +183,11 @@ const ManualBilling = () => {
       }
     }
     
+    // Calculate total tax rate from CGST + SGST
+    const cgst = parseFloat(product.cgst) || 0;
+    const sgst = parseFloat(product.sgst) || 0;
+    const totalTaxRate = cgst + sgst;
+    
     if (existingItem) {
       setCartItems(items => 
         items.map(item => 
@@ -199,7 +204,9 @@ const ManualBilling = () => {
         name: product.name,
         price: finalPrice,
         quantity,
-        tax_rate: parseFloat(product.tax_rate),
+        tax_rate: totalTaxRate,
+        cgst: cgst,
+        sgst: sgst,
         price_type: product.price_type,
         category: product.category,
         discountInfo,
@@ -244,12 +251,19 @@ const ManualBilling = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
     // Calculate SGST and CGST for products
-    const productTaxAmount = cartItems.reduce((sum, item) => {
+    const productSGST = cartItems.reduce((sum, item) => {
       const itemTotal = item.price * item.quantity;
-      return sum + (itemTotal * item.tax_rate / 100);
+      const sgstRate = item.sgst || 0;
+      return sum + (itemTotal * sgstRate / 100);
     }, 0);
-    const productSGST = productTaxAmount / 2;
-    const productCGST = productTaxAmount / 2;
+    
+    const productCGST = cartItems.reduce((sum, item) => {
+      const itemTotal = item.price * item.quantity;
+      const cgstRate = item.cgst || 0;
+      return sum + (itemTotal * cgstRate / 100);
+    }, 0);
+    
+    const productTaxAmount = productSGST + productCGST;
     
     const subtotalWithProductTax = subtotal + productTaxAmount;
     
@@ -269,7 +283,8 @@ const ManualBilling = () => {
     const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
     
     // Calculate additional GST if provided (split into SGST/CGST)
-    const additionalGstAmount = additionalGstRate ? (afterCouponDiscount * parseFloat(additionalGstRate) / 100) : 0;
+    const additionalGstRateNum = parseFloat(additionalGstRate) || 0;
+    const additionalGstAmount = additionalGstRateNum > 0 ? (afterCouponDiscount * additionalGstRateNum / 100) : 0;
     const additionalSGST = additionalGstAmount / 2;
     const additionalCGST = additionalGstAmount / 2;
     
@@ -1018,10 +1033,17 @@ const ManualBilling = () => {
               couponDiscount={(() => {
                 if (!selectedCoupon) return 0;
                 const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const productTaxAmount = cartItems.reduce((sum, item) => {
+                const productSGST = cartItems.reduce((sum, item) => {
                   const itemTotal = item.price * item.quantity;
-                  return sum + (itemTotal * item.tax_rate / 100);
+                  const sgstRate = item.sgst || 0;
+                  return sum + (itemTotal * sgstRate / 100);
                 }, 0);
+                const productCGST = cartItems.reduce((sum, item) => {
+                  const itemTotal = item.price * item.quantity;
+                  const cgstRate = item.cgst || 0;
+                  return sum + (itemTotal * cgstRate / 100);
+                }, 0);
+                const productTaxAmount = productSGST + productCGST;
                 const subtotalWithProductTax = subtotal + productTaxAmount;
                 const coupon = coupons.find(c => c.id === selectedCoupon);
                 if (!coupon) return 0;
@@ -1030,13 +1052,34 @@ const ManualBilling = () => {
                 }
                 return coupon.discount_value;
               })()}
+              productSGST={(() => {
+                return cartItems.reduce((sum, item) => {
+                  const itemTotal = item.price * item.quantity;
+                  const sgstRate = item.sgst || 0;
+                  return sum + (itemTotal * sgstRate / 100);
+                }, 0);
+              })()}
+              productCGST={(() => {
+                return cartItems.reduce((sum, item) => {
+                  const itemTotal = item.price * item.quantity;
+                  const cgstRate = item.cgst || 0;
+                  return sum + (itemTotal * cgstRate / 100);
+                }, 0);
+              })()}
               additionalGstAmount={(() => {
                 if (!additionalGstRate) return 0;
                 const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const productTaxAmount = cartItems.reduce((sum, item) => {
+                const productSGST = cartItems.reduce((sum, item) => {
                   const itemTotal = item.price * item.quantity;
-                  return sum + (itemTotal * item.tax_rate / 100);
+                  const sgstRate = item.sgst || 0;
+                  return sum + (itemTotal * sgstRate / 100);
                 }, 0);
+                const productCGST = cartItems.reduce((sum, item) => {
+                  const itemTotal = item.price * item.quantity;
+                  const cgstRate = item.cgst || 0;
+                  return sum + (itemTotal * cgstRate / 100);
+                }, 0);
+                const productTaxAmount = productSGST + productCGST;
                 const subtotalWithProductTax = subtotal + productTaxAmount;
                 let couponDiscount = 0;
                 if (selectedCoupon) {
@@ -1050,7 +1093,8 @@ const ManualBilling = () => {
                   }
                 }
                 const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
-                return afterCouponDiscount * parseFloat(additionalGstRate) / 100;
+                const additionalGstRateNum = parseFloat(additionalGstRate) || 0;
+                return afterCouponDiscount * additionalGstRateNum / 100;
               })()}
               couponCode={coupons.find(c => c.id === selectedCoupon)?.code}
               additionalGstRate={additionalGstRate}

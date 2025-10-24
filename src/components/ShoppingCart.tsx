@@ -11,6 +11,8 @@ export interface CartItem {
   price: number;
   quantity: number;
   tax_rate: number;
+  cgst?: number;
+  sgst?: number;
   price_type?: string;
   category?: string;
   discountInfo?: string | null;
@@ -22,6 +24,8 @@ interface ShoppingCartProps {
   onRemoveItem: (id: string) => void;
   onCheckout: () => void;
   couponDiscount?: number;
+  productSGST?: number;
+  productCGST?: number;
   additionalGstAmount?: number;
   couponCode?: string;
   additionalGstRate?: string;
@@ -33,17 +37,20 @@ const ShoppingCart = ({
   onRemoveItem, 
   onCheckout, 
   couponDiscount = 0,
+  productSGST = 0,
+  productCGST = 0,
   additionalGstAmount = 0,
   couponCode,
   additionalGstRate
 }: ShoppingCartProps) => {
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const productTaxAmount = items.reduce((sum, item) => {
-    const itemTotal = item.price * item.quantity;
-    return sum + (itemTotal * item.tax_rate / 100);
-  }, 0);
+  const productTaxAmount = productSGST + productCGST;
   const subtotalWithProductTax = subtotal + productTaxAmount;
   const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
+  const additionalSGST = additionalGstAmount / 2;
+  const additionalCGST = additionalGstAmount / 2;
+  const totalSGST = productSGST + additionalSGST;
+  const totalCGST = productCGST + additionalCGST;
   const totalTaxAmount = productTaxAmount + additionalGstAmount;
   const total = afterCouponDiscount + additionalGstAmount;
 
@@ -139,11 +146,17 @@ const ShoppingCart = ({
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
-              {productTaxAmount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Product Tax</span>
-                  <span>₹{productTaxAmount.toFixed(2)}</span>
-                </div>
+              {productSGST > 0 && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">SGST (Products)</span>
+                    <span>₹{productSGST.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">CGST (Products)</span>
+                    <span>₹{productCGST.toFixed(2)}</span>
+                  </div>
+                </>
               )}
               {couponDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
@@ -152,16 +165,33 @@ const ShoppingCart = ({
                 </div>
               )}
               {additionalGstAmount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">GST {additionalGstRate ? `(${additionalGstRate}%)` : ''}</span>
-                  <span>₹{additionalGstAmount.toFixed(2)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Additional SGST ({additionalGstRate ? `${parseFloat(additionalGstRate)/2}%` : ''})</span>
+                    <span>₹{additionalSGST.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Additional CGST ({additionalGstRate ? `${parseFloat(additionalGstRate)/2}%` : ''})</span>
+                    <span>₹{additionalCGST.toFixed(2)}</span>
+                  </div>
+                </>
               )}
               {totalTaxAmount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Tax</span>
-                  <span>₹{totalTaxAmount.toFixed(2)}</span>
-                </div>
+                <>
+                  <Separator className="my-2" />
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span className="text-muted-foreground">Total SGST</span>
+                    <span>₹{totalSGST.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span className="text-muted-foreground">Total CGST</span>
+                    <span>₹{totalCGST.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span className="text-muted-foreground">Total Tax</span>
+                    <span>₹{totalTaxAmount.toFixed(2)}</span>
+                  </div>
+                </>
               )}
               <Separator />
               <div className="flex justify-between text-lg font-bold">

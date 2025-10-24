@@ -100,38 +100,52 @@ const Barcodes = () => {
               size: 40mm 30mm;
               margin: 0;
             }
-            body {
+            * {
               margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            html, body {
+              margin: 0;
+              padding: 0;
+              width: 40mm;
+              height: 30mm;
+              overflow: hidden;
+            }
+            body {
               padding: 1mm;
               font-family: Arial, sans-serif;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              height: 30mm;
-              width: 40mm;
+              page-break-inside: avoid;
+              page-break-after: avoid;
             }
             .product-name {
               font-size: 7pt;
               font-weight: bold;
               text-align: center;
-              margin: 0.5mm 0;
+              margin: 0;
               max-width: 38mm;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
               line-height: 1.1;
+              flex-shrink: 0;
             }
             .code-image {
               max-width: 36mm;
               max-height: 18mm;
               object-fit: contain;
+              flex-shrink: 0;
             }
             .product-code {
               font-size: 6pt;
               text-align: center;
-              margin: 0.5mm 0;
+              margin: 0;
               font-family: monospace;
+              flex-shrink: 0;
             }
           </style>
         </head>
