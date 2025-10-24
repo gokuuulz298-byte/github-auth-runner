@@ -571,7 +571,8 @@ const ManualBilling = () => {
   ) => {
     const doc = new jsPDF({
       unit: 'mm',
-      format: 'a4'
+      format: 'a4',
+      orientation: 'portrait'
     });
     
     const pageWidth = 210;
@@ -579,10 +580,10 @@ const ManualBilling = () => {
     const rightMargin = 195;
     const centerX = pageWidth / 2;
     
-    // Header with company details
+    // Header with gradient-like effect
     let currentY = 20;
     doc.setFillColor(41, 128, 185);
-    doc.rect(0, 0, pageWidth, 40, 'F');
+    doc.rect(0, 0, pageWidth, 45, 'F');
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
@@ -612,94 +613,131 @@ const ManualBilling = () => {
     }
     
     doc.setTextColor(0, 0, 0);
-    currentY = 50;
+    currentY = 55;
     
-    doc.setFontSize(20);
+    doc.setFontSize(22);
     doc.setFont(undefined, 'bold');
     doc.text("TAX INVOICE", centerX, currentY, { align: "center" });
     
-    currentY += 10;
+    currentY += 12;
     const boxY = currentY;
     
+    // Info boxes with borders
     doc.setDrawColor(41, 128, 185);
     doc.setLineWidth(0.5);
-    doc.rect(leftMargin, boxY, 85, 30);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text("Invoice Details", leftMargin + 3, boxY + 6);
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.text(`Bill No: ${billNumber}`, leftMargin + 3, boxY + 12);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin + 3, boxY + 18);
-    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin + 3, boxY + 24);
+    doc.setFillColor(245, 250, 255);
+    doc.rect(leftMargin, boxY, 85, 32, 'FD');
     
-    doc.rect(110, boxY, 85, 30);
+    doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(10);
-    doc.text("Customer Details", 113, boxY + 6);
+    doc.setTextColor(41, 128, 185);
+    doc.text("Invoice Details", leftMargin + 3, boxY + 7);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
-    doc.text(`Name: ${customerName}`, 113, boxY + 12);
-    doc.text(`Phone: ${customerPhone}`, 113, boxY + 18);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Bill No: ${billNumber}`, leftMargin + 3, boxY + 14);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin + 3, boxY + 20);
+    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin + 3, boxY + 26);
+    
+    doc.setFillColor(245, 250, 255);
+    doc.rect(110, boxY, 85, 32, 'FD');
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(41, 128, 185);
+    doc.text("Customer Details", 113, boxY + 7);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Name: ${customerName}`, 113, boxY + 14);
+    doc.text(`Phone: ${customerPhone}`, 113, boxY + 20);
     if (loyaltyPoints > 0) {
-      doc.text(`Loyalty Points: ${loyaltyPoints}`, 113, boxY + 24);
+      doc.text(`Loyalty Points: ${loyaltyPoints}`, 113, boxY + 26);
     }
     
     currentY = boxY + 40;
     
-    doc.setFillColor(52, 152, 219);
-    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 8, 'F');
+    // Products table header
+    doc.setFillColor(41, 128, 185);
+    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 10, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(10);
-    doc.text("Item", leftMargin + 2, currentY + 5.5);
-    doc.text("Qty", 110, currentY + 5.5);
-    doc.text("Rate", 135, currentY + 5.5);
-    doc.text("Tax %", 155, currentY + 5.5);
-    doc.text("Amount", rightMargin - 2, currentY + 5.5, { align: "right" });
+    doc.setFontSize(9);
+    doc.text("Item", leftMargin + 2, currentY + 6);
+    doc.text("Qty", 100, currentY + 6, { align: "center" });
+    doc.text("Rate", 130, currentY + 6, { align: "center" });
+    doc.text("Tax", 155, currentY + 6, { align: "center" });
+    doc.text("Amount", rightMargin - 2, currentY + 6, { align: "right" });
     
-    currentY += 8;
+    currentY += 10;
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
     
+    // Draw table borders for each row
     cartItems.forEach((item, index) => {
+      // Alternate row colors
       if (index % 2 === 0) {
-        doc.setFillColor(240, 248, 255);
-        doc.rect(leftMargin, currentY, rightMargin - leftMargin, 7, 'F');
+        doc.setFillColor(248, 250, 252);
+      } else {
+        doc.setFillColor(255, 255, 255);
       }
+      doc.rect(leftMargin, currentY, rightMargin - leftMargin, 8, 'F');
       
-      const itemName = item.name.length > 35 ? item.name.substring(0, 35) + '...' : item.name;
-      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : item.quantity.toString();
+      // Draw cell borders
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.1);
+      doc.line(leftMargin, currentY, rightMargin, currentY);
+      
+      const itemName = item.name.length > 30 ? item.name.substring(0, 30) + '...' : item.name;
+      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : `${item.quantity}`;
       const itemAmount = item.price * item.quantity;
       
-      doc.text(itemName, leftMargin + 2, currentY + 5);
-      doc.text(qtyLabel, 110, currentY + 5);
-      doc.text(`₹${item.price.toFixed(2)}`, 135, currentY + 5);
-      doc.text(`${item.tax_rate.toFixed(1)}%`, 155, currentY + 5);
-      doc.text(`₹${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5, { align: "right" });
+      doc.text(itemName, leftMargin + 2, currentY + 5.5);
+      doc.text(qtyLabel, 100, currentY + 5.5, { align: "center" });
+      doc.text(`${item.price.toFixed(2)}`, 130, currentY + 5.5, { align: "center" });
+      doc.text(`${item.tax_rate.toFixed(1)}%`, 155, currentY + 5.5, { align: "center" });
+      doc.text(`${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5.5, { align: "right" });
       
-      currentY += 7;
+      currentY += 8;
     });
     
-    doc.setDrawColor(200, 200, 200);
+    // Bottom border of table
+    doc.setLineWidth(0.5);
     doc.line(leftMargin, currentY, rightMargin, currentY);
     
-    currentY += 5;
-    const totalsStartX = 130;
-    doc.setFontSize(9);
     
+    currentY += 8;
+    const totalsStartX = 125;
+    
+    // Totals box with background
+    const totalsBoxY = currentY;
+    doc.setFillColor(250, 252, 255);
+    const boxHeight = 
+      8 + // Subtotal
+      (productSGST > 0 ? 12 : 0) + // Product taxes
+      (couponDiscount > 0 ? 6 : 0) + // Coupon
+      (additionalSGST > 0 ? 12 : 0) + // Additional taxes  
+      (taxAmount > 0 ? 20 : 0) + // Total taxes
+      14; // Grand total
+    
+    doc.rect(totalsStartX - 3, totalsBoxY - 2, rightMargin - totalsStartX + 5, boxHeight, 'F');
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9.5);
+    doc.setFont(undefined, 'normal');
+    
+    currentY = totalsBoxY;
     doc.text("Subtotal:", totalsStartX, currentY);
-    doc.text(`₹${subtotal.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+    doc.text(subtotal.toFixed(2), rightMargin - 2, currentY, { align: "right" });
     currentY += 6;
     
     if (productSGST > 0) {
       doc.text("SGST (Product):", totalsStartX, currentY);
-      doc.text(`₹${productSGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(productSGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
       doc.text("CGST (Product):", totalsStartX, currentY);
-      doc.text(`₹${productCGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(productCGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
     }
     
@@ -707,48 +745,50 @@ const ManualBilling = () => {
       const coupon = coupons.find(c => c.id === selectedCoupon);
       doc.setTextColor(220, 53, 69);
       doc.text(`Coupon (${coupon?.code}):`, totalsStartX, currentY);
-      doc.text(`-₹${couponDiscount.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(`-${couponDiscount.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
       doc.setTextColor(0, 0, 0);
       currentY += 6;
     }
     
     if (additionalSGST > 0) {
-      doc.text(`SGST (${additionalGstRate}%):`, totalsStartX, currentY);
-      doc.text(`₹${additionalSGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(`Additional SGST (${additionalGstRate}%):`, totalsStartX, currentY);
+      doc.text(additionalSGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
-      doc.text(`CGST (${additionalGstRate}%):`, totalsStartX, currentY);
-      doc.text(`₹${additionalCGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(`Additional CGST (${additionalGstRate}%):`, totalsStartX, currentY);
+      doc.text(additionalCGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
     }
     
     if (taxAmount > 0) {
-      doc.setDrawColor(100, 100, 100);
-      doc.line(totalsStartX, currentY, rightMargin, currentY);
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.3);
+      doc.line(totalsStartX, currentY, rightMargin - 2, currentY);
       currentY += 5;
       
       doc.setFont(undefined, 'bold');
       doc.text("Total SGST:", totalsStartX, currentY);
-      doc.text(`₹${totalSGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(totalSGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
       doc.text("Total CGST:", totalsStartX, currentY);
-      doc.text(`₹${totalCGST.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(totalCGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
       doc.text("Total Tax:", totalsStartX, currentY);
-      doc.text(`₹${taxAmount.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(taxAmount.toFixed(2), rightMargin - 2, currentY, { align: "right" });
       currentY += 8;
       doc.setFont(undefined, 'normal');
     }
     
-    doc.setFillColor(46, 204, 113);
-    doc.rect(totalsStartX - 5, currentY - 2, rightMargin - totalsStartX + 5, 10, 'F');
+    // Grand total with prominent styling
+    doc.setFillColor(22, 163, 74);
+    doc.rect(totalsStartX - 5, currentY - 3, rightMargin - totalsStartX + 7, 12, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(12);
+    doc.setFontSize(13);
     doc.text("GRAND TOTAL:", totalsStartX, currentY + 5);
-    doc.text(`₹${total.toFixed(2)}`, rightMargin - 2, currentY + 5, { align: "right" });
+    doc.text(total.toFixed(2), rightMargin - 2, currentY + 5, { align: "right" });
     
     doc.setTextColor(0, 0, 0);
     currentY += 20;
@@ -823,19 +863,19 @@ const ManualBilling = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gst-rate">Additional GST % (Optional)</Label>
+                  <Label htmlFor="gst-rate">Additional Tax % (Optional)</Label>
                   <Input
                     id="gst-rate"
                     type="number"
                     step="0.01"
                     min="0"
                     max="100"
-                    placeholder="e.g., 18"
+                    placeholder="e.g., 5"
                     value={additionalGstRate}
                     onChange={(e) => setAdditionalGstRate(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Apply additional GST on total bill amount (will be split into SGST/CGST)
+                    Apply additional tax on bill (separate from CGST/SGST)
                   </p>
                 </div>
                 <div>
@@ -884,17 +924,39 @@ const ManualBilling = () => {
                 </div>
 
                 <div className="max-h-[400px] overflow-y-auto space-y-2">
-                  {products.map((product) => (
-                    <div key={product.id} className="p-3 bg-muted/50 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
-                         <div>
-                          <h4 className="font-medium">{product.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            ₹{product.price}
-                            {product.price_type === 'weight' && '/kg'}
-                          </p>
+                  {products.map((product) => {
+                    const activeDiscount = productDiscounts.find(
+                      discount => 
+                        discount.product_id === product.id &&
+                        new Date(discount.start_date) <= new Date() &&
+                        new Date(discount.end_date) >= new Date()
+                    );
+                    
+                    return (
+                      <div key={product.id} className="p-3 bg-muted/50 rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium">{product.name}</h4>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
+                              <p className="text-sm text-muted-foreground">
+                                Price: ₹{product.price}{product.price_type === 'weight' && '/kg'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Code: {product.barcode}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Stock: {product.stock_quantity}
+                              </p>
+                              {activeDiscount && (
+                                <p className="text-sm text-green-600 font-semibold">
+                                  {activeDiscount.discount_type === 'percentage' 
+                                    ? `${activeDiscount.discount_percentage}% off` 
+                                    : `₹${activeDiscount.discount_amount} off`}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
                       {product.price_type === 'weight' && (
                         <div className="mb-2">
                           <Label htmlFor={`weight-${product.id}`} className="text-xs">Weight (kg)</Label>
@@ -924,8 +986,9 @@ const ManualBilling = () => {
                       >
                         Add to Cart
                       </Button>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

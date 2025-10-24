@@ -14,6 +14,7 @@ interface Invoice {
   bill_number: string;
   total_amount: number;
   tax_amount: number;
+  discount_amount?: number;
   items_data: any[];
   created_at: string;
   customer_name?: string;
@@ -359,7 +360,7 @@ const Analytics = () => {
             <div className="mt-6">
               <h3 className="font-semibold mb-3">Bills on {format(selectedDate, 'MMM dd, yyyy')}</h3>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {dailyInvoices.map((invoice) => {
+                  {dailyInvoices.map((invoice) => {
                   const items = invoice.items_data as any[];
                   const invoiceProfit = items.reduce((sum, item: any) => {
                     const product = products.find(p => p.id === item.id);
@@ -369,10 +370,25 @@ const Analytics = () => {
                     return sum;
                   }, 0);
 
+                  const hasDiscount = invoice.discount_amount && parseFloat(invoice.discount_amount.toString()) > 0;
+                  const hasProductDiscount = items.some(item => item.discountInfo);
+
                   return (
                     <div key={invoice.id} className="p-3 bg-muted/30 rounded-lg flex justify-between items-center">
                       <div>
-                        <p className="font-medium">{invoice.bill_number}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{invoice.bill_number}</p>
+                          {hasDiscount && (
+                            <span className="text-xs bg-orange-500/20 text-orange-700 px-2 py-0.5 rounded">
+                              Coupon Applied
+                            </span>
+                          )}
+                          {hasProductDiscount && (
+                            <span className="text-xs bg-green-500/20 text-green-700 px-2 py-0.5 rounded">
+                              Product Discount
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {invoice.customer_name || 'Walk-in'} • {format(new Date(invoice.created_at), 'hh:mm a')}
                         </p>
@@ -380,7 +396,10 @@ const Analytics = () => {
                       <div className="text-right">
                         <p className="font-bold text-green-600">₹{parseFloat(invoice.total_amount.toString()).toFixed(2)}</p>
                         <p className="text-sm text-blue-600">Profit: ₹{invoiceProfit.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground">Tax: ₹{parseFloat(invoice.tax_amount.toString()).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Tax: ₹{parseFloat(invoice.tax_amount.toString()).toFixed(2)}
+                          {hasDiscount && ` • Disc: ₹${parseFloat(invoice.discount_amount.toString()).toFixed(2)}`}
+                        </p>
                       </div>
                     </div>
                   );

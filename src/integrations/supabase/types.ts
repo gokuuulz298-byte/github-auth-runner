@@ -321,12 +321,16 @@ export type Database = {
           barcode: string
           buying_price: number | null
           category: string | null
+          cgst: number | null
           created_at: string | null
           created_by: string | null
+          hsn_code: string | null
           id: string
           name: string
           price: number
           price_type: string | null
+          product_tax: number | null
+          sgst: number | null
           stock_quantity: number | null
           tax_rate: number | null
           updated_at: string | null
@@ -335,12 +339,16 @@ export type Database = {
           barcode: string
           buying_price?: number | null
           category?: string | null
+          cgst?: number | null
           created_at?: string | null
           created_by?: string | null
+          hsn_code?: string | null
           id?: string
           name: string
           price: number
           price_type?: string | null
+          product_tax?: number | null
+          sgst?: number | null
           stock_quantity?: number | null
           tax_rate?: number | null
           updated_at?: string | null
@@ -349,12 +357,16 @@ export type Database = {
           barcode?: string
           buying_price?: number | null
           category?: string | null
+          cgst?: number | null
           created_at?: string | null
           created_by?: string | null
+          hsn_code?: string | null
           id?: string
           name?: string
           price?: number
           price_type?: string | null
+          product_tax?: number | null
+          sgst?: number | null
           stock_quantity?: number | null
           tax_rate?: number | null
           updated_at?: string | null

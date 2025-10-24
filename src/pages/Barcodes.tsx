@@ -59,15 +59,15 @@ const Barcodes = () => {
       if (codeType === "barcode" && barcodeRef.current) {
         JsBarcode(barcodeRef.current, selectedProduct.barcode, {
           format: "CODE128",
-          width: 2,
-          height: 50,
-          displayValue: true,
-          fontSize: 14,
+          width: 1.5,
+          height: 35,
+          displayValue: false,
+          fontSize: 10,
         });
       } else if (codeType === "qrcode" && qrcodeRef.current) {
         QRCode.toCanvas(qrcodeRef.current, selectedProduct.barcode, {
-          width: 150,
-          margin: 1,
+          width: 80,
+          margin: 0,
         });
       }
     } catch (error) {
@@ -102,40 +102,43 @@ const Barcodes = () => {
             }
             body {
               margin: 0;
-              padding: 2mm;
+              padding: 1mm;
               font-family: Arial, sans-serif;
               display: flex;
               flex-direction: column;
               align-items: center;
-              justify-content: center;
+              justify-content: space-between;
               height: 30mm;
               width: 40mm;
             }
             .product-name {
-              font-size: 8pt;
+              font-size: 7pt;
               font-weight: bold;
               text-align: center;
-              margin-bottom: 1mm;
+              margin: 0.5mm 0;
               max-width: 38mm;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
-            }
-            .product-price {
-              font-size: 7pt;
-              text-align: center;
-              margin-bottom: 1mm;
+              line-height: 1.1;
             }
             .code-image {
               max-width: 36mm;
-              height: auto;
+              max-height: 18mm;
+              object-fit: contain;
+            }
+            .product-code {
+              font-size: 6pt;
+              text-align: center;
+              margin: 0.5mm 0;
+              font-family: monospace;
             }
           </style>
         </head>
         <body>
           <div class="product-name">${selectedProduct.name}</div>
-          <div class="product-price">₹${selectedProduct.price}</div>
           <img src="${dataUrl}" class="code-image" />
+          <div class="product-code">${selectedProduct.barcode}</div>
         </body>
       </html>
     `);

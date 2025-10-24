@@ -39,6 +39,10 @@ const Inventory = () => {
     price: "",
     buying_price: "",
     stock_quantity: "",
+    hsn_code: "",
+    product_tax: "",
+    cgst: "",
+    sgst: "",
     tax_rate: "",
     category: "",
     price_type: "fixed",
@@ -141,6 +145,10 @@ const Inventory = () => {
         price: parseFloat(formData.price),
         buying_price: parseFloat(formData.buying_price) || 0,
         stock_quantity: parseInt(formData.stock_quantity),
+        hsn_code: formData.hsn_code || null,
+        product_tax: parseFloat(formData.product_tax) || 0,
+        cgst: parseFloat(formData.cgst) || 0,
+        sgst: parseFloat(formData.sgst) || 0,
         tax_rate: parseFloat(formData.tax_rate),
         category: formData.category || null,
         price_type: formData.price_type,
@@ -181,6 +189,10 @@ const Inventory = () => {
       price: product.price.toString(),
       buying_price: (product as any).buying_price?.toString() || "0",
       stock_quantity: product.stock_quantity.toString(),
+      hsn_code: (product as any).hsn_code || "",
+      product_tax: (product as any).product_tax?.toString() || "0",
+      cgst: (product as any).cgst?.toString() || "0",
+      sgst: (product as any).sgst?.toString() || "0",
       tax_rate: product.tax_rate.toString(),
       category: product.category || "",
       price_type: product.price_type || "fixed",
@@ -221,6 +233,10 @@ const Inventory = () => {
       price: "",
       buying_price: "",
       stock_quantity: "",
+      hsn_code: "",
+      product_tax: "",
+      cgst: "",
+      sgst: "",
       tax_rate: "",
       category: "",
       price_type: "fixed",
@@ -365,16 +381,63 @@ const Inventory = () => {
                     required
                   />
                 </div>
+
                 <div>
-                  <Label htmlFor="tax">Tax Rate (%)</Label>
+                  <Label htmlFor="hsn">HSN Code (Optional)</Label>
+                  <Input
+                    id="hsn"
+                    value={formData.hsn_code}
+                    onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
+                    placeholder="e.g., 1234567"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="product_tax">Product Tax (%)</Label>
+                  <Input
+                    id="product_tax"
+                    type="number"
+                    step="0.01"
+                    value={formData.product_tax}
+                    onChange={(e) => setFormData({ ...formData, product_tax: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="cgst">CGST (%)</Label>
+                    <Input
+                      id="cgst"
+                      type="number"
+                      step="0.01"
+                      value={formData.cgst}
+                      onChange={(e) => setFormData({ ...formData, cgst: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="sgst">SGST (%)</Label>
+                    <Input
+                      id="sgst"
+                      type="number"
+                      step="0.01"
+                      value={formData.sgst}
+                      onChange={(e) => setFormData({ ...formData, sgst: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="tax">Legacy Tax Rate (%) - Deprecated</Label>
                   <Input
                     id="tax"
                     type="number"
                     step="0.01"
                     value={formData.tax_rate}
                     onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
-                    required
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use Product Tax, CGST, and SGST fields instead
+                  </p>
                 </div>
                 <Button type="submit" className="w-full">
                   {editingProduct ? "Update Product" : "Add Product"}
