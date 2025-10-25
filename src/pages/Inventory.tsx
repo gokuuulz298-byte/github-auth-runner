@@ -139,6 +139,13 @@ const Inventory = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const cgst = parseFloat(formData.cgst) || 0;
+      const sgst = parseFloat(formData.sgst) || 0;
+      const productTax = parseFloat(formData.product_tax) || 0;
+      
+      // Calculate total tax: if cgst and sgst are provided, use their sum, otherwise use product_tax
+      const totalTax = (cgst > 0 || sgst > 0) ? (cgst + sgst) : productTax;
+
       const productData = {
         barcode: formData.barcode,
         name: formData.name,
@@ -146,10 +153,10 @@ const Inventory = () => {
         buying_price: parseFloat(formData.buying_price) || 0,
         stock_quantity: parseInt(formData.stock_quantity),
         hsn_code: formData.hsn_code || null,
-        product_tax: parseFloat(formData.product_tax) || 0,
-        cgst: parseFloat(formData.cgst) || 0,
-        sgst: parseFloat(formData.sgst) || 0,
-        tax_rate: parseFloat(formData.tax_rate),
+        product_tax: totalTax,
+        cgst: cgst,
+        sgst: sgst,
+        tax_rate: totalTax, // Keep tax_rate in sync with product_tax for backwards compatibility
         category: formData.category || null,
         price_type: formData.price_type,
         created_by: user.id,
@@ -237,7 +244,7 @@ const Inventory = () => {
       product_tax: "",
       cgst: "",
       sgst: "",
-      tax_rate: "",
+      tax_rate: "0",
       category: "",
       price_type: "fixed",
     });
@@ -282,7 +289,7 @@ const Inventory = () => {
                 Add Product
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingProduct ? "Edit Product" : "Add New Product"}
@@ -383,13 +390,32 @@ const Inventory = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="hsn">HSN Code (Optional)</Label>
-                  <Input
-                    id="hsn"
-                    value={formData.hsn_code}
-                    onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
-                    placeholder="e.g., 1234567"
-                  />
+                  <Label htmlFor="hsn">HSN Code</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="hsn"
+                      value={formData.hsn_code}
+                      onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
+                      placeholder="e.g., 1234567"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (formData.hsn_code) {
+                          window.open(`https://cleartax.in/s/gst-hsn-lookup?query=${formData.hsn_code}`, '_blank');
+                        } else {
+                          toast.error("Please enter HSN code first");
+                        }
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      Fetch GST
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Click "Fetch GST" to lookup GST rates for this HSN code
+                  </p>
                 </div>
 
                 <div>
@@ -400,7 +426,11 @@ const Inventory = () => {
                     step="0.01"
                     value={formData.product_tax}
                     onChange={(e) => setFormData({ ...formData, product_tax: e.target.value })}
+                    placeholder="Use this OR CGST+SGST below"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enter total tax % here OR use CGST + SGST fields below
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -411,7 +441,16 @@ const Inventory = () => {
                       type="number"
                       step="0.01"
                       value={formData.cgst}
-                      onChange={(e) => setFormData({ ...formData, cgst: e.target.value })}
+                      onChange={(e) => {
+                        const cgstVal = e.target.value;
+                        setFormData({ ...formData, cgst: cgstVal });
+                        // Auto calculate product_tax if both cgst and sgst are provided
+                        if (cgstVal && formData.sgst) {
+                          const total = (parseFloat(cgstVal) || 0) + (parseFloat(formData.sgst) || 0);
+                          setFormData(prev => ({ ...prev, cgst: cgstVal, product_tax: total.toString() }));
+                        }
+                      }}
+                      placeholder="e.g., 9"
                     />
                   </div>
                   <div>
@@ -421,24 +460,22 @@ const Inventory = () => {
                       type="number"
                       step="0.01"
                       value={formData.sgst}
-                      onChange={(e) => setFormData({ ...formData, sgst: e.target.value })}
+                      onChange={(e) => {
+                        const sgstVal = e.target.value;
+                        setFormData({ ...formData, sgst: sgstVal });
+                        // Auto calculate product_tax if both cgst and sgst are provided
+                        if (sgstVal && formData.cgst) {
+                          const total = (parseFloat(formData.cgst) || 0) + (parseFloat(sgstVal) || 0);
+                          setFormData(prev => ({ ...prev, sgst: sgstVal, product_tax: total.toString() }));
+                        }
+                      }}
+                      placeholder="e.g., 9"
                     />
                   </div>
                 </div>
-
-                <div>
-                  <Label htmlFor="tax">Legacy Tax Rate (%) - Deprecated</Label>
-                  <Input
-                    id="tax"
-                    type="number"
-                    step="0.01"
-                    value={formData.tax_rate}
-                    onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use Product Tax, CGST, and SGST fields instead
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  If CGST + SGST are entered, total tax will be auto-calculated (e.g., 9% + 9% = 18%)
+                </p>
                 <Button type="submit" className="w-full">
                   {editingProduct ? "Update Product" : "Add Product"}
                 </Button>

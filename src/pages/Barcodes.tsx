@@ -104,23 +104,39 @@ const Barcodes = () => {
               margin: 0;
               padding: 0;
               box-sizing: border-box;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
-            html, body {
-              margin: 0;
-              padding: 0;
+            html {
               width: 40mm;
               height: 30mm;
+              margin: 0;
+              padding: 0;
               overflow: hidden;
             }
             body {
+              margin: 0;
               padding: 1mm;
+              width: 40mm;
+              height: 30mm;
               font-family: Arial, sans-serif;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              page-break-inside: avoid;
-              page-break-after: avoid;
+              overflow: hidden;
+              page-break-before: avoid !important;
+              page-break-after: avoid !important;
+              page-break-inside: avoid !important;
+            }
+            .sticker-container {
+              width: 100%;
+              height: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              page-break-inside: avoid !important;
             }
             .product-name {
               font-size: 7pt;
@@ -150,9 +166,11 @@ const Barcodes = () => {
           </style>
         </head>
         <body>
-          <div class="product-name">${selectedProduct.name}</div>
-          <img src="${dataUrl}" class="code-image" />
-          <div class="product-code">${selectedProduct.barcode}</div>
+          <div class="sticker-container">
+            <div class="product-name">${selectedProduct.name}</div>
+            <img src="${dataUrl}" class="code-image" />
+            <div class="product-code">${selectedProduct.barcode}</div>
+          </div>
         </body>
       </html>
     `);
