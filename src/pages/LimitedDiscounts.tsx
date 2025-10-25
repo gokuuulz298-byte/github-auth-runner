@@ -117,13 +117,27 @@ const LimitedDiscounts = () => {
   };
 
   const handleEdit = (discount: any) => {
+    // Convert UTC date to local datetime for datetime-local input
+    const startDate = new Date(discount.start_date);
+    const endDate = new Date(discount.end_date);
+    
+    // Format: YYYY-MM-DDTHH:mm
+    const formatLocalDateTime = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+    
     setFormData({
       product_id: discount.product_id,
       discount_type: discount.discount_type || 'percentage',
       discount_percentage: discount.discount_percentage?.toString() || "",
       discount_amount: discount.discount_amount?.toString() || "",
-      start_date: new Date(discount.start_date).toISOString().slice(0, 16),
-      end_date: new Date(discount.end_date).toISOString().slice(0, 16),
+      start_date: formatLocalDateTime(startDate),
+      end_date: formatLocalDateTime(endDate),
     });
     setEditingId(discount.id);
     setShowForm(true);

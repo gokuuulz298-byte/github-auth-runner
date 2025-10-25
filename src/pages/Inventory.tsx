@@ -401,6 +401,51 @@ const Inventory = () => {
                     <Button
                       type="button"
                       variant="outline"
+                      onClick={async () => {
+                        if (!formData.hsn_code) {
+                          toast.error("Please enter HSN code first");
+                          return;
+                        }
+                        // Auto-fetch GST rates based on HSN code
+                        toast.info("Fetching GST rates...");
+                        // Common HSN code to GST mapping (you can expand this)
+                        const hsnGstMap: Record<string, { cgst: number; sgst: number }> = {
+                          '1001': { cgst: 0, sgst: 0 },    // Wheat
+                          '1006': { cgst: 0, sgst: 0 },    // Rice
+                          '0401': { cgst: 0, sgst: 0 },    // Milk
+                          '1701': { cgst: 2.5, sgst: 2.5 }, // Sugar
+                          '2106': { cgst: 9, sgst: 9 },    // Food preparations
+                          '3304': { cgst: 9, sgst: 9 },    // Beauty products
+                          '8517': { cgst: 9, sgst: 9 },    // Mobile phones
+                          '6403': { cgst: 2.5, sgst: 2.5 }, // Footwear
+                          '6203': { cgst: 2.5, sgst: 2.5 }, // Garments
+                          '8471': { cgst: 9, sgst: 9 },    // Computers
+                          '8528': { cgst: 14, sgst: 14 },  // TVs
+                          '8704': { cgst: 14, sgst: 14 },  // Vehicles
+                        };
+                        
+                        const hsnPrefix = formData.hsn_code.substring(0, 4);
+                        const gstRates = hsnGstMap[hsnPrefix];
+                        
+                        if (gstRates) {
+                          setFormData(prev => ({
+                            ...prev,
+                            cgst: gstRates.cgst.toString(),
+                            sgst: gstRates.sgst.toString(),
+                            product_tax: (gstRates.cgst + gstRates.sgst).toString()
+                          }));
+                          toast.success(`GST rates fetched: CGST ${gstRates.cgst}%, SGST ${gstRates.sgst}%`);
+                        } else {
+                          toast.warning("HSN code not in database. Please enter GST manually or use Search button.");
+                        }
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      Fetch GST
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
                       onClick={() => {
                         if (formData.hsn_code) {
                           window.open(`https://cleartax.in/s/gst-hsn-lookup?query=${formData.hsn_code}`, '_blank');
@@ -410,11 +455,11 @@ const Inventory = () => {
                       }}
                       className="whitespace-nowrap"
                     >
-                      Fetch GST
+                      Search
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Click "Fetch GST" to lookup GST rates for this HSN code
+                    "Fetch GST" auto-fills rates, "Search" opens lookup website
                   </p>
                 </div>
 
@@ -425,11 +470,25 @@ const Inventory = () => {
                     type="number"
                     step="0.01"
                     value={formData.product_tax}
-                    onChange={(e) => setFormData({ ...formData, product_tax: e.target.value })}
-                    placeholder="Use this OR CGST+SGST below"
+                    onChange={(e) => {
+                      const taxVal = e.target.value;
+                      setFormData({ ...formData, product_tax: taxVal });
+                      // Auto-split tax equally into CGST and SGST
+                      if (taxVal) {
+                        const totalTax = parseFloat(taxVal) || 0;
+                        const halfTax = (totalTax / 2).toFixed(2);
+                        setFormData(prev => ({
+                          ...prev,
+                          product_tax: taxVal,
+                          cgst: halfTax,
+                          sgst: halfTax
+                        }));
+                      }
+                    }}
+                    placeholder="Auto-splits into CGST+SGST"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Enter total tax % here OR use CGST + SGST fields below
+                    Enter total tax % - it will auto-split equally into CGST and SGST
                   </p>
                 </div>
 

@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { ArrowLeft, FileText, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
+import { formatIndianCurrency } from "@/lib/numberFormat";
 
 interface Invoice {
   id: string;
@@ -22,6 +24,7 @@ const Invoices = () => {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [dateFilter, setDateFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchInvoices();
@@ -242,18 +245,31 @@ const Invoices = () => {
     return invoices.filter(invoice => {
       const invoiceDate = new Date(invoice.created_at);
       
+      // Date filter
+      let dateMatch = true;
       switch (dateFilter) {
         case "today":
-          return invoiceDate >= today;
+          dateMatch = invoiceDate >= today;
+          break;
         case "yesterday":
-          return invoiceDate >= yesterday && invoiceDate < today;
+          dateMatch = invoiceDate >= yesterday && invoiceDate < today;
+          break;
         case "last7days":
-          return invoiceDate >= last7Days;
+          dateMatch = invoiceDate >= last7Days;
+          break;
         case "last30days":
-          return invoiceDate >= last30Days;
+          dateMatch = invoiceDate >= last30Days;
+          break;
         default:
-          return true;
+          dateMatch = true;
       }
+      
+      // Search filter
+      const searchMatch = searchQuery
+        ? invoice.bill_number.toLowerCase().includes(searchQuery.toLowerCase())
+        : true;
+      
+      return dateMatch && searchMatch;
     });
   };
 
@@ -273,22 +289,33 @@ const Invoices = () => {
       <main className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                All Invoices ({filteredInvoices.length})
+            <CardTitle className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  All Invoices ({filteredInvoices.length})
+                </div>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border rounded-md bg-background"
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="last7days">Last 7 Days</option>
+                  <option value="last30days">Last 30 Days</option>
+                </select>
               </div>
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-3 py-2 text-sm border rounded-md bg-background"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="last7days">Last 7 Days</option>
-                <option value="last30days">Last 30 Days</option>
-              </select>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by invoice number..."
+                  className="pl-10 text-sm"
+                />
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -310,8 +337,8 @@ const Invoices = () => {
                       <TableCell className="font-mono">{invoice.bill_number}</TableCell>
                       <TableCell>{new Date(invoice.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>{invoice.items_data.length} items</TableCell>
-                      <TableCell>₹{invoice.tax_amount.toFixed(2)}</TableCell>
-                      <TableCell className="font-medium">₹{invoice.total_amount.toFixed(2)}</TableCell>
+                      <TableCell>{formatIndianCurrency(invoice.tax_amount)}</TableCell>
+                      <TableCell className="font-medium">{formatIndianCurrency(invoice.total_amount)}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"

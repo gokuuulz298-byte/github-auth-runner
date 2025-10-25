@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Plus, Minus, ShoppingCart as CartIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { formatIndianCurrency } from "@/lib/numberFormat";
 
 export interface CartItem {
   id: string;
@@ -80,7 +81,7 @@ const ShoppingCart = ({
                       <p className="text-xs text-green-600 font-medium">({item.discountInfo})</p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      ₹{item.price.toFixed(2)}
+                      {formatIndianCurrency(item.price)}
                       {item.price_type === 'weight' && '/kg'}
                       {item.category && ` • ${item.category}`}
                     </p>
@@ -125,7 +126,7 @@ const ShoppingCart = ({
                     </Button>
                   </div>
                   <div className="text-right min-w-[80px]">
-                    <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="font-medium">{formatIndianCurrency(item.price * item.quantity)}</p>
                   </div>
                   <Button
                     size="icon"
@@ -144,35 +145,35 @@ const ShoppingCart = ({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>₹{subtotal.toFixed(2)}</span>
+                <span>{formatIndianCurrency(subtotal)}</span>
               </div>
               {productSGST > 0 && (
                 <>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">SGST (Products)</span>
-                    <span>₹{productSGST.toFixed(2)}</span>
+                    <span>{formatIndianCurrency(productSGST)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">CGST (Products)</span>
-                    <span>₹{productCGST.toFixed(2)}</span>
+                    <span>{formatIndianCurrency(productCGST)}</span>
                   </div>
                 </>
               )}
               {couponDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Coupon {couponCode ? `(${couponCode})` : ''}</span>
-                  <span>-₹{couponDiscount.toFixed(2)}</span>
+                  <span>-{formatIndianCurrency(couponDiscount)}</span>
                 </div>
               )}
               {additionalGstAmount > 0 && (
                 <>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Additional SGST ({additionalGstRate ? `${parseFloat(additionalGstRate)/2}%` : ''})</span>
-                    <span>₹{additionalSGST.toFixed(2)}</span>
+                    <span>{formatIndianCurrency(additionalSGST)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Additional CGST ({additionalGstRate ? `${parseFloat(additionalGstRate)/2}%` : ''})</span>
-                    <span>₹{additionalCGST.toFixed(2)}</span>
+                    <span>{formatIndianCurrency(additionalCGST)}</span>
                   </div>
                 </>
               )}
@@ -181,22 +182,22 @@ const ShoppingCart = ({
                   <Separator className="my-2" />
                   <div className="flex justify-between text-sm font-semibold">
                     <span className="text-muted-foreground">Total SGST</span>
-                    <span>₹{totalSGST.toFixed(2)}</span>
+                    <span>{formatIndianCurrency(totalSGST)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-semibold">
                     <span className="text-muted-foreground">Total CGST</span>
-                    <span>₹{totalCGST.toFixed(2)}</span>
+                    <span>{formatIndianCurrency(totalCGST)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-semibold">
                     <span className="text-muted-foreground">Total Tax</span>
-                    <span>₹{totalTaxAmount.toFixed(2)}</span>
+                    <span>{formatIndianCurrency(totalTaxAmount)}</span>
                   </div>
                 </>
               )}
               <Separator />
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span>₹{total.toFixed(2)}</span>
+                <span>{formatIndianCurrency(total)}</span>
               </div>
             </div>
 

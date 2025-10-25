@@ -10,6 +10,7 @@ import jsPDF from "jspdf";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatIndianNumber } from "@/lib/numberFormat";
 
 const ManualBilling = () => {
   const navigate = useNavigate();
@@ -510,14 +511,14 @@ const ManualBilling = () => {
     currentY += 4;
     doc.setFont(undefined, 'normal');
     cartItems.forEach(item => {
-      const itemName = item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name;
+      const itemName = item.name.length > 18 ? item.name.substring(0, 18) + '...' : item.name;
       const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)}kg` : item.quantity.toString();
       
       doc.text(itemName, leftMargin, currentY);
-      doc.text(qtyLabel, 45, currentY);
-      doc.text(item.price.toFixed(2), 55, currentY);
-      doc.text((item.price * item.quantity).toFixed(2), rightMargin, currentY, { align: "right" });
-      currentY += 4;
+      doc.text(qtyLabel, 43, currentY);
+      doc.text(formatIndianNumber(item.price), 53, currentY);
+      doc.text(formatIndianNumber(item.price * item.quantity), rightMargin - 2, currentY, { align: "right" });
+      currentY += 4.5;
     });
     
     doc.line(leftMargin, currentY, rightMargin, currentY);
@@ -525,31 +526,49 @@ const ManualBilling = () => {
     
     doc.setFontSize(8);
     doc.text("Subtotal:", leftMargin, currentY);
-    doc.text(subtotal.toFixed(2), rightMargin, currentY, { align: "right" });
+    doc.text(formatIndianNumber(subtotal), rightMargin - 2, currentY, { align: "right" });
     currentY += 4;
     
-    if (productTaxAmount > 0) {
-      doc.text("Product Tax:", leftMargin, currentY);
-      doc.text(productTaxAmount.toFixed(2), rightMargin, currentY, { align: "right" });
+    // Calculate SGST and CGST breakdown
+    const productSGST = cartItems.reduce((sum, item) => {
+      const itemTotal = item.price * item.quantity;
+      const sgstRate = item.sgst || 0;
+      return sum + (itemTotal * sgstRate / 100);
+    }, 0);
+    
+    const productCGST = cartItems.reduce((sum, item) => {
+      const itemTotal = item.price * item.quantity;
+      const cgstRate = item.cgst || 0;
+      return sum + (itemTotal * cgstRate / 100);
+    }, 0);
+    
+    if (productSGST > 0) {
+      doc.text("SGST:", leftMargin, currentY);
+      doc.text(formatIndianNumber(productSGST), rightMargin - 2, currentY, { align: "right" });
+      currentY += 4;
+    }
+    
+    if (productCGST > 0) {
+      doc.text("CGST:", leftMargin, currentY);
+      doc.text(formatIndianNumber(productCGST), rightMargin - 2, currentY, { align: "right" });
       currentY += 4;
     }
     
     if (couponDiscount > 0) {
       const coupon = coupons.find(c => c.id === selectedCoupon);
       doc.text(`Coupon (${coupon?.code}):`, leftMargin, currentY);
-      doc.text(`-${couponDiscount.toFixed(2)}`, rightMargin, currentY, { align: "right" });
+      doc.text(`-${formatIndianNumber(couponDiscount)}`, rightMargin - 2, currentY, { align: "right" });
       currentY += 4;
     }
     
     if (additionalGstAmount > 0) {
-      doc.text(`GST (${additionalGstRate}%):`, leftMargin, currentY);
-      doc.text(additionalGstAmount.toFixed(2), rightMargin, currentY, { align: "right" });
+      const additionalSGST = additionalGstAmount / 2;
+      const additionalCGST = additionalGstAmount / 2;
+      doc.text("Add. SGST:", leftMargin, currentY);
+      doc.text(formatIndianNumber(additionalSGST), rightMargin - 2, currentY, { align: "right" });
       currentY += 4;
-    }
-    
-    if (taxAmount > 0) {
-      doc.text("Total Tax:", leftMargin, currentY);
-      doc.text(taxAmount.toFixed(2), rightMargin, currentY, { align: "right" });
+      doc.text("Add. CGST:", leftMargin, currentY);
+      doc.text(formatIndianNumber(additionalCGST), rightMargin - 2, currentY, { align: "right" });
       currentY += 4;
     }
     
@@ -558,7 +577,7 @@ const ManualBilling = () => {
     doc.setFont(undefined, 'bold');
     doc.setFontSize(9);
     doc.text("TOTAL:", leftMargin, currentY);
-    doc.text(`₹${total.toFixed(2)}`, rightMargin, currentY, { align: "right" });
+    doc.text(`₹${formatIndianNumber(total)}`, rightMargin - 2, currentY, { align: "right" });
     
     currentY += 8;
     doc.line(leftMargin, currentY, rightMargin, currentY);

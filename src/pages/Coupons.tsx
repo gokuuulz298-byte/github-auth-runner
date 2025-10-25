@@ -19,6 +19,8 @@ const Coupons = () => {
     discount_type: "percentage" as "fixed" | "percentage",
     discount_value: "",
     is_active: true,
+    start_date: "",
+    end_date: "",
   });
 
   useEffect(() => {
@@ -48,6 +50,11 @@ const Coupons = () => {
       return;
     }
 
+    if (formData.start_date && formData.end_date && new Date(formData.end_date) <= new Date(formData.start_date)) {
+      toast.error("End date must be after start date");
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
@@ -57,6 +64,8 @@ const Coupons = () => {
         discount_type: formData.discount_type,
         discount_value: parseFloat(formData.discount_value),
         is_active: formData.is_active,
+        start_date: formData.start_date ? new Date(formData.start_date).toISOString() : null,
+        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
         created_by: user.id,
       };
 
@@ -77,7 +86,7 @@ const Coupons = () => {
         toast.success("Coupon created successfully");
       }
 
-      setFormData({ code: "", discount_type: "percentage", discount_value: "", is_active: true });
+      setFormData({ code: "", discount_type: "percentage", discount_value: "", is_active: true, start_date: "", end_date: "" });
       setShowForm(false);
       setEditingId(null);
       fetchCoupons();
@@ -88,11 +97,22 @@ const Coupons = () => {
   };
 
   const handleEdit = (coupon: any) => {
+    const formatLocalDateTime = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+    
     setFormData({
       code: coupon.code,
       discount_type: coupon.discount_type,
       discount_value: coupon.discount_value.toString(),
       is_active: coupon.is_active,
+      start_date: coupon.start_date ? formatLocalDateTime(new Date(coupon.start_date)) : "",
+      end_date: coupon.end_date ? formatLocalDateTime(new Date(coupon.end_date)) : "",
     });
     setEditingId(coupon.id);
     setShowForm(true);
@@ -129,7 +149,7 @@ const Coupons = () => {
             onClick={() => {
               setShowForm(!showForm);
               setEditingId(null);
-              setFormData({ code: "", discount_type: "percentage", discount_value: "", is_active: true });
+              setFormData({ code: "", discount_type: "percentage", discount_value: "", is_active: true, start_date: "", end_date: "" });
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -183,6 +203,24 @@ const Coupons = () => {
                       required
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="start_date">Start Date (Optional)</Label>
+                    <Input
+                      id="start_date"
+                      type="datetime-local"
+                      value={formData.start_date}
+                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="end_date">End Date (Optional)</Label>
+                    <Input
+                      id="end_date"
+                      type="datetime-local"
+                      value={formData.end_date}
+                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    />
+                  </div>
                   <div className="flex items-center gap-2">
                     <Switch
                       id="is_active"
@@ -200,7 +238,7 @@ const Coupons = () => {
                     onClick={() => {
                       setShowForm(false);
                       setEditingId(null);
-                      setFormData({ code: "", discount_type: "percentage", discount_value: "", is_active: true });
+                      setFormData({ code: "", discount_type: "percentage", discount_value: "", is_active: true, start_date: "", end_date: "" });
                     }}
                   >
                     Cancel
@@ -216,13 +254,19 @@ const Coupons = () => {
             <Card key={coupon.id}>
               <CardContent className="pt-6">
                 <div className="flex justify-between items-start mb-4">
-                  <div>
+                  <div className="flex-1">
                     <h3 className="text-xl font-bold">{coupon.code}</h3>
                     <p className="text-muted-foreground">
                       {coupon.discount_type === 'percentage' 
                         ? `${coupon.discount_value}% off` 
                         : `₹${coupon.discount_value} off`}
                     </p>
+                    {(coupon.start_date || coupon.end_date) && (
+                      <div className="text-xs text-muted-foreground mt-2">
+                        {coupon.start_date && <p>Start: {new Date(coupon.start_date).toLocaleString()}</p>}
+                        {coupon.end_date && <p>End: {new Date(coupon.end_date).toLocaleString()}</p>}
+                      </div>
+                    )}
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs ${
                     coupon.is_active 
