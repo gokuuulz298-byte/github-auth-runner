@@ -19,6 +19,7 @@ import Counters from "./pages/Counters";
 import Coupons from "./pages/Coupons";
 import LimitedDiscounts from "./pages/LimitedDiscounts";
 import Barcodes from "./pages/Barcodes";
+import Templates from "./pages/Templates";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/coupons" element={<Coupons />} />
             <Route path="/limited-discounts" element={<LimitedDiscounts />} />
             <Route path="/barcodes" element={<Barcodes />} />
+            <Route path="/templates" element={<Templates />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

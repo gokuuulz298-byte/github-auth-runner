@@ -46,6 +46,7 @@ const Inventory = () => {
     tax_rate: "",
     category: "",
     price_type: "fixed",
+    unit: "piece",
   });
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedBarcode, setSelectedBarcode] = useState("");
@@ -146,19 +147,37 @@ const Inventory = () => {
       // Calculate total tax: if cgst and sgst are provided, use their sum, otherwise use product_tax
       const totalTax = (cgst > 0 || sgst > 0) ? (cgst + sgst) : productTax;
 
+      // Check for duplicate barcode
+      const { data: existingProduct, error: checkError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('barcode', formData.barcode)
+        .neq('id', editingProduct?.id || '')
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingProduct) {
+        toast.error(`Error: Barcode "${formData.barcode}" already exists. Please use a unique barcode for each product.`);
+        return;
+      }
+
       const productData = {
         barcode: formData.barcode,
         name: formData.name,
         price: parseFloat(formData.price),
         buying_price: parseFloat(formData.buying_price) || 0,
-        stock_quantity: parseInt(formData.stock_quantity),
+        stock_quantity: parseFloat(formData.stock_quantity),
         hsn_code: formData.hsn_code || null,
         product_tax: totalTax,
         cgst: cgst,
         sgst: sgst,
-        tax_rate: totalTax, // Keep tax_rate in sync with product_tax for backwards compatibility
+        tax_rate: totalTax,
         category: formData.category || null,
         price_type: formData.price_type,
+        unit: formData.unit,
         created_by: user.id,
       };
 
@@ -168,14 +187,28 @@ const Inventory = () => {
           .update(productData)
           .eq('id', editingProduct.id);
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === '23505') {
+            toast.error("Error: This barcode already exists in the database. Please use a different barcode.");
+          } else {
+            toast.error(`Database Error: ${error.message}`);
+          }
+          return;
+        }
         toast.success("Product updated successfully!");
       } else {
         const { error } = await supabase
           .from('products')
           .insert(productData);
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === '23505') {
+            toast.error("Error: This barcode already exists in the database. Please use a different barcode.");
+          } else {
+            toast.error(`Database Error: ${error.message}`);
+          }
+          return;
+        }
         toast.success("Product added successfully!");
       }
 
@@ -183,8 +216,8 @@ const Inventory = () => {
       resetForm();
       fetchProducts();
     } catch (error: any) {
-      toast.error(error.message || "Error saving product");
       console.error(error);
+      toast.error(error.message || "An unexpected error occurred. Please try again.");
     }
   };
 
@@ -203,6 +236,7 @@ const Inventory = () => {
       tax_rate: product.tax_rate.toString(),
       category: product.category || "",
       price_type: product.price_type || "fixed",
+      unit: (product as any).unit || "piece",
     });
     setSelectedBarcode(product.barcode);
     setDialogOpen(true);
@@ -247,9 +281,47 @@ const Inventory = () => {
       tax_rate: "0",
       category: "",
       price_type: "fixed",
+      unit: "piece",
     });
     setSelectedBarcode("");
     setEditingProduct(null);
+  };
+
+  const fetchHsnGst = async (hsnCode: string) => {
+    try {
+      if (!hsnCode || hsnCode.length < 4) {
+        toast.error("Please enter at least 4 digits of HSN code");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('hsn_codes')
+        .select('*')
+        .eq('hsn_code', hsnCode.substring(0, 4))
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        const gstRate = parseFloat(data.gst_rate.toString());
+        const cgst = gstRate / 2;
+        const sgst = gstRate / 2;
+        
+        setFormData(prev => ({
+          ...prev,
+          cgst: cgst.toString(),
+          sgst: sgst.toString(),
+          product_tax: gstRate.toString()
+        }));
+        
+        toast.success(`GST Rate Found: ${gstRate}% (CGST: ${cgst}%, SGST: ${sgst}%)`);
+      } else {
+        toast.warning("HSN code not found in database. Please enter GST manually or try Search button.");
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Error fetching HSN data");
+    }
   };
 
   return (
@@ -378,15 +450,40 @@ const Inventory = () => {
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="stock">Stock Quantity</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    value={formData.stock_quantity}
-                    onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="stock">Stock Quantity</Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      step="0.001"
+                      value={formData.stock_quantity}
+                      onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="unit">Unit</Label>
+                    <Select
+                      value={formData.unit}
+                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                    >
+                      <SelectTrigger id="unit">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="piece">Piece</SelectItem>
+                        <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                        <SelectItem value="litre">Litre</SelectItem>
+                        <SelectItem value="gram">Gram (g)</SelectItem>
+                        <SelectItem value="ml">Millilitre (ml)</SelectItem>
+                        <SelectItem value="meter">Meter (m)</SelectItem>
+                        <SelectItem value="box">Box</SelectItem>
+                        <SelectItem value="packet">Packet</SelectItem>
+                        <SelectItem value="dozen">Dozen</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div>
@@ -401,44 +498,7 @@ const Inventory = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={async () => {
-                        if (!formData.hsn_code) {
-                          toast.error("Please enter HSN code first");
-                          return;
-                        }
-                        // Auto-fetch GST rates based on HSN code
-                        toast.info("Fetching GST rates...");
-                        // Common HSN code to GST mapping (you can expand this)
-                        const hsnGstMap: Record<string, { cgst: number; sgst: number }> = {
-                          '1001': { cgst: 0, sgst: 0 },    // Wheat
-                          '1006': { cgst: 0, sgst: 0 },    // Rice
-                          '0401': { cgst: 0, sgst: 0 },    // Milk
-                          '1701': { cgst: 2.5, sgst: 2.5 }, // Sugar
-                          '2106': { cgst: 9, sgst: 9 },    // Food preparations
-                          '3304': { cgst: 9, sgst: 9 },    // Beauty products
-                          '8517': { cgst: 9, sgst: 9 },    // Mobile phones
-                          '6403': { cgst: 2.5, sgst: 2.5 }, // Footwear
-                          '6203': { cgst: 2.5, sgst: 2.5 }, // Garments
-                          '8471': { cgst: 9, sgst: 9 },    // Computers
-                          '8528': { cgst: 14, sgst: 14 },  // TVs
-                          '8704': { cgst: 14, sgst: 14 },  // Vehicles
-                        };
-                        
-                        const hsnPrefix = formData.hsn_code.substring(0, 4);
-                        const gstRates = hsnGstMap[hsnPrefix];
-                        
-                        if (gstRates) {
-                          setFormData(prev => ({
-                            ...prev,
-                            cgst: gstRates.cgst.toString(),
-                            sgst: gstRates.sgst.toString(),
-                            product_tax: (gstRates.cgst + gstRates.sgst).toString()
-                          }));
-                          toast.success(`GST rates fetched: CGST ${gstRates.cgst}%, SGST ${gstRates.sgst}%`);
-                        } else {
-                          toast.warning("HSN code not in database. Please enter GST manually or use Search button.");
-                        }
-                      }}
+                      onClick={() => fetchHsnGst(formData.hsn_code)}
                       className="whitespace-nowrap"
                     >
                       Fetch GST

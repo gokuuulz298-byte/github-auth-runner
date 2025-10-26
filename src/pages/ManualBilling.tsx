@@ -160,6 +160,15 @@ const ManualBilling = () => {
     const existingItem = cartItems.find(item => item.barcode === product.barcode);
     const weightValue = parseFloat(customWeight || weight) || 1;
     const quantity = product.price_type === 'weight' ? weightValue : 1;
+
+    // Stock validation
+    const currentCartQuantity = existingItem ? existingItem.quantity : 0;
+    const newTotalQuantity = currentCartQuantity + quantity;
+    
+    if (product.price_type !== 'weight' && newTotalQuantity > product.stock_quantity) {
+      toast.error(`Insufficient stock! Available: ${product.stock_quantity}, Requested: ${newTotalQuantity}. Cannot add more than available stock.`);
+      return;
+    }
     
     // Check for active discount
     const now = new Date();
@@ -575,9 +584,9 @@ const ManualBilling = () => {
     doc.line(leftMargin, currentY, rightMargin, currentY);
     currentY += 4;
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.text("TOTAL:", leftMargin, currentY);
-    doc.text(`₹${formatIndianNumber(total)}`, rightMargin - 2, currentY, { align: "right" });
+    doc.text("Rs. " + formatIndianNumber(total, 2), rightMargin - 2, currentY, { align: "right" });
     
     currentY += 8;
     doc.line(leftMargin, currentY, rightMargin, currentY);

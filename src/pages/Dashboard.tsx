@@ -12,6 +12,7 @@ const Dashboard = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [companyName, setCompanyName] = useState<string>("");
 
   const menuItems = [
     { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", color: "from-purple-500 to-pink-500" },
@@ -26,6 +27,7 @@ const Dashboard = () => {
     { icon: Tag, label: "Coupons", path: "/coupons", color: "from-pink-500 to-rose-500" },
     { icon: Percent, label: "Limited Discounts", path: "/limited-discounts", color: "from-amber-500 to-yellow-500" },
     { icon: QrCode, label: "Barcodes", path: "/barcodes", color: "from-cyan-500 to-blue-500" },
+    { icon: FileText, label: "Templates", path: "/templates", color: "from-indigo-500 to-blue-500" },
   ];
 
   useEffect(() => {
@@ -37,6 +39,8 @@ const Dashboard = () => {
         
         if (!session) {
           navigate("/auth");
+        } else {
+          fetchCompanyProfile(session.user.id);
         }
       }
     );
@@ -48,11 +52,29 @@ const Dashboard = () => {
       
       if (!session) {
         navigate("/auth");
+      } else {
+        fetchCompanyProfile(session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const fetchCompanyProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('company_profiles')
+        .select('company_name')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setCompanyName(data.company_name);
+      }
+    } catch (error) {
+      console.error("Error fetching company profile:", error);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -85,7 +107,9 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         <div className="mb-4 sm:mb-8 px-2">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2">Welcome back!</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2">
+            Welcome back{companyName ? `, ${companyName}` : ''}!
+          </h2>
           <p className="text-sm sm:text-base text-muted-foreground">Choose an option to get started</p>
         </div>
 
@@ -114,6 +138,7 @@ const Dashboard = () => {
                   {item.label === "Coupons" && "Create discount coupons for customers"}
                   {item.label === "Limited Discounts" && "Set time-based product discounts"}
                   {item.label === "Barcodes" && "Generate barcodes and QR codes"}
+                  {item.label === "Templates" && "Customize your invoice templates"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 hidden md:block">
@@ -130,6 +155,7 @@ const Dashboard = () => {
                   {item.label === "Coupons" && "Create fixed or percentage-based discount coupons"}
                   {item.label === "Limited Discounts" && "Schedule promotional discounts on products"}
                   {item.label === "Barcodes" && "Generate printable barcodes and QR codes for products"}
+                  {item.label === "Templates" && "Create and manage custom A4 invoice templates"}
                 </p>
               </CardContent>
             </Card>

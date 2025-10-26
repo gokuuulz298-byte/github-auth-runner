@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      bill_templates: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          template_data: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          template_data: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          template_data?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -176,6 +209,30 @@ export type Database = {
           name?: string
           phone?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      hsn_codes: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          gst_rate: number
+          hsn_code: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          gst_rate: number
+          hsn_code: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          gst_rate?: number
+          hsn_code?: string
+          id?: string
         }
         Relationships: []
       }
@@ -342,6 +399,7 @@ export type Database = {
           sgst: number | null
           stock_quantity: number | null
           tax_rate: number | null
+          unit: string | null
           updated_at: string | null
         }
         Insert: {
@@ -360,6 +418,7 @@ export type Database = {
           sgst?: number | null
           stock_quantity?: number | null
           tax_rate?: number | null
+          unit?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -378,6 +437,7 @@ export type Database = {
           sgst?: number | null
           stock_quantity?: number | null
           tax_rate?: number | null
+          unit?: string | null
           updated_at?: string | null
         }
         Relationships: []
