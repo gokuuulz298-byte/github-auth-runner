@@ -109,15 +109,15 @@ const Categories = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto space-y-6">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Add New Category</CardTitle>
+            <CardHeader className="px-4 sm:px-6">
+              <CardTitle className="text-lg sm:text-xl">Add New Category</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-4 sm:px-6">
               <div>
-                <Label htmlFor="category-name">Category Name</Label>
+                <Label htmlFor="category-name" className="text-sm sm:text-base">Category Name</Label>
                 <div className="flex gap-2 mt-2">
                   <Input
                     id="category-name"
@@ -125,10 +125,11 @@ const Categories = () => {
                     onChange={(e) => setNewCategory(e.target.value)}
                     placeholder="Enter category name"
                     onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                    className="text-sm sm:text-base"
                   />
-                  <Button onClick={handleAddCategory}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
+                  <Button onClick={handleAddCategory} className="shrink-0">
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Add</span>
                   </Button>
                 </div>
               </div>
@@ -136,13 +137,13 @@ const Categories = () => {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>All Categories</CardTitle>
+            <CardHeader className="px-4 sm:px-6">
+              <CardTitle className="text-lg sm:text-xl">All Categories</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+            <CardContent className="px-4 sm:px-6">
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                 {categories.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
+                  <p className="text-muted-foreground text-center py-8 text-sm sm:text-base">
                     No categories added yet
                   </p>
                 ) : (
@@ -151,7 +152,7 @@ const Categories = () => {
                       key={category.id}
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                     >
-                      <span className="font-medium">{category.name}</span>
+                      <span className="font-medium text-sm sm:text-base">{category.name}</span>
                       <Button
                         variant="ghost"
                         size="icon"

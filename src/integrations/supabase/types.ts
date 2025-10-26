@@ -245,6 +245,7 @@ export type Database = {
       loyalty_points: {
         Row: {
           created_at: string | null
+          created_by: string | null
           customer_name: string | null
           customer_phone: string
           id: string
@@ -254,6 +255,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          created_by?: string | null
           customer_name?: string | null
           customer_phone: string
           id?: string
@@ -263,6 +265,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          created_by?: string | null
           customer_name?: string | null
           customer_phone?: string
           id?: string

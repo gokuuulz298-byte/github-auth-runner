@@ -39,6 +39,9 @@ const Customers = () => {
 
   const fetchLoyaltyData = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('loyalty_points')
         .select('*');
@@ -140,12 +143,12 @@ const Customers = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         <Card>
-          <CardHeader>
-            <CardTitle>Customer List</CardTitle>
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="text-lg sm:text-xl">Customer List</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <div className="mb-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -153,27 +156,27 @@ const Customers = () => {
                   placeholder="Search customers..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm sm:text-base"
                 />
               </div>
             </div>
 
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+            <div className="space-y-2 max-h-[70vh] overflow-y-auto">
               {filteredCustomers.map((customer) => {
                 const loyalty = loyaltyData[customer.phone];
                 return (
-                  <div key={customer.id} className="p-4 bg-muted/50 rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium">{customer.name}</h4>
-                        <p className="text-sm text-muted-foreground">Phone: {customer.phone}</p>
+                  <div key={customer.id} className="p-3 sm:p-4 bg-muted/50 rounded-lg">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm sm:text-base">{customer.name}</h4>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Phone: {customer.phone}</p>
                         {customer.email && (
-                          <p className="text-sm text-muted-foreground">Email: {customer.email}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground truncate">Email: {customer.email}</p>
                         )}
                       </div>
                       {loyalty && (
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-primary">{loyalty.points} pts</p>
+                        <div className="text-left sm:text-right">
+                          <p className="text-base sm:text-lg font-bold text-primary">{loyalty.points} pts</p>
                           <p className="text-xs text-muted-foreground">₹{loyalty.total_spent?.toFixed(2)} spent</p>
                         </div>
                       )}

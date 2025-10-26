@@ -83,25 +83,25 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Welcome back!</h2>
-          <p className="text-muted-foreground">Choose an option to get started</p>
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="mb-4 sm:mb-8 px-2">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2">Welcome back!</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">Choose an option to get started</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
           {menuItems.map((item) => (
             <Card 
               key={item.path}
               className="card-hover cursor-pointer group transition-all"
               onClick={() => navigate(item.path)}
             >
-              <CardHeader>
-                <div className={`p-3 bg-gradient-to-br ${item.color} bg-opacity-10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-transform`}>
-                  <item.icon className="h-8 w-8 text-white" />
+              <CardHeader className="p-3 sm:p-6">
+                <div className={`p-2 sm:p-3 bg-gradient-to-br ${item.color} bg-opacity-10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-transform`}>
+                  <item.icon className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
                 </div>
-                <CardTitle>{item.label}</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-sm sm:text-base md:text-lg">{item.label}</CardTitle>
+                <CardDescription className="hidden sm:block text-xs sm:text-sm">
                   {item.label === "Manual Billing" && "Create bills by searching products"}
                   {item.label === "Inventory" && "Manage your product catalog"}
                   {item.label === "Low Stocks" && "Monitor products with low inventory"}
@@ -116,8 +116,8 @@ const Dashboard = () => {
                   {item.label === "Barcodes" && "Generate barcodes and QR codes"}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
+              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 hidden md:block">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {item.label === "Manual Billing" && "Search and add products to create bills quickly"}
                   {item.label === "Inventory" && "Add, edit, and track your product inventory"}
                   {item.label === "Low Stocks" && "Get alerts for products running out of stock"}
