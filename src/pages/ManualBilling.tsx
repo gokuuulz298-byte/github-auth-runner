@@ -30,6 +30,7 @@ const ManualBilling = () => {
   const [invoiceFormat, setInvoiceFormat] = useState<"thermal" | "a4">("thermal");
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
   const [productDiscounts, setProductDiscounts] = useState<any[]>([]);
+  const [activeTemplate, setActiveTemplate] = useState<any>(null);
 
   // Fetch company profile, counters, coupons, and discounts
   useEffect(() => {
@@ -37,6 +38,7 @@ const ManualBilling = () => {
     fetchCounters();
     fetchCoupons();
     fetchProductDiscounts();
+    fetchActiveTemplate();
   }, []);
 
   const fetchCompanyProfile = async () => {
@@ -97,6 +99,25 @@ const ManualBilling = () => {
 
       if (error) throw error;
       setProductDiscounts(data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchActiveTemplate = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('bill_templates')
+        .select('*')
+        .eq('created_by', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error) throw error;
+      setActiveTemplate(data);
     } catch (error) {
       console.error(error);
     }
@@ -623,9 +644,28 @@ const ManualBilling = () => {
     const rightMargin = 195;
     const centerX = pageWidth / 2;
     
-    // Header with gradient-like effect
+    // Helper function to convert hex to RGB
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 41, g: 128, b: 185 }; // Default blue
+    };
+    
+    // Use template colors or defaults
+    const primaryColor = activeTemplate?.template_data?.primaryColor 
+      ? hexToRgb(activeTemplate.template_data.primaryColor)
+      : { r: 41, g: 128, b: 185 };
+    
+    const headerBgColor = activeTemplate?.template_data?.headerBg 
+      ? hexToRgb(activeTemplate.template_data.headerBg)
+      : { r: 248, g: 250, b: 252 };
+    
+    // Header with template styling
     let currentY = 20;
-    doc.setFillColor(41, 128, 185);
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.rect(0, 0, pageWidth, 45, 'F');
     
     doc.setTextColor(255, 255, 255);
@@ -655,7 +695,6 @@ const ManualBilling = () => {
       }
     }
     
-    doc.setTextColor(0, 0, 0);
     currentY = 55;
     
     doc.setFontSize(22);
@@ -665,15 +704,15 @@ const ManualBilling = () => {
     currentY += 12;
     const boxY = currentY;
     
-    // Info boxes with borders
-    doc.setDrawColor(41, 128, 185);
+    // Info boxes with template colors
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.setLineWidth(0.5);
-    doc.setFillColor(245, 250, 255);
+    doc.setFillColor(headerBgColor.r, headerBgColor.g, headerBgColor.b);
     doc.rect(leftMargin, boxY, 85, 32, 'FD');
     
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(41, 128, 185);
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.text("Invoice Details", leftMargin + 3, boxY + 7);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
@@ -682,11 +721,11 @@ const ManualBilling = () => {
     doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin + 3, boxY + 20);
     doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin + 3, boxY + 26);
     
-    doc.setFillColor(245, 250, 255);
+    doc.setFillColor(headerBgColor.r, headerBgColor.g, headerBgColor.b);
     doc.rect(110, boxY, 85, 32, 'FD');
     doc.setFont(undefined, 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(41, 128, 185);
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.text("Customer Details", 113, boxY + 7);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
@@ -699,8 +738,8 @@ const ManualBilling = () => {
     
     currentY = boxY + 40;
     
-    // Products table header
-    doc.setFillColor(41, 128, 185);
+    // Products table header with template color
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.rect(leftMargin, currentY, rightMargin - leftMargin, 10, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
@@ -771,16 +810,16 @@ const ManualBilling = () => {
     
     currentY = totalsBoxY;
     doc.text("Subtotal:", totalsStartX, currentY);
-    doc.text(subtotal.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+    doc.text(formatIndianNumber(subtotal, 2), rightMargin - 2, currentY, { align: "right" });
     currentY += 6;
     
     if (productSGST > 0) {
       doc.text("SGST (Product):", totalsStartX, currentY);
-      doc.text(productSGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+      doc.text(formatIndianNumber(productSGST, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
       doc.text("CGST (Product):", totalsStartX, currentY);
-      doc.text(productCGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+      doc.text(formatIndianNumber(productCGST, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
     }
     
@@ -788,18 +827,18 @@ const ManualBilling = () => {
       const coupon = coupons.find(c => c.id === selectedCoupon);
       doc.setTextColor(220, 53, 69);
       doc.text(`Coupon (${coupon?.code}):`, totalsStartX, currentY);
-      doc.text(`-${couponDiscount.toFixed(2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.text(`-${formatIndianNumber(couponDiscount, 2)}`, rightMargin - 2, currentY, { align: "right" });
       doc.setTextColor(0, 0, 0);
       currentY += 6;
     }
     
     if (additionalSGST > 0) {
       doc.text(`Additional SGST (${additionalGstRate}%):`, totalsStartX, currentY);
-      doc.text(additionalSGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+      doc.text(formatIndianNumber(additionalSGST, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
       doc.text(`Additional CGST (${additionalGstRate}%):`, totalsStartX, currentY);
-      doc.text(additionalCGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+      doc.text(formatIndianNumber(additionalCGST, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
     }
     
@@ -811,27 +850,31 @@ const ManualBilling = () => {
       
       doc.setFont(undefined, 'bold');
       doc.text("Total SGST:", totalsStartX, currentY);
-      doc.text(totalSGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+      doc.text(formatIndianNumber(totalSGST, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
       doc.text("Total CGST:", totalsStartX, currentY);
-      doc.text(totalCGST.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+      doc.text(formatIndianNumber(totalCGST, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
       
       doc.text("Total Tax:", totalsStartX, currentY);
-      doc.text(taxAmount.toFixed(2), rightMargin - 2, currentY, { align: "right" });
+      doc.text(formatIndianNumber(taxAmount, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 8;
       doc.setFont(undefined, 'normal');
     }
     
-    // Grand total with prominent styling
-    doc.setFillColor(22, 163, 74);
+    // Grand total with prominent styling using template color
+    const totalColor = activeTemplate?.template_data?.layout === 'compact' 
+      ? primaryColor 
+      : { r: 22, g: 163, b: 74 }; // Green for most templates, use primary for compact
+    
+    doc.setFillColor(totalColor.r, totalColor.g, totalColor.b);
     doc.rect(totalsStartX - 5, currentY - 3, rightMargin - totalsStartX + 7, 12, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
     doc.setFontSize(13);
     doc.text("GRAND TOTAL:", totalsStartX, currentY + 5);
-    doc.text(total.toFixed(2), rightMargin - 2, currentY + 5, { align: "right" });
+    doc.text(formatIndianNumber(total, 2), rightMargin - 2, currentY + 5, { align: "right" });
     
     doc.setTextColor(0, 0, 0);
     currentY += 20;
@@ -840,7 +883,7 @@ const ManualBilling = () => {
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
     doc.text(thankYouNote, centerX, currentY, { align: "center" });
     
-    doc.setDrawColor(41, 128, 185);
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.setLineWidth(1);
     doc.line(leftMargin, 280, rightMargin, 280);
     

@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, Download, Search } from "lucide-react";
+import { ArrowLeft, FileText, Download, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import jsPDF from "jspdf";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 
@@ -25,6 +26,8 @@ const Invoices = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [dateFilter, setDateFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -333,20 +336,43 @@ const Invoices = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
+                    <TableRow 
+                      key={invoice.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedInvoice(invoice);
+                        setDetailDialogOpen(true);
+                      }}
+                    >
                       <TableCell className="font-mono">{invoice.bill_number}</TableCell>
                       <TableCell>{new Date(invoice.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>{invoice.items_data.length} items</TableCell>
                       <TableCell>{formatIndianCurrency(invoice.tax_amount)}</TableCell>
                       <TableCell className="font-medium">{formatIndianCurrency(invoice.total_amount)}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => regenerateInvoice(invoice)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedInvoice(invoice);
+                              setDetailDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              regenerateInvoice(invoice);
+                            }}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -363,6 +389,111 @@ const Invoices = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Invoice Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Invoice Details</DialogTitle>
+          </DialogHeader>
+          {selectedInvoice && (
+            <div className="space-y-6">
+              {/* Invoice Header */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">Bill Number</p>
+                  <p className="font-mono font-semibold">{selectedInvoice.bill_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Date</p>
+                  <p className="font-semibold">
+                    {new Date(selectedInvoice.created_at).toLocaleDateString()} {new Date(selectedInvoice.created_at).toLocaleTimeString()}
+                  </p>
+                </div>
+                {(selectedInvoice as any).customer_name && (
+                  <>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Customer Name</p>
+                      <p className="font-semibold">{(selectedInvoice as any).customer_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="font-semibold">{(selectedInvoice as any).customer_phone}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Items Table */}
+              <div>
+                <h3 className="font-semibold mb-3">Items</h3>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item Name</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Rate</TableHead>
+                        <TableHead className="text-right">Tax</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedInvoice.items_data.map((item: any, index: number) => (
+                        <TableRow key={index}>
+                          <TableCell>{item.name}</TableCell>
+                          <TableCell className="text-right">
+                            {item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : item.quantity}
+                          </TableCell>
+                          <TableCell className="text-right">{formatIndianCurrency(item.price)}</TableCell>
+                          <TableCell className="text-right">{item.tax_rate}%</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatIndianCurrency(item.price * item.quantity)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatIndianCurrency(selectedInvoice.total_amount - selectedInvoice.tax_amount)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span>{formatIndianCurrency(selectedInvoice.tax_amount)}</span>
+                </div>
+                {selectedInvoice.discount_amount > 0 && (
+                  <div className="flex justify-between text-sm text-destructive">
+                    <span>Discount</span>
+                    <span>-{formatIndianCurrency(selectedInvoice.discount_amount)}</span>
+                  </div>
+                )}
+                <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                  <span>Total</span>
+                  <span>{formatIndianCurrency(selectedInvoice.total_amount)}</span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <Button 
+                className="w-full" 
+                onClick={() => {
+                  regenerateInvoice(selectedInvoice);
+                  setDetailDialogOpen(false);
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download Invoice
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -10,6 +10,7 @@ import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { saveProductsToIndexedDB, getAllProducts, deleteProductFromIndexedDB } from "@/lib/indexedDB";
 
@@ -109,9 +110,16 @@ const Inventory = () => {
   const fetchProducts = async () => {
     try {
       if (isOnline) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("Please sign in to view products");
+          return;
+        }
+
         const { data, error } = await supabase
           .from('products')
           .select('*')
+          .eq('created_by', user.id)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -122,8 +130,8 @@ const Inventory = () => {
         const localProducts = await getAllProducts();
         setProducts(localProducts);
       }
-    } catch (error) {
-      toast.error("Error fetching products");
+    } catch (error: any) {
+      toast.error(`Error fetching products: ${error.message || 'Unknown error'}`);
       console.error(error);
     }
   };
@@ -242,28 +250,34 @@ const Inventory = () => {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+
+  const handleDelete = async () => {
     if (!isOnline) {
       toast.error("You need to be online to delete products");
       return;
     }
 
-    if (!confirm("Are you sure you want to delete this product?")) return;
+    if (!productToDelete) return;
 
     try {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', id);
+        .eq('id', productToDelete);
 
       if (error) throw error;
 
-      await deleteProductFromIndexedDB(id);
+      await deleteProductFromIndexedDB(productToDelete);
       toast.success("Product deleted successfully!");
       fetchProducts();
     } catch (error) {
       toast.error("Error deleting product");
       console.error(error);
+    } finally {
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
     }
   };
 
@@ -667,7 +681,10 @@ const Inventory = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(product.id)}
+                          onClick={() => {
+                            setProductToDelete(product.id);
+                            setDeleteDialogOpen(true);
+                          }}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -687,6 +704,23 @@ const Inventory = () => {
           </CardContent>
         </Card>
       </main>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this product? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
