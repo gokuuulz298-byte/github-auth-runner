@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatIndianNumber } from "@/lib/numberFormat";
+import { setCounterSession, getCounterSession } from "@/lib/counterSession";
 
 const ManualBilling = () => {
   const navigate = useNavigate();
@@ -31,6 +32,24 @@ const ManualBilling = () => {
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
   const [productDiscounts, setProductDiscounts] = useState<any[]>([]);
   const [activeTemplate, setActiveTemplate] = useState<any>(null);
+
+  // Initialize counter session
+  useEffect(() => {
+    const session = getCounterSession();
+    if (session) {
+      setSelectedCounter(session.counterId);
+    }
+  }, []);
+
+  // Update counter session when counter changes
+  useEffect(() => {
+    if (selectedCounter) {
+      const counter = counters.find(c => c.id === selectedCounter);
+      if (counter) {
+        setCounterSession(selectedCounter, counter.name);
+      }
+    }
+  }, [selectedCounter, counters]);
 
   // Fetch company profile, counters, coupons, and discounts
   useEffect(() => {
@@ -61,15 +80,26 @@ const ManualBilling = () => {
 
   const fetchCounters = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('counters')
         .select('*')
+        .eq('created_by', user.id)
         .order('name');
 
       if (error) throw error;
       setCounters(data || []);
       if (data && data.length > 0) {
-        setSelectedCounter(data[0].id);
+        // Use session counter if available, otherwise default to first
+        const session = getCounterSession();
+        if (session && data.find(c => c.id === session.counterId)) {
+          setSelectedCounter(session.counterId);
+        } else {
+          setSelectedCounter(data[0].id);
+          setCounterSession(data[0].id, data[0].name);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -159,9 +189,13 @@ const ManualBilling = () => {
 
       try {
         if (isOnline) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
           const { data, error } = await supabase
             .from('products')
             .select('*')
+            .eq('created_by', user.id)
             .or(`name.ilike.%${searchTerm}%,barcode.ilike.%${searchTerm}%`)
             .limit(10);
 
@@ -897,30 +931,30 @@ const ManualBilling = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Manual Billing</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Manual Billing</h1>
           {!isOnline && (
-            <span className="ml-auto bg-warning text-warning-foreground px-3 py-1 rounded-full text-sm">
-              Offline Mode
+            <span className="ml-auto bg-warning text-warning-foreground px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+              Offline
             </span>
           )}
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <div className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Counter & Customer Details</CardTitle>
+              <CardHeader className="px-4 sm:px-6 py-4">
+                <CardTitle className="text-base sm:text-lg">Counter & Customer</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-4 sm:px-6">
                 <div>
-                  <Label htmlFor="counter">Counter</Label>
+                  <Label htmlFor="counter" className="text-sm">Counter</Label>
                   <select
                     id="counter"
                     value={selectedCounter}
                     onChange={(e) => setSelectedCounter(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
                   >
                     <option value="">Select Counter</option>
                     {counters.map((counter) => (
@@ -931,12 +965,13 @@ const ManualBilling = () => {
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="customer-name">Customer Name</Label>
+                  <Label htmlFor="customer-name" className="text-sm">Customer Name</Label>
                   <Input
                     id="customer-name"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Enter customer name"
+                    className="mt-1 text-sm"
                   />
                 </div>
                 <div>

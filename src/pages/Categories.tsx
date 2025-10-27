@@ -35,16 +35,23 @@ const Categories = () => {
 
   const fetchCategories = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to view categories");
+        return;
+      }
+
       const { data, error } = await supabase
         .from('categories')
         .select('*')
+        .eq('created_by', user.id)
         .order('name');
 
       if (error) throw error;
       setCategories(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to fetch categories");
+      toast.error(`Failed to fetch categories: ${error.message || 'Unknown error'}`);
     }
   };
 

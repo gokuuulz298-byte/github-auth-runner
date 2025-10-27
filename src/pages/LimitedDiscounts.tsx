@@ -30,27 +30,38 @@ const LimitedDiscounts = () => {
 
   const fetchDiscounts = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to view discounts");
+        return;
+      }
+
       const { data, error } = await supabase
         .from('product_discounts')
         .select(`
           *,
           products (name, barcode)
         `)
+        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setDiscounts(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to fetch discounts");
+      toast.error(`Failed to fetch discounts: ${error.message || 'Unknown error'}`);
     }
   };
 
   const fetchProducts = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('products')
         .select('*')
+        .eq('created_by', user.id)
         .order('name');
 
       if (error) throw error;
@@ -191,22 +202,23 @@ const LimitedDiscounts = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Limited Time Discounts</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Limited Discounts</h1>
           <Button 
             className="ml-auto" 
+            size="sm"
             onClick={() => {
               setShowForm(!showForm);
               setEditingId(null);
               setFormData({ product_id: "", discount_type: "percentage", discount_percentage: "", discount_amount: "", start_date: "", end_date: "" });
             }}
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Discount
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Discount</span>
           </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {showForm && (
           <Card className="mb-6">
             <CardHeader>

@@ -29,16 +29,23 @@ const Coupons = () => {
 
   const fetchCoupons = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to view coupons");
+        return;
+      }
+
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
+        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setCoupons(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to fetch coupons");
+      toast.error(`Failed to fetch coupons: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -143,22 +150,23 @@ const Coupons = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Coupons</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Coupons</h1>
           <Button 
             className="ml-auto" 
+            size="sm"
             onClick={() => {
               setShowForm(!showForm);
               setEditingId(null);
               setFormData({ code: "", discount_type: "percentage", discount_value: "", is_active: true, start_date: "", end_date: "" });
             }}
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Coupon
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Coupon</span>
           </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {showForm && (
           <Card className="mb-6">
             <CardHeader>
