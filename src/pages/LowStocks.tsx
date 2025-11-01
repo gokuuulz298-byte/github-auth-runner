@@ -44,9 +44,16 @@ const LowStocks = () => {
   const fetchProducts = async () => {
     try {
       if (isOnline) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("Please sign in to view products");
+          return;
+        }
+
         const { data, error } = await supabase
           .from('products')
           .select('*')
+          .eq('created_by', user.id)
           .order('stock_quantity', { ascending: true });
 
         if (error) throw error;
@@ -55,8 +62,8 @@ const LowStocks = () => {
         const localProducts = await getAllProducts();
         setProducts(localProducts.sort((a, b) => a.stock_quantity - b.stock_quantity));
       }
-    } catch (error) {
-      toast.error("Error fetching products");
+    } catch (error: any) {
+      toast.error(`Error fetching products: ${error.message || 'Unknown error'}`);
       console.error(error);
     }
   };

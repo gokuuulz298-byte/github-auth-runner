@@ -24,9 +24,16 @@ const Customers = () => {
 
   const fetchCustomers = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to view customers");
+        return;
+      }
+
       const { data, error } = await supabase
         .from('customers')
         .select('*')
+        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -44,7 +51,8 @@ const Customers = () => {
 
       const { data, error } = await supabase
         .from('loyalty_points')
-        .select('*');
+        .select('*')
+        .eq('created_by', user.id);
 
       if (error) throw error;
       

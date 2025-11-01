@@ -49,9 +49,13 @@ const Analytics = () => {
 
   const fetchCounters = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('counters')
         .select('*')
+        .eq('created_by', user.id)
         .order('name');
 
       if (error) throw error;
@@ -63,7 +67,13 @@ const Analytics = () => {
 
   const fetchAnalytics = async () => {
     try {
-      let query = supabase.from('invoices').select('total_amount, tax_amount, items_data');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let query = supabase
+        .from('invoices')
+        .select('total_amount, tax_amount, items_data')
+        .eq('created_by', user.id);
       
       if (selectedCounter !== "all") {
         query = query.eq('counter_id', selectedCounter);
@@ -73,11 +83,13 @@ const Analytics = () => {
 
       const { data: productsList } = await supabase
         .from('products')
-        .select('*');
+        .select('*')
+        .eq('created_by', user.id);
 
       const { data: customers } = await supabase
         .from('customers')
-        .select('id');
+        .select('id')
+        .eq('created_by', user.id);
 
       setProducts(productsList || []);
 
@@ -112,12 +124,16 @@ const Analytics = () => {
 
   const fetchDailyData = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const start = startOfDay(selectedDate);
       const end = endOfDay(selectedDate);
 
       let query = supabase
         .from('invoices')
         .select('*')
+        .eq('created_by', user.id)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
@@ -136,6 +152,9 @@ const Analytics = () => {
 
   const fetchWeeklyData = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = subDays(new Date(), 6 - i);
         return {
@@ -152,6 +171,7 @@ const Analytics = () => {
         let query = supabase
           .from('invoices')
           .select('total_amount, items_data')
+          .eq('created_by', user.id)
           .gte('created_at', day.start.toISOString())
           .lte('created_at', day.end.toISOString());
 

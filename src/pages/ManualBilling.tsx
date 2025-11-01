@@ -720,28 +720,37 @@ const ManualBilling = () => {
       ? hexToRgb(activeTemplate.template_data.headerBg)
       : { r: 248, g: 250, b: 252 };
     
-    // Header with template styling
-    let currentY = 20;
+    // Header with template styling - larger and more professional
+    let currentY = 25;
+    const headerHeight = 55;
     doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.rect(0, 0, pageWidth, 45, 'F');
+    doc.rect(0, 0, pageWidth, headerHeight, 'F');
+    
+    // Add gradient effect (lighter shade at bottom)
+    doc.setFillColor(
+      Math.min(255, primaryColor.r + 15),
+      Math.min(255, primaryColor.g + 15),
+      Math.min(255, primaryColor.b + 15)
+    );
+    doc.rect(0, headerHeight - 8, pageWidth, 8, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(28);
+    doc.setFontSize(32);
     doc.setFont(undefined, 'bold');
     if (companyProfile) {
       doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
       
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setFont(undefined, 'normal');
-      currentY += 8;
+      currentY += 10;
       if (companyProfile.address) {
         doc.text(companyProfile.address, centerX, currentY, { align: "center" });
-        currentY += 5;
+        currentY += 6;
       }
       const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
       if (location) {
         doc.text(location, centerX, currentY, { align: "center" });
-        currentY += 5;
+        currentY += 6;
       }
       if (companyProfile.phone || companyProfile.gstin) {
         const contact = [
@@ -752,13 +761,21 @@ const ManualBilling = () => {
       }
     }
     
-    currentY = 55;
+    currentY = headerHeight + 15;
     
+    // Professional invoice title with light background
+    doc.setFillColor(250, 251, 252);
+    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 18, 'F');
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setLineWidth(0.5);
+    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 18);
+    
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.setFontSize(22);
     doc.setFont(undefined, 'bold');
-    doc.text("TAX INVOICE", centerX, currentY, { align: "center" });
+    doc.text("TAX INVOICE", centerX, currentY + 12, { align: "center" });
     
-    currentY += 12;
+    currentY += 25;
     const boxY = currentY;
     
     // Info boxes with template colors
@@ -978,8 +995,8 @@ const ManualBilling = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 max-w-full">
           <div className="space-y-4">
             <Card>
               <CardHeader className="px-4 sm:px-6 py-4">
@@ -1159,6 +1176,18 @@ const ManualBilling = () => {
                         size="sm" 
                         className="w-full"
                         onClick={() => {
+                          // Stock validation
+                          const existingItem = cartItems.find(item => item.barcode === product.barcode);
+                          const weightValue = parseFloat(weight) || 1;
+                          const quantity = product.price_type === 'weight' ? weightValue : 1;
+                          const currentCartQuantity = existingItem ? existingItem.quantity : 0;
+                          const newTotalQuantity = currentCartQuantity + quantity;
+                          
+                          if (newTotalQuantity > product.stock_quantity) {
+                            toast.error(`Insufficient stock! Available: ${product.stock_quantity}, In cart: ${currentCartQuantity.toFixed(3)}, Requested: ${quantity}. Cannot exceed stock limit.`);
+                            return;
+                          }
+                          
                           const igstInput = document.getElementById(`igst-${product.id}`) as HTMLInputElement;
                           const igstValue = igstInput?.value || "0";
                           handleAddToCart(

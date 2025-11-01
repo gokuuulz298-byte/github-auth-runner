@@ -39,9 +39,16 @@ const Barcodes = () => {
 
   const fetchProducts = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to view products");
+        return;
+      }
+
       const { data, error } = await supabase
         .from('products')
         .select('*')
+        .eq('created_by', user.id)
         .order('name');
 
       if (error) throw error;

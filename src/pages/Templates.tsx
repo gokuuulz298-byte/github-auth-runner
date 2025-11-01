@@ -202,21 +202,120 @@ const Templates = () => {
                   {template.description}
                 </p>
                 
-                {/* Template Preview */}
+                {/* Full Page Template Preview */}
                 <div 
-                  className="border rounded p-2 sm:p-3 text-xs"
-                  style={{ 
-                    backgroundColor: template.template_data.headerBg,
-                    fontSize: template.template_data.fontSize
-                  }}
+                  className="border rounded-lg overflow-hidden bg-white"
+                  style={{ minHeight: '280px' }}
                 >
+                  {/* Preview Header */}
                   <div 
-                    className="font-bold mb-1"
-                    style={{ color: template.template_data.primaryColor }}
+                    className="p-3"
+                    style={{ 
+                      backgroundColor: template.template_data.headerBg,
+                      borderBottom: `3px solid ${template.template_data.primaryColor}`
+                    }}
                   >
-                    Sample Invoice
+                    <div 
+                      className="font-bold text-lg mb-1"
+                      style={{ 
+                        color: template.template_data.primaryColor,
+                        fontSize: template.template_data.layout === 'compact' ? '14px' : '16px'
+                      }}
+                    >
+                      {template.template_data.layout === 'bold' && '■ '}
+                      INVOICE
+                    </div>
+                    <div 
+                      className="text-xs opacity-70"
+                      style={{ fontSize: template.template_data.fontSize }}
+                    >
+                      INV-2024-001 | Date: {new Date().toLocaleDateString()}
+                    </div>
                   </div>
-                  <div className="opacity-70">Preview layout</div>
+                  
+                  {/* Preview Content */}
+                  <div className="p-3 space-y-2">
+                    {/* Company & Customer Info */}
+                    <div 
+                      className={`grid ${template.template_data.layout === 'compact' ? 'grid-cols-1 gap-1' : 'grid-cols-2 gap-2'} text-xs`}
+                      style={{ fontSize: template.template_data.fontSize }}
+                    >
+                      <div className="space-y-1">
+                        <div className="font-semibold" style={{ color: template.template_data.primaryColor }}>
+                          Your Company
+                        </div>
+                        <div className="opacity-70 text-[10px]">123 Business St, City</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="font-semibold">Customer Name</div>
+                        <div className="opacity-70 text-[10px]">Phone: 9876543210</div>
+                      </div>
+                    </div>
+                    
+                    {/* Items Table Preview */}
+                    <div className="border rounded overflow-hidden">
+                      <div 
+                        className="grid grid-cols-4 gap-2 p-2 text-[10px] font-semibold text-white"
+                        style={{ backgroundColor: template.template_data.primaryColor }}
+                      >
+                        <div>Item</div>
+                        <div className="text-center">Qty</div>
+                        <div className="text-center">Rate</div>
+                        <div className="text-right">Amt</div>
+                      </div>
+                      <div 
+                        className="grid grid-cols-4 gap-2 p-2 text-[10px]"
+                        style={{ fontSize: template.template_data.fontSize }}
+                      >
+                        <div>Product A</div>
+                        <div className="text-center">2</div>
+                        <div className="text-center">₹500</div>
+                        <div className="text-right">₹1,000</div>
+                      </div>
+                    </div>
+                    
+                    {/* Totals Preview */}
+                    <div 
+                      className={`${template.template_data.layout === 'elegant' ? 'border-t-2' : 'border-t'} pt-2 space-y-1 text-xs`}
+                      style={{ 
+                        fontSize: template.template_data.fontSize,
+                        borderColor: template.template_data.layout === 'elegant' ? template.template_data.primaryColor : undefined
+                      }}
+                    >
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>₹1,000.00</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] opacity-70">
+                        <span>CGST (9%):</span>
+                        <span>₹90.00</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] opacity-70">
+                        <span>SGST (9%):</span>
+                        <span>₹90.00</span>
+                      </div>
+                      <div 
+                        className="flex justify-between font-bold pt-1 border-t"
+                        style={{ 
+                          color: template.template_data.layout === 'bold' ? template.template_data.primaryColor : 'inherit'
+                        }}
+                      >
+                        <span>Grand Total:</span>
+                        <span>₹1,180.00</span>
+                      </div>
+                    </div>
+                    
+                    {/* Footer */}
+                    <div 
+                      className={`text-center text-[10px] pt-2 ${template.template_data.layout === 'elegant' ? 'italic' : ''}`}
+                      style={{ 
+                        fontSize: template.template_data.fontSize,
+                        borderTop: template.template_data.layout === 'modern' ? 'none' : `1px solid ${template.template_data.primaryColor}20`
+                      }}
+                    >
+                      Thank you for your business!
+                    </div>
+                  </div>
                 </div>
 
                 <Button

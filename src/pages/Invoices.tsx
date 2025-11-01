@@ -35,9 +35,16 @@ const Invoices = () => {
 
   const fetchInvoices = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to view invoices");
+        return;
+      }
+
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
+        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -463,8 +470,47 @@ const Invoices = () => {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatIndianCurrency(selectedInvoice.total_amount - selectedInvoice.tax_amount)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
+                
+                {/* GST Breakdown */}
+                {(() => {
+                  const items = selectedInvoice.items_data;
+                  let totalCGST = 0;
+                  let totalSGST = 0;
+                  let totalIGST = 0;
+                  
+                  items.forEach((item: any) => {
+                    const itemTotal = item.price * item.quantity;
+                    if (item.cgst) totalCGST += (itemTotal * item.cgst / 100);
+                    if (item.sgst) totalSGST += (itemTotal * item.sgst / 100);
+                    if (item.igst) totalIGST += (itemTotal * item.igst / 100);
+                  });
+                  
+                  return (
+                    <>
+                      {totalIGST > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">IGST</span>
+                          <span>{formatIndianCurrency(totalIGST)}</span>
+                        </div>
+                      )}
+                      {totalCGST > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">CGST</span>
+                          <span>{formatIndianCurrency(totalCGST)}</span>
+                        </div>
+                      )}
+                      {totalSGST > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">SGST</span>
+                          <span>{formatIndianCurrency(totalSGST)}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+                
+                <div className="flex justify-between text-sm font-medium">
+                  <span className="text-muted-foreground">Total Tax</span>
                   <span>{formatIndianCurrency(selectedInvoice.tax_amount)}</span>
                 </div>
                 {selectedInvoice.discount_amount > 0 && (

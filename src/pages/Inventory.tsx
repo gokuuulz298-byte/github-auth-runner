@@ -672,7 +672,9 @@ const Inventory = () => {
                         {product.price_type === 'weight' && '/kg'}
                       </TableCell>
                       <TableCell>₹{((product as any).buying_price || 0).toFixed(2)}</TableCell>
-                      <TableCell>{product.stock_quantity}</TableCell>
+                      <TableCell>
+                        {product.stock_quantity} {(product as any).unit || 'piece'}
+                      </TableCell>
                       <TableCell>{product.tax_rate}%</TableCell>
                       <TableCell className="text-right">
                         <Button
