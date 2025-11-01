@@ -14,6 +14,7 @@ export interface CartItem {
   tax_rate: number;
   cgst?: number;
   sgst?: number;
+  igst?: number;
   price_type?: string;
   category?: string;
   discountInfo?: string | null;
@@ -27,9 +28,11 @@ interface ShoppingCartProps {
   couponDiscount?: number;
   productSGST?: number;
   productCGST?: number;
+  productIGST?: number;
   additionalGstAmount?: number;
   couponCode?: string;
   additionalGstRate?: string;
+  intraStateTrade?: boolean;
 }
 
 const ShoppingCart = ({ 
@@ -40,12 +43,14 @@ const ShoppingCart = ({
   couponDiscount = 0,
   productSGST = 0,
   productCGST = 0,
+  productIGST = 0,
   additionalGstAmount = 0,
   couponCode,
-  additionalGstRate
+  additionalGstRate,
+  intraStateTrade = false
 }: ShoppingCartProps) => {
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const productTaxAmount = productSGST + productCGST;
+  const productTaxAmount = intraStateTrade ? productIGST : (productSGST + productCGST);
   const subtotalWithProductTax = subtotal + productTaxAmount;
   const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
   const additionalSGST = additionalGstAmount / 2;
@@ -147,17 +152,26 @@ const ShoppingCart = ({
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatIndianCurrency(subtotal)}</span>
               </div>
-              {productSGST > 0 && (
-                <>
+              {intraStateTrade ? (
+                productIGST > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">SGST (Products)</span>
-                    <span>{formatIndianCurrency(productSGST)}</span>
+                    <span className="text-muted-foreground">IGST (Products)</span>
+                    <span>{formatIndianCurrency(productIGST)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">CGST (Products)</span>
-                    <span>{formatIndianCurrency(productCGST)}</span>
-                  </div>
-                </>
+                )
+              ) : (
+                productSGST > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">SGST (Products)</span>
+                      <span>{formatIndianCurrency(productSGST)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">CGST (Products)</span>
+                      <span>{formatIndianCurrency(productCGST)}</span>
+                    </div>
+                  </>
+                )
               )}
               {couponDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
@@ -165,7 +179,7 @@ const ShoppingCart = ({
                   <span>-{formatIndianCurrency(couponDiscount)}</span>
                 </div>
               )}
-              {additionalGstAmount > 0 && (
+              {additionalGstAmount > 0 && !intraStateTrade && (
                 <>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Additional SGST ({additionalGstRate ? `${parseFloat(additionalGstRate)/2}%` : ''})</span>
@@ -180,14 +194,23 @@ const ShoppingCart = ({
               {totalTaxAmount > 0 && (
                 <>
                   <Separator className="my-2" />
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-muted-foreground">Total SGST</span>
-                    <span>{formatIndianCurrency(totalSGST)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-muted-foreground">Total CGST</span>
-                    <span>{formatIndianCurrency(totalCGST)}</span>
-                  </div>
+                  {intraStateTrade ? (
+                    <div className="flex justify-between text-sm font-semibold">
+                      <span className="text-muted-foreground">Total IGST</span>
+                      <span>{formatIndianCurrency(productIGST)}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-sm font-semibold">
+                        <span className="text-muted-foreground">Total SGST</span>
+                        <span>{formatIndianCurrency(totalSGST)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-semibold">
+                        <span className="text-muted-foreground">Total CGST</span>
+                        <span>{formatIndianCurrency(totalCGST)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between text-sm font-semibold">
                     <span className="text-muted-foreground">Total Tax</span>
                     <span>{formatIndianCurrency(totalTaxAmount)}</span>

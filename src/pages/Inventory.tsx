@@ -156,12 +156,16 @@ const Inventory = () => {
       const totalTax = (cgst > 0 || sgst > 0) ? (cgst + sgst) : productTax;
 
       // Check for duplicate barcode
-      const { data: existingProduct, error: checkError } = await supabase
+      let query = supabase
         .from('products')
         .select('id')
-        .eq('barcode', formData.barcode)
-        .neq('id', editingProduct?.id || '')
-        .maybeSingle();
+        .eq('barcode', formData.barcode);
+      
+      if (editingProduct?.id) {
+        query = query.neq('id', editingProduct.id);
+      }
+      
+      const { data: existingProduct, error: checkError } = await query.maybeSingle();
 
       if (checkError && checkError.code !== 'PGRST116') {
         throw checkError;

@@ -32,6 +32,7 @@ const ManualBilling = () => {
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
   const [productDiscounts, setProductDiscounts] = useState<any[]>([]);
   const [activeTemplate, setActiveTemplate] = useState<any>(null);
+  const [intraStateTrade, setIntraStateTrade] = useState<boolean>(false);
 
   // Initialize counter session
   useEffect(() => {
@@ -211,17 +212,17 @@ const ManualBilling = () => {
     return () => clearTimeout(debounceTimer);
   }, [searchTerm, isOnline]);
 
-  const handleAddToCart = (product: any, customWeight?: string) => {
+  const handleAddToCart = (product: any, customWeight?: string, customIgst?: string) => {
     const existingItem = cartItems.find(item => item.barcode === product.barcode);
     const weightValue = parseFloat(customWeight || weight) || 1;
     const quantity = product.price_type === 'weight' ? weightValue : 1;
 
-    // Stock validation
+    // Stock validation for all types
     const currentCartQuantity = existingItem ? existingItem.quantity : 0;
     const newTotalQuantity = currentCartQuantity + quantity;
     
-    if (product.price_type !== 'weight' && newTotalQuantity > product.stock_quantity) {
-      toast.error(`Insufficient stock! Available: ${product.stock_quantity}, Requested: ${newTotalQuantity}. Cannot add more than available stock.`);
+    if (newTotalQuantity > product.stock_quantity) {
+      toast.error(`Insufficient stock! Available: ${product.stock_quantity}, In cart: ${currentCartQuantity.toFixed(3)}, Requested: ${quantity}. Cannot exceed stock limit.`);
       return;
     }
     
@@ -248,16 +249,17 @@ const ManualBilling = () => {
       }
     }
     
-    // Calculate total tax rate from CGST + SGST
-    const cgst = parseFloat(product.cgst) || 0;
-    const sgst = parseFloat(product.sgst) || 0;
-    const totalTaxRate = cgst + sgst;
+    // Calculate total tax rate from CGST + SGST or use IGST for intra-state
+    const cgst = intraStateTrade ? 0 : (parseFloat(product.cgst) || 0);
+    const sgst = intraStateTrade ? 0 : (parseFloat(product.sgst) || 0);
+    const igst = intraStateTrade ? (parseFloat(customIgst || "0") || 0) : 0;
+    const totalTaxRate = intraStateTrade ? igst : (cgst + sgst);
     
     if (existingItem) {
       setCartItems(items => 
         items.map(item => 
           item.barcode === product.barcode 
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: item.quantity + quantity, tax_rate: totalTaxRate, cgst, sgst, igst }
             : item
         )
       );
@@ -272,6 +274,7 @@ const ManualBilling = () => {
         tax_rate: totalTaxRate,
         cgst: cgst,
         sgst: sgst,
+        igst: igst,
         price_type: product.price_type,
         category: product.category,
         discountInfo,
@@ -315,7 +318,13 @@ const ManualBilling = () => {
     const billNumber = `INV-${Date.now()}`;
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
-    // Calculate SGST and CGST for products
+    // Calculate taxes based on trade type
+    const productIGST = cartItems.reduce((sum, item) => {
+      const itemTotal = item.price * item.quantity;
+      const igstRate = item.igst || 0;
+      return sum + (itemTotal * igstRate / 100);
+    }, 0);
+    
     const productSGST = cartItems.reduce((sum, item) => {
       const itemTotal = item.price * item.quantity;
       const sgstRate = item.sgst || 0;
@@ -328,7 +337,7 @@ const ManualBilling = () => {
       return sum + (itemTotal * cgstRate / 100);
     }, 0);
     
-    const productTaxAmount = productSGST + productCGST;
+    const productTaxAmount = intraStateTrade ? productIGST : (productSGST + productCGST);
     
     const subtotalWithProductTax = subtotal + productTaxAmount;
     
@@ -347,14 +356,15 @@ const ManualBilling = () => {
     
     const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
     
-    // Calculate additional GST if provided (split into SGST/CGST)
+    // Calculate additional GST if provided
     const additionalGstRateNum = parseFloat(additionalGstRate) || 0;
     const additionalGstAmount = additionalGstRateNum > 0 ? (afterCouponDiscount * additionalGstRateNum / 100) : 0;
-    const additionalSGST = additionalGstAmount / 2;
-    const additionalCGST = additionalGstAmount / 2;
+    const additionalSGST = intraStateTrade ? 0 : (additionalGstAmount / 2);
+    const additionalCGST = intraStateTrade ? 0 : (additionalGstAmount / 2);
     
     const totalSGST = productSGST + additionalSGST;
     const totalCGST = productCGST + additionalCGST;
+    const totalIGST = productIGST;
     const taxAmount = productTaxAmount + additionalGstAmount;
     const total = afterCouponDiscount + additionalGstAmount;
 
@@ -367,9 +377,9 @@ const ManualBilling = () => {
     
     // Generate PDF based on selected format
     if (invoiceFormat === 'a4') {
-      generateA4Invoice(billNumber, subtotal, productSGST, productCGST, couponDiscount, additionalSGST, additionalCGST, totalSGST, totalCGST, taxAmount, total);
+      generateA4Invoice(billNumber, subtotal, productSGST, productCGST, productIGST, couponDiscount, additionalSGST, additionalCGST, totalSGST, totalCGST, totalIGST, taxAmount, total);
     } else {
-      generateThermalInvoice(billNumber, subtotal, productTaxAmount, couponDiscount, additionalGstAmount, taxAmount, total, requiredHeight);
+      generateThermalInvoice(billNumber, subtotal, productTaxAmount, productIGST, couponDiscount, additionalGstAmount, taxAmount, total, requiredHeight);
     }
 
     // Save customer and invoice, and reduce stock
@@ -446,7 +456,8 @@ const ManualBilling = () => {
             .single();
 
           if (product) {
-            const newQuantity = product.stock_quantity - (item.price_type === 'weight' ? 0 : item.quantity);
+            // Reduce stock for both quantity and weight types
+            const newQuantity = product.stock_quantity - item.quantity;
             await supabase
               .from('products')
               .update({ stock_quantity: Math.max(0, newQuantity) })
@@ -486,6 +497,7 @@ const ManualBilling = () => {
     billNumber: string,
     subtotal: number,
     productTaxAmount: number,
+    productIGST: number,
     couponDiscount: number,
     additionalGstAmount: number,
     taxAmount: number,
@@ -593,29 +605,38 @@ const ManualBilling = () => {
     doc.text(formatIndianNumber(subtotal), rightMargin - 2, currentY, { align: "right" });
     currentY += 4;
     
-    // Calculate SGST and CGST breakdown
-    const productSGST = cartItems.reduce((sum, item) => {
-      const itemTotal = item.price * item.quantity;
-      const sgstRate = item.sgst || 0;
-      return sum + (itemTotal * sgstRate / 100);
-    }, 0);
-    
-    const productCGST = cartItems.reduce((sum, item) => {
-      const itemTotal = item.price * item.quantity;
-      const cgstRate = item.cgst || 0;
-      return sum + (itemTotal * cgstRate / 100);
-    }, 0);
-    
-    if (productSGST > 0) {
-      doc.text("SGST:", leftMargin, currentY);
-      doc.text(formatIndianNumber(productSGST), rightMargin - 2, currentY, { align: "right" });
-      currentY += 4;
-    }
-    
-    if (productCGST > 0) {
-      doc.text("CGST:", leftMargin, currentY);
-      doc.text(formatIndianNumber(productCGST), rightMargin - 2, currentY, { align: "right" });
-      currentY += 4;
+    // Show taxes based on trade type
+    if (intraStateTrade) {
+      if (productIGST > 0) {
+        doc.text("IGST:", leftMargin, currentY);
+        doc.text(formatIndianNumber(productIGST), rightMargin - 2, currentY, { align: "right" });
+        currentY += 4;
+      }
+    } else {
+      // Calculate SGST and CGST breakdown
+      const productSGST = cartItems.reduce((sum, item) => {
+        const itemTotal = item.price * item.quantity;
+        const sgstRate = item.sgst || 0;
+        return sum + (itemTotal * sgstRate / 100);
+      }, 0);
+      
+      const productCGST = cartItems.reduce((sum, item) => {
+        const itemTotal = item.price * item.quantity;
+        const cgstRate = item.cgst || 0;
+        return sum + (itemTotal * cgstRate / 100);
+      }, 0);
+      
+      if (productSGST > 0) {
+        doc.text("SGST:", leftMargin, currentY);
+        doc.text(formatIndianNumber(productSGST), rightMargin - 2, currentY, { align: "right" });
+        currentY += 4;
+      }
+      
+      if (productCGST > 0) {
+        doc.text("CGST:", leftMargin, currentY);
+        doc.text(formatIndianNumber(productCGST), rightMargin - 2, currentY, { align: "right" });
+        currentY += 4;
+      }
     }
     
     if (couponDiscount > 0) {
@@ -659,11 +680,13 @@ const ManualBilling = () => {
     subtotal: number,
     productSGST: number,
     productCGST: number,
+    productIGST: number,
     couponDiscount: number,
     additionalSGST: number,
     additionalCGST: number,
     totalSGST: number,
     totalCGST: number,
+    totalIGST: number,
     taxAmount: number,
     total: number
   ) => {
@@ -703,12 +726,12 @@ const ManualBilling = () => {
     doc.rect(0, 0, pageWidth, 45, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
+    doc.setFontSize(28);
     doc.setFont(undefined, 'bold');
     if (companyProfile) {
       doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
       
-      doc.setFontSize(10);
+      doc.setFontSize(12);
       doc.setFont(undefined, 'normal');
       currentY += 8;
       if (companyProfile.address) {
@@ -847,14 +870,22 @@ const ManualBilling = () => {
     doc.text(formatIndianNumber(subtotal, 2), rightMargin - 2, currentY, { align: "right" });
     currentY += 6;
     
-    if (productSGST > 0) {
-      doc.text("SGST (Product):", totalsStartX, currentY);
-      doc.text(formatIndianNumber(productSGST, 2), rightMargin - 2, currentY, { align: "right" });
-      currentY += 6;
-      
-      doc.text("CGST (Product):", totalsStartX, currentY);
-      doc.text(formatIndianNumber(productCGST, 2), rightMargin - 2, currentY, { align: "right" });
-      currentY += 6;
+    if (intraStateTrade) {
+      if (productIGST > 0) {
+        doc.text("IGST (Product):", totalsStartX, currentY);
+        doc.text(formatIndianNumber(productIGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      }
+    } else {
+      if (productSGST > 0) {
+        doc.text("SGST (Product):", totalsStartX, currentY);
+        doc.text(formatIndianNumber(productSGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+        
+        doc.text("CGST (Product):", totalsStartX, currentY);
+        doc.text(formatIndianNumber(productCGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      }
     }
     
     if (couponDiscount > 0) {
@@ -866,7 +897,7 @@ const ManualBilling = () => {
       currentY += 6;
     }
     
-    if (additionalSGST > 0) {
+    if (additionalSGST > 0 && !intraStateTrade) {
       doc.text(`Additional SGST (${additionalGstRate}%):`, totalsStartX, currentY);
       doc.text(formatIndianNumber(additionalSGST, 2), rightMargin - 2, currentY, { align: "right" });
       currentY += 6;
@@ -883,13 +914,20 @@ const ManualBilling = () => {
       currentY += 5;
       
       doc.setFont(undefined, 'bold');
-      doc.text("Total SGST:", totalsStartX, currentY);
-      doc.text(formatIndianNumber(totalSGST, 2), rightMargin - 2, currentY, { align: "right" });
-      currentY += 6;
       
-      doc.text("Total CGST:", totalsStartX, currentY);
-      doc.text(formatIndianNumber(totalCGST, 2), rightMargin - 2, currentY, { align: "right" });
-      currentY += 6;
+      if (intraStateTrade) {
+        doc.text("Total IGST:", totalsStartX, currentY);
+        doc.text(formatIndianNumber(totalIGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      } else {
+        doc.text("Total SGST:", totalsStartX, currentY);
+        doc.text(formatIndianNumber(totalSGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+        
+        doc.text("Total CGST:", totalsStartX, currentY);
+        doc.text(formatIndianNumber(totalCGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      }
       
       doc.text("Total Tax:", totalsStartX, currentY);
       doc.text(formatIndianNumber(taxAmount, 2), rightMargin - 2, currentY, { align: "right" });
@@ -1078,32 +1116,57 @@ const ManualBilling = () => {
                             </div>
                           </div>
                         </div>
-                      {product.price_type === 'weight' && (
-                        <div className="mb-2">
-                          <Label htmlFor={`weight-${product.id}`} className="text-xs">Weight (kg)</Label>
-                          <Input
-                            id={`weight-${product.id}`}
-                            type="text"
-                            value={weight}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                setWeight(val);
-                              }
-                            }}
-                            onBlur={() => {
-                              const numValue = parseFloat(weight);
-                              if (!numValue || numValue < 0.001) setWeight("0.001");
-                            }}
-                            className="h-8"
-                            placeholder="0.000"
-                          />
-                        </div>
-                      )}
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        {product.price_type === 'weight' && (
+                          <div>
+                            <Label htmlFor={`weight-${product.id}`} className="text-xs">Weight (kg)</Label>
+                            <Input
+                              id={`weight-${product.id}`}
+                              type="text"
+                              value={weight}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  setWeight(val);
+                                }
+                              }}
+                              onBlur={() => {
+                                const numValue = parseFloat(weight);
+                                if (!numValue || numValue < 0.001) setWeight("0.001");
+                              }}
+                              className="h-8"
+                              placeholder="0.000"
+                            />
+                          </div>
+                        )}
+                        {intraStateTrade && (
+                          <div className={product.price_type === 'weight' ? '' : 'col-span-2'}>
+                            <Label htmlFor={`igst-${product.id}`} className="text-xs">IGST %</Label>
+                            <Input
+                              id={`igst-${product.id}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              placeholder="0"
+                              className="h-8"
+                              defaultValue="0"
+                            />
+                          </div>
+                        )}
+                      </div>
                       <Button 
                         size="sm" 
                         className="w-full"
-                        onClick={() => handleAddToCart(product, product.price_type === 'weight' ? weight : undefined)}
+                        onClick={() => {
+                          const igstInput = document.getElementById(`igst-${product.id}`) as HTMLInputElement;
+                          const igstValue = igstInput?.value || "0";
+                          handleAddToCart(
+                            product, 
+                            product.price_type === 'weight' ? weight : undefined,
+                            intraStateTrade ? igstValue : undefined
+                          );
+                        }}
                       >
                         Add to Cart
                       </Button>
@@ -1117,17 +1180,35 @@ const ManualBilling = () => {
 
           <div className="space-y-4">
             <Card>
-              <CardContent className="pt-6">
-                <Label htmlFor="invoice-format">Invoice Format</Label>
-                <select
-                  id="invoice-format"
-                  value={invoiceFormat}
-                  onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
-                >
-                  <option value="thermal">Thermal Print (80mm)</option>
-                  <option value="a4">A4 Size</option>
-                </select>
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <Label htmlFor="invoice-format">Invoice Format</Label>
+                  <select
+                    id="invoice-format"
+                    value={invoiceFormat}
+                    onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                  >
+                    <option value="thermal">Thermal Print (80mm)</option>
+                    <option value="a4">A4 Size</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label htmlFor="intra-state-toggle" className="font-medium">Intra-State Trade</Label>
+                    <p className="text-xs text-muted-foreground">Enable for IGST instead of CGST+SGST</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      id="intra-state-toggle"
+                      type="checkbox"
+                      checked={intraStateTrade}
+                      onChange={(e) => setIntraStateTrade(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
               </CardContent>
             </Card>
 
@@ -1136,9 +1217,15 @@ const ManualBilling = () => {
               onUpdateQuantity={handleUpdateQuantity}
               onRemoveItem={handleRemoveItem}
               onCheckout={generateInvoice}
+              intraStateTrade={intraStateTrade}
               couponDiscount={(() => {
                 if (!selectedCoupon) return 0;
                 const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const productIGST = cartItems.reduce((sum, item) => {
+                  const itemTotal = item.price * item.quantity;
+                  const igstRate = item.igst || 0;
+                  return sum + (itemTotal * igstRate / 100);
+                }, 0);
                 const productSGST = cartItems.reduce((sum, item) => {
                   const itemTotal = item.price * item.quantity;
                   const sgstRate = item.sgst || 0;
@@ -1149,7 +1236,7 @@ const ManualBilling = () => {
                   const cgstRate = item.cgst || 0;
                   return sum + (itemTotal * cgstRate / 100);
                 }, 0);
-                const productTaxAmount = productSGST + productCGST;
+                const productTaxAmount = intraStateTrade ? productIGST : (productSGST + productCGST);
                 const subtotalWithProductTax = subtotal + productTaxAmount;
                 const coupon = coupons.find(c => c.id === selectedCoupon);
                 if (!coupon) return 0;
@@ -1157,6 +1244,13 @@ const ManualBilling = () => {
                   return subtotalWithProductTax * (coupon.discount_value / 100);
                 }
                 return coupon.discount_value;
+              })()}
+              productIGST={(() => {
+                return cartItems.reduce((sum, item) => {
+                  const itemTotal = item.price * item.quantity;
+                  const igstRate = item.igst || 0;
+                  return sum + (itemTotal * igstRate / 100);
+                }, 0);
               })()}
               productSGST={(() => {
                 return cartItems.reduce((sum, item) => {
@@ -1175,6 +1269,11 @@ const ManualBilling = () => {
               additionalGstAmount={(() => {
                 if (!additionalGstRate) return 0;
                 const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const productIGST = cartItems.reduce((sum, item) => {
+                  const itemTotal = item.price * item.quantity;
+                  const igstRate = item.igst || 0;
+                  return sum + (itemTotal * igstRate / 100);
+                }, 0);
                 const productSGST = cartItems.reduce((sum, item) => {
                   const itemTotal = item.price * item.quantity;
                   const sgstRate = item.sgst || 0;
@@ -1185,7 +1284,7 @@ const ManualBilling = () => {
                   const cgstRate = item.cgst || 0;
                   return sum + (itemTotal * cgstRate / 100);
                 }, 0);
-                const productTaxAmount = productSGST + productCGST;
+                const productTaxAmount = intraStateTrade ? productIGST : (productSGST + productCGST);
                 const subtotalWithProductTax = subtotal + productTaxAmount;
                 let couponDiscount = 0;
                 if (selectedCoupon) {
