@@ -91,77 +91,73 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Eduvanca Billing</h1>
-          </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">
+          Welcome back{companyName ? `, ${companyName}` : ''}!
+        </h1>
+        <p className="text-muted-foreground mt-2">Here's what's happening with your business today</p>
+      </div>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <div className="mb-4 sm:mb-8 px-2">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2">
-            Welcome back{companyName ? `, ${companyName}` : ''}!
-          </h2>
-          <p className="text-sm sm:text-base text-muted-foreground">Choose an option to get started</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "Today's Sales", value: "₹0", icon: BarChart3, color: "text-blue-500" },
+          { label: "Total Invoices", value: "0", icon: FileText, color: "text-purple-500" },
+          { label: "Total Customers", value: "0", icon: Users, color: "text-green-500" },
+          { label: "Low Stock Items", value: "0", icon: AlertTriangle, color: "text-orange-500" },
+        ].map((stat) => (
+          <Card key={stat.label} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-bold mt-2">{stat.value}</p>
+                </div>
+                <stat.icon className={`h-8 w-8 ${stat.color}`} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {menuItems.map((item) => (
             <Card 
               key={item.path}
-              className="card-hover cursor-pointer group transition-all"
+              className="cursor-pointer group hover:shadow-md hover:border-primary/50 transition-all"
               onClick={() => navigate(item.path)}
             >
-              <CardHeader className="p-3 sm:p-6">
-                <div className={`p-2 sm:p-3 bg-gradient-to-br ${item.color} bg-opacity-10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-transform`}>
-                  <item.icon className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 bg-gradient-to-br ${item.color} rounded-lg group-hover:scale-110 transition-transform`}>
+                    <item.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm mb-1">{item.label}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {item.label === "Manual Billing" && "Create bills quickly"}
+                      {item.label === "Inventory" && "Manage products"}
+                      {item.label === "Low Stocks" && "Monitor inventory"}
+                      {item.label === "Invoices" && "View billing history"}
+                      {item.label === "Customers" && "Manage customers"}
+                      {item.label === "Analytics" && "View reports"}
+                      {item.label === "Profile" && "Company settings"}
+                      {item.label === "Categories" && "Manage categories"}
+                      {item.label === "Counters" && "Setup counters"}
+                      {item.label === "Coupons" && "Create discounts"}
+                      {item.label === "Limited Discounts" && "Timed discounts"}
+                      {item.label === "Barcodes" && "Generate codes"}
+                      {item.label === "Templates" && "Invoice templates"}
+                    </p>
+                  </div>
                 </div>
-                <CardTitle className="text-sm sm:text-base md:text-lg">{item.label}</CardTitle>
-                <CardDescription className="hidden sm:block text-xs sm:text-sm">
-                  {item.label === "Manual Billing" && "Create bills by searching products"}
-                  {item.label === "Inventory" && "Manage your product catalog"}
-                  {item.label === "Low Stocks" && "Monitor products with low inventory"}
-                  {item.label === "Invoices" && "View billing history"}
-                  {item.label === "Customers" && "Manage customer information"}
-                  {item.label === "Analytics" && "View sales and profit reports"}
-                  {item.label === "Profile" && "Manage company profile and details"}
-                  {item.label === "Categories" && "Add and manage product categories"}
-                  {item.label === "Counters" && "Configure multiple business counters"}
-                  {item.label === "Coupons" && "Create discount coupons for customers"}
-                  {item.label === "Limited Discounts" && "Set time-based product discounts"}
-                  {item.label === "Barcodes" && "Generate barcodes and QR codes"}
-                  {item.label === "Templates" && "Customize your invoice templates"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 hidden md:block">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  {item.label === "Manual Billing" && "Search and add products to create bills quickly"}
-                  {item.label === "Inventory" && "Add, edit, and track your product inventory"}
-                  {item.label === "Low Stocks" && "Get alerts for products running out of stock"}
-                  {item.label === "Invoices" && "Access past invoices and sales records"}
-                  {item.label === "Customers" && "View and add customer details for billing"}
-                  {item.label === "Analytics" && "Track daily and monthly revenue and profits"}
-                  {item.label === "Profile" && "Set up your business details for invoices"}
-                  {item.label === "Categories" && "Create custom categories for your products"}
-                  {item.label === "Counters" && "Manage multiple billing counters"}
-                  {item.label === "Coupons" && "Create fixed or percentage-based discount coupons"}
-                  {item.label === "Limited Discounts" && "Schedule promotional discounts on products"}
-                  {item.label === "Barcodes" && "Generate printable barcodes and QR codes for products"}
-                  {item.label === "Templates" && "Create and manage custom A4 invoice templates"}
-                </p>
               </CardContent>
             </Card>
           ))}
         </div>
-      </main>
+      </div>
     </div>
   );
 };
