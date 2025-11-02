@@ -120,6 +120,7 @@ const Inventory = () => {
           .from('products')
           .select('*')
           .eq('created_by', user.id)
+          .eq('is_deleted', false)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -268,7 +269,7 @@ const Inventory = () => {
     try {
       const { error } = await supabase
         .from('products')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', productToDelete);
 
       if (error) throw error;

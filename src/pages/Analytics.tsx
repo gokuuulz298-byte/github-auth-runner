@@ -84,7 +84,8 @@ const Analytics = () => {
       const { data: productsList } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id);
+        .eq('created_by', user.id)
+        .eq('is_deleted', false);
 
       const { data: customers } = await supabase
         .from('customers')

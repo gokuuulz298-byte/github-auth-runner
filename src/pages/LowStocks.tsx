@@ -54,6 +54,7 @@ const LowStocks = () => {
           .from('products')
           .select('*')
           .eq('created_by', user.id)
+          .eq('is_deleted', false)
           .order('stock_quantity', { ascending: true });
 
         if (error) throw error;

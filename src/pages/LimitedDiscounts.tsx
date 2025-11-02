@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const LimitedDiscounts = () => {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ const LimitedDiscounts = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [discountToDelete, setDiscountToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     product_id: "",
     discount_type: "percentage" as "fixed" | "percentage",
@@ -154,14 +157,14 @@ const LimitedDiscounts = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this discount?")) return;
+  const handleDelete = async () => {
+    if (!discountToDelete) return;
 
     try {
       const { error } = await supabase
         .from('product_discounts')
         .delete()
-        .eq('id', id);
+        .eq('id', discountToDelete);
 
       if (error) throw error;
       toast.success("Discount deleted successfully");
@@ -169,6 +172,9 @@ const LimitedDiscounts = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete discount");
+    } finally {
+      setDeleteDialogOpen(false);
+      setDiscountToDelete(null);
     }
   };
 
@@ -373,7 +379,10 @@ const LimitedDiscounts = () => {
                     <Button 
                       size="sm" 
                       variant="destructive" 
-                      onClick={() => handleDelete(discount.id)}
+                      onClick={() => {
+                        setDiscountToDelete(discount.id);
+                        setDeleteDialogOpen(true);
+                      }}
                       className="flex-1"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
@@ -393,6 +402,23 @@ const LimitedDiscounts = () => {
             </CardContent>
           </Card>
         )}
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Discount</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this discount? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDiscountToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

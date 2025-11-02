@@ -49,6 +49,7 @@ const Barcodes = () => {
         .from('products')
         .select('*')
         .eq('created_by', user.id)
+        .eq('is_deleted', false)
         .order('name');
 
       if (error) throw error;

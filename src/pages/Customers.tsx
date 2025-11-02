@@ -184,8 +184,14 @@ const Customers = () => {
                       </div>
                       {loyalty && (
                         <div className="text-left sm:text-right">
-                          <p className="text-base sm:text-lg font-bold text-primary">{loyalty.points} pts</p>
-                          <p className="text-xs text-muted-foreground">₹{loyalty.total_spent?.toFixed(2)} spent</p>
+                          <p className="text-base sm:text-lg font-bold text-primary">{loyalty.points || 0} pts</p>
+                          <p className="text-xs text-muted-foreground">₹{(loyalty.total_spent || 0).toFixed(2)} spent</p>
+                        </div>
+                      )}
+                      {!loyalty && (
+                        <div className="text-left sm:text-right">
+                          <p className="text-base sm:text-lg font-bold text-muted-foreground">0 pts</p>
+                          <p className="text-xs text-muted-foreground">₹0.00 spent</p>
                         </div>
                       )}
                     </div>

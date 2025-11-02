@@ -241,14 +241,40 @@ const Templates = () => {
                       style={{ fontSize: template.template_data.fontSize }}
                     >
                       <div className="space-y-1">
-                        <div className="font-semibold" style={{ color: template.template_data.primaryColor }}>
+                        <div 
+                          className="font-semibold" 
+                          style={{ 
+                            color: template.template_data.layout === 'bold' ? '#ffffff' : template.template_data.primaryColor 
+                          }}
+                        >
                           Your Company
                         </div>
-                        <div className="opacity-70 text-[10px]">123 Business St, City</div>
+                        <div 
+                          className="text-[10px]"
+                          style={{ 
+                            color: template.template_data.layout === 'bold' ? '#e5e7eb' : 'rgba(0,0,0,0.7)' 
+                          }}
+                        >
+                          123 Business St, City
+                        </div>
                       </div>
                       <div className="space-y-1">
-                        <div className="font-semibold">Customer Name</div>
-                        <div className="opacity-70 text-[10px]">Phone: 9876543210</div>
+                        <div 
+                          className="font-semibold"
+                          style={{ 
+                            color: template.template_data.layout === 'bold' ? '#ffffff' : 'inherit'
+                          }}
+                        >
+                          Customer Name
+                        </div>
+                        <div 
+                          className="text-[10px]"
+                          style={{ 
+                            color: template.template_data.layout === 'bold' ? '#e5e7eb' : 'rgba(0,0,0,0.7)' 
+                          }}
+                        >
+                          Phone: 9876543210
+                        </div>
                       </div>
                     </div>
                     

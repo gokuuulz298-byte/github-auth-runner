@@ -197,6 +197,7 @@ const ManualBilling = () => {
             .from('products')
             .select('*')
             .eq('created_by', user.id)
+            .eq('is_deleted', false)
             .or(`name.ilike.%${searchTerm}%,barcode.ilike.%${searchTerm}%`)
             .limit(10);
 
