@@ -269,7 +269,7 @@ const Templates = () => {
                     <div 
                       className="font-bold text-lg mb-1"
                       style={{ 
-                        color: template.template_data.primaryColor,
+                        color: template.template_data.textColor || template.template_data.primaryColor,
                         fontSize: template.template_data.layout === 'compact' ? '14px' : '16px'
                       }}
                     >
@@ -278,7 +278,10 @@ const Templates = () => {
                     </div>
                     <div 
                       className="text-xs opacity-70"
-                      style={{ fontSize: template.template_data.fontSize }}
+                      style={{ 
+                        fontSize: template.template_data.fontSize,
+                        color: template.template_data.textColor || 'inherit'
+                      }}
                     >
                       INV-2024-001 | Date: {new Date().toLocaleDateString()}
                     </div>

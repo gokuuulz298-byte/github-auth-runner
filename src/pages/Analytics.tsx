@@ -156,6 +156,12 @@ const Analytics = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Fetch all products including deleted ones for historical calculations
+      const { data: allProducts } = await supabase
+        .from('products')
+        .select('*')
+        .eq('created_by', user.id);
+
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = subDays(new Date(), 6 - i);
         return {
@@ -189,7 +195,7 @@ const Analytics = () => {
         invoices?.forEach(invoice => {
           const items = invoice.items_data as any[];
           items.forEach((item: any) => {
-            const product = products.find(p => p.id === item.id);
+            const product = allProducts?.find(p => p.id === item.id);
             if (product && product.buying_price) {
               dayProfit += (item.price - product.buying_price) * item.quantity;
             }

@@ -105,7 +105,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
         <div className="mb-4 sm:mb-8 px-2">
           <h2 className="text-2xl sm:text-3xl font-bold mb-2">
             Welcome back{companyName ? `, ${companyName}` : ''}!

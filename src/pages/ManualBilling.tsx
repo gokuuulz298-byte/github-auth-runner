@@ -442,6 +442,7 @@ const ManualBilling = () => {
               customer_name: customerName,
               points: pointsEarned,
               total_spent: total,
+              created_by: user.id,
             }]);
         }
 

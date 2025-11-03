@@ -54,7 +54,10 @@ const Customers = () => {
         .select('*')
         .eq('created_by', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching loyalty data:", error);
+        return;
+      }
       
       const loyaltyMap: Record<string, any> = {};
       data?.forEach((loyalty) => {
@@ -62,7 +65,7 @@ const Customers = () => {
       });
       setLoyaltyData(loyaltyMap);
     } catch (error) {
-      console.error(error);
+      console.error("Unexpected error:", error);
     }
   };
 

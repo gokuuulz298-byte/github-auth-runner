@@ -116,7 +116,7 @@ const Counters = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
         <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
           <Card>
             <CardHeader className="px-4 sm:px-6">

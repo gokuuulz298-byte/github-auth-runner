@@ -87,7 +87,7 @@ const LowStocks = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6 overflow-x-hidden">
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
