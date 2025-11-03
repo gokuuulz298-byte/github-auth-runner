@@ -49,7 +49,8 @@ const Templates = () => {
         headerBg: "#1e293b",
         primaryColor: "#dc2626",
         fontSize: "13px",
-        layout: "bold"
+        layout: "bold",
+        textColor: "#ffffff"
       }
     },
     {
@@ -70,6 +71,56 @@ const Templates = () => {
         primaryColor: "#ea580c",
         fontSize: "10px",
         layout: "compact"
+      }
+    },
+    {
+      name: "Ocean Blue",
+      description: "Refreshing blue theme with modern gradients",
+      template_data: {
+        headerBg: "#dbeafe",
+        primaryColor: "#0284c7",
+        fontSize: "12px",
+        layout: "ocean"
+      }
+    },
+    {
+      name: "Warm Sunset",
+      description: "Warm orange gradient with friendly appeal",
+      template_data: {
+        headerBg: "#fed7aa",
+        primaryColor: "#c2410c",
+        fontSize: "12px",
+        layout: "sunset"
+      }
+    },
+    {
+      name: "Forest Green",
+      description: "Natural green palette with eco-friendly vibe",
+      template_data: {
+        headerBg: "#d1fae5",
+        primaryColor: "#065f46",
+        fontSize: "12px",
+        layout: "forest"
+      }
+    },
+    {
+      name: "Royal Purple",
+      description: "Premium purple design with luxury feel",
+      template_data: {
+        headerBg: "#e9d5ff",
+        primaryColor: "#6b21a8",
+        fontSize: "12px",
+        layout: "royal"
+      }
+    },
+    {
+      name: "Monochrome Pro",
+      description: "Sleek black and white professional design",
+      template_data: {
+        headerBg: "#f9fafb",
+        primaryColor: "#111827",
+        fontSize: "12px",
+        layout: "mono"
       }
     }
   ];
@@ -240,11 +291,11 @@ const Templates = () => {
                       className={`grid ${template.template_data.layout === 'compact' ? 'grid-cols-1 gap-1' : 'grid-cols-2 gap-2'} text-xs`}
                       style={{ fontSize: template.template_data.fontSize }}
                     >
-                      <div className="space-y-1">
+                    <div className="space-y-1">
                         <div 
                           className="font-semibold" 
                           style={{ 
-                            color: template.template_data.layout === 'bold' ? '#ffffff' : template.template_data.primaryColor 
+                            color: template.template_data.textColor || template.template_data.primaryColor 
                           }}
                         >
                           Your Company
@@ -252,7 +303,7 @@ const Templates = () => {
                         <div 
                           className="text-[10px]"
                           style={{ 
-                            color: template.template_data.layout === 'bold' ? '#e5e7eb' : 'rgba(0,0,0,0.7)' 
+                            color: template.template_data.textColor ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' 
                           }}
                         >
                           123 Business St, City
@@ -262,7 +313,7 @@ const Templates = () => {
                         <div 
                           className="font-semibold"
                           style={{ 
-                            color: template.template_data.layout === 'bold' ? '#ffffff' : 'inherit'
+                            color: template.template_data.textColor || 'inherit'
                           }}
                         >
                           Customer Name
@@ -270,7 +321,7 @@ const Templates = () => {
                         <div 
                           className="text-[10px]"
                           style={{ 
-                            color: template.template_data.layout === 'bold' ? '#e5e7eb' : 'rgba(0,0,0,0.7)' 
+                            color: template.template_data.textColor ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' 
                           }}
                         >
                           Phone: 9876543210

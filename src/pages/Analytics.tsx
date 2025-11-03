@@ -81,11 +81,11 @@ const Analytics = () => {
       
       const { data: invoices } = await query;
 
+      // Include deleted products for historical analytics data
       const { data: productsList } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id)
-        .eq('is_deleted', false);
+        .eq('created_by', user.id);
 
       const { data: customers } = await supabase
         .from('customers')
@@ -229,11 +229,11 @@ const Analytics = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Analytics & Reports</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Analytics & Reports</h1>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Counter Filter */}
         <Card>
           <CardHeader>
@@ -256,14 +256,14 @@ const Analytics = () => {
           </CardContent>
         </Card>
         {/* Overall Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalSales}</div>
+              <div className="text-xl sm:text-2xl font-bold">{stats.totalSales}</div>
               <p className="text-xs text-muted-foreground">All-time invoices</p>
             </CardContent>
           </Card>
@@ -274,7 +274,7 @@ const Analytics = () => {
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">₹{stats.totalRevenue.toFixed(2)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-green-600">₹{stats.totalRevenue.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">Total sales amount</p>
             </CardContent>
           </Card>
@@ -285,7 +285,7 @@ const Analytics = () => {
               <TrendingUp className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">₹{stats.totalProfit.toFixed(2)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-blue-600">₹{stats.totalProfit.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">Profit from all sales</p>
             </CardContent>
           </Card>
@@ -296,20 +296,20 @@ const Analytics = () => {
               <Package className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">₹{stats.totalTax.toFixed(2)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-orange-600">₹{stats.totalTax.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">Tax collected</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Weekly Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Last 7 Days Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={weeklyData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
@@ -327,7 +327,7 @@ const Analytics = () => {
               <CardTitle>Last 7 Days Profit</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={weeklyData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
@@ -353,27 +353,27 @@ const Analytics = () => {
                 type="date"
                 value={format(selectedDate, 'yyyy-MM-dd')}
                 onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                className="px-3 py-2 border rounded-md bg-background"
+                className="px-2 sm:px-3 py-1 sm:py-2 border rounded-md bg-background text-sm"
               />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
               <div className="p-4 bg-primary/5 rounded-lg">
                 <p className="text-sm text-muted-foreground">Bills</p>
-                <p className="text-2xl font-bold">{dailyInvoices.length}</p>
+                <p className="text-xl sm:text-2xl font-bold">{dailyInvoices.length}</p>
               </div>
               <div className="p-4 bg-green-500/5 rounded-lg">
                 <p className="text-sm text-muted-foreground">Revenue</p>
-                <p className="text-2xl font-bold text-green-600">₹{dailyRevenue.toFixed(2)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">₹{dailyRevenue.toFixed(2)}</p>
               </div>
               <div className="p-4 bg-blue-500/5 rounded-lg">
                 <p className="text-sm text-muted-foreground">Profit</p>
-                <p className="text-2xl font-bold text-blue-600">₹{dailyProfit.toFixed(2)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">₹{dailyProfit.toFixed(2)}</p>
               </div>
               <div className="p-4 bg-orange-500/5 rounded-lg">
                 <p className="text-sm text-muted-foreground">Tax</p>
-                <p className="text-2xl font-bold text-orange-600">₹{dailyTax.toFixed(2)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">₹{dailyTax.toFixed(2)}</p>
               </div>
             </div>
 
@@ -395,10 +395,10 @@ const Analytics = () => {
                   const hasProductDiscount = items.some(item => item.discountInfo);
 
                   return (
-                    <div key={invoice.id} className="p-3 bg-muted/30 rounded-lg flex justify-between items-center">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{invoice.bill_number}</p>
+                    <div key={invoice.id} className="p-2 sm:p-3 bg-muted/30 rounded-lg flex flex-col sm:flex-row justify-between gap-2 sm:items-center">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                          <p className="font-medium text-sm sm:text-base truncate">{invoice.bill_number}</p>
                           {hasDiscount && (
                             <span className="text-xs bg-orange-500/20 text-orange-700 px-2 py-0.5 rounded">
                               Coupon Applied
@@ -410,13 +410,13 @@ const Analytics = () => {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           {invoice.customer_name || 'Walk-in'} • {format(new Date(invoice.created_at), 'hh:mm a')}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">₹{parseFloat(invoice.total_amount.toString()).toFixed(2)}</p>
-                        <p className="text-sm text-blue-600">Profit: ₹{invoiceProfit.toFixed(2)}</p>
+                      <div className="text-left sm:text-right shrink-0">
+                        <p className="font-bold text-green-600 text-sm sm:text-base">₹{parseFloat(invoice.total_amount.toString()).toFixed(2)}</p>
+                        <p className="text-xs sm:text-sm text-blue-600">Profit: ₹{invoiceProfit.toFixed(2)}</p>
                         <p className="text-xs text-muted-foreground">
                           Tax: ₹{parseFloat(invoice.tax_amount.toString()).toFixed(2)}
                           {hasDiscount && ` • Disc: ₹${parseFloat(invoice.discount_amount.toString()).toFixed(2)}`}
