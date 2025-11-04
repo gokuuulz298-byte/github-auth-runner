@@ -16,6 +16,7 @@ const Dashboard = () => {
 
   const menuItems = [
     { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", color: "from-purple-500 to-pink-500" },
+    { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", color: "from-blue-500 to-indigo-500" },
     { icon: Package, label: "Inventory", path: "/inventory", color: "from-green-500 to-emerald-500" },
     { icon: AlertTriangle, label: "Low Stocks", path: "/low-stocks", color: "from-yellow-500 to-orange-500" },
     { icon: FileText, label: "Invoices", path: "/invoices", color: "from-orange-500 to-amber-500" },
@@ -127,6 +128,7 @@ const Dashboard = () => {
                 <CardTitle className="text-sm sm:text-base md:text-lg">{item.label}</CardTitle>
                 <CardDescription className="hidden sm:block text-xs sm:text-sm">
                   {item.label === "Manual Billing" && "Create bills by searching products"}
+                  {item.label === "Modern Billing" && "Visual product grid with categories"}
                   {item.label === "Inventory" && "Manage your product catalog"}
                   {item.label === "Low Stocks" && "Monitor products with low inventory"}
                   {item.label === "Invoices" && "View billing history"}
@@ -144,6 +146,7 @@ const Dashboard = () => {
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 hidden md:block">
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   {item.label === "Manual Billing" && "Search and add products to create bills quickly"}
+                  {item.label === "Modern Billing" && "Browse products by category with images"}
                   {item.label === "Inventory" && "Add, edit, and track your product inventory"}
                   {item.label === "Low Stocks" && "Get alerts for products running out of stock"}
                   {item.label === "Invoices" && "Access past invoices and sales records"}

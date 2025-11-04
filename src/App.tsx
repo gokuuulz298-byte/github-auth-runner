@@ -20,6 +20,7 @@ import Coupons from "./pages/Coupons";
 import LimitedDiscounts from "./pages/LimitedDiscounts";
 import Barcodes from "./pages/Barcodes";
 import Templates from "./pages/Templates";
+import ModernBilling from "./pages/ModernBilling";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/manual-billing" element={<ManualBilling />} />
+        <Route path="/modern-billing" element={<ModernBilling />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/low-stocks" element={<LowStocks />} />
         <Route path="/invoices" element={<Invoices />} />

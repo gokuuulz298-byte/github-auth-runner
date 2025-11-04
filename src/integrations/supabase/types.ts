@@ -392,6 +392,7 @@ export type Database = {
           created_by: string | null
           hsn_code: string | null
           id: string
+          image_url: string | null
           is_deleted: boolean | null
           name: string
           price: number
@@ -412,6 +413,7 @@ export type Database = {
           created_by?: string | null
           hsn_code?: string | null
           id?: string
+          image_url?: string | null
           is_deleted?: boolean | null
           name: string
           price: number
@@ -432,6 +434,7 @@ export type Database = {
           created_by?: string | null
           hsn_code?: string | null
           id?: string
+          image_url?: string | null
           is_deleted?: boolean | null
           name?: string
           price?: number

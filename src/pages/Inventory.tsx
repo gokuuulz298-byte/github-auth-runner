@@ -48,6 +48,7 @@ const Inventory = () => {
     category: "",
     price_type: "fixed",
     unit: "piece",
+    image_url: "",
   });
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedBarcode, setSelectedBarcode] = useState("");
@@ -191,6 +192,7 @@ const Inventory = () => {
         category: formData.category || null,
         price_type: formData.price_type,
         unit: formData.unit,
+        image_url: formData.image_url || null,
         created_by: user.id,
       };
 
@@ -250,6 +252,7 @@ const Inventory = () => {
       category: product.category || "",
       price_type: product.price_type || "fixed",
       unit: (product as any).unit || "piece",
+      image_url: (product as any).image_url || "",
     });
     setSelectedBarcode(product.barcode);
     setDialogOpen(true);
@@ -301,9 +304,10 @@ const Inventory = () => {
       category: "",
       price_type: "fixed",
       unit: "piece",
+      image_url: "",
     });
-    setSelectedBarcode("");
     setEditingProduct(null);
+    setSelectedBarcode("");
   };
 
   const fetchHsnGst = async (hsnCode: string) => {
@@ -408,6 +412,19 @@ const Inventory = () => {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="image_url">Product Image URL</Label>
+                  <Input
+                    id="image_url"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Optional: Paste image URL for modern billing view
+                  </p>
                 </div>
 
                 <div>

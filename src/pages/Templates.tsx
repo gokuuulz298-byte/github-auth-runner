@@ -122,6 +122,57 @@ const Templates = () => {
         fontSize: "12px",
         layout: "mono"
       }
+    },
+    {
+      name: "Midnight Blue",
+      description: "Deep blue design with premium metallic accents",
+      template_data: {
+        headerBg: "#1e3a8a",
+        primaryColor: "#3b82f6",
+        fontSize: "12px",
+        layout: "midnight",
+        textColor: "#ffffff"
+      }
+    },
+    {
+      name: "Rose Gold",
+      description: "Elegant rose gold palette with sophisticated charm",
+      template_data: {
+        headerBg: "#fce7f3",
+        primaryColor: "#be185d",
+        fontSize: "12px",
+        layout: "rosegold"
+      }
+    },
+    {
+      name: "Teal Modern",
+      description: "Contemporary teal design with clean lines",
+      template_data: {
+        headerBg: "#ccfbf1",
+        primaryColor: "#0f766e",
+        fontSize: "12px",
+        layout: "teal"
+      }
+    },
+    {
+      name: "Slate Corporate",
+      description: "Professional slate grey with business appeal",
+      template_data: {
+        headerBg: "#e2e8f0",
+        primaryColor: "#475569",
+        fontSize: "12px",
+        layout: "slate"
+      }
+    },
+    {
+      name: "Amber Warmth",
+      description: "Inviting amber tones with warm personality",
+      template_data: {
+        headerBg: "#fef3c7",
+        primaryColor: "#d97706",
+        fontSize: "12px",
+        layout: "amber"
+      }
     }
   ];
 
