@@ -415,15 +415,32 @@ const Inventory = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="image_url">Product Image URL</Label>
+                  <Label htmlFor="image">Product Image (Max 2MB)</Label>
                   <Input
-                    id="image_url"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                    placeholder="https://example.com/image.jpg"
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast.error("Image size must be less than 2MB");
+                          e.target.value = "";
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData({ ...formData, image_url: reader.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
+                  {formData.image_url && (
+                    <img src={formData.image_url} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Optional: Paste image URL for modern billing view
+                    Optional: Upload image for modern billing view
                   </p>
                 </div>
 

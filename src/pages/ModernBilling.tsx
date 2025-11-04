@@ -12,6 +12,7 @@ import { formatIndianNumber } from "@/lib/numberFormat";
 import { setCounterSession, getCounterSession } from "@/lib/counterSession";
 import { saveInvoiceToIndexedDB } from "@/lib/indexedDB";
 import jsPDF from "jspdf";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ModernBilling = () => {
   const navigate = useNavigate();
@@ -31,6 +32,9 @@ const ModernBilling = () => {
   const [productDiscounts, setProductDiscounts] = useState<any[]>([]);
   const [activeTemplate, setActiveTemplate] = useState<any>(null);
   const [intraStateTrade, setIntraStateTrade] = useState<boolean>(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [productQuantities, setProductQuantities] = useState<{ [key: string]: number }>({});
 
   // Initialize counter session
   useEffect(() => {
@@ -48,6 +52,7 @@ const ModernBilling = () => {
     fetchCoupons();
     fetchProductDiscounts();
     fetchActiveTemplate();
+    fetchTemplates();
   }, []);
 
   // Fetch products when category changes
@@ -192,7 +197,28 @@ const ModernBilling = () => {
     }
   };
 
-  const handleAddToCart = (product: any) => {
+  const fetchTemplates = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('bill_templates')
+        .select('*')
+        .eq('created_by', user.id)
+        .order('name');
+
+      if (error) throw error;
+      setTemplates(data || []);
+      if (data && data.length > 0) {
+        setSelectedTemplate(data[0].id);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleAddToCart = (product: any, quantity: number = 1) => {
     const discount = productDiscounts.find(
       d => d.product_id === product.id && 
       new Date(d.start_date) <= new Date() && 
@@ -206,7 +232,7 @@ const ModernBilling = () => {
     if (existingItem) {
       setCartItems(cartItems.map(item =>
         item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: item.quantity + quantity }
           : item
       ));
     } else {
@@ -214,7 +240,7 @@ const ModernBilling = () => {
         id: product.id,
         name: product.name,
         price: priceAfterDiscount,
-        quantity: 1,
+        quantity: quantity,
         tax_rate: 0,
         cgst: Number(product.cgst) || 0,
         sgst: Number(product.sgst) || 0,
@@ -224,6 +250,7 @@ const ModernBilling = () => {
       setCartItems([...cartItems, newItem]);
     }
     toast.success(`${product.name} added to cart`);
+    setProductQuantities({ ...productQuantities, [product.id]: 1 });
   };
 
   const handleUpdateQuantity = (id: string, newQuantity: number) => {
@@ -371,6 +398,9 @@ const ModernBilling = () => {
         }
       }
 
+      // Generate and download PDF
+      await generatePDF(billNumber, totals);
+
       toast.success("Sale completed successfully!");
       
       // Reset form
@@ -379,10 +409,87 @@ const ModernBilling = () => {
       setCustomerPhone("");
       setSelectedCoupon("");
       setAdditionalGstRate("");
+      setProductQuantities({});
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "Failed to complete sale");
     }
+  };
+
+  const generatePDF = async (billNumber: string, totals: any) => {
+    const template = templates.find(t => t.id === selectedTemplate) || templates[0];
+    if (!template) return;
+
+    const doc = new jsPDF();
+    const templateData = template.template_data;
+
+    // Background
+    if (templateData.background) {
+      doc.setFillColor(templateData.background);
+      doc.rect(0, 0, 210, 297, 'F');
+    }
+
+    // Header
+    doc.setFontSize(24);
+    doc.setTextColor(templateData.headerText || '#000000');
+    doc.text(companyProfile?.company_name || 'Company Name', 105, 20, { align: 'center' });
+
+    // Company details
+    doc.setFontSize(10);
+    doc.setTextColor(templateData.textColor || '#000000');
+    if (companyProfile?.address) doc.text(companyProfile.address, 105, 30, { align: 'center' });
+    if (companyProfile?.phone) doc.text(`Phone: ${companyProfile.phone}`, 105, 35, { align: 'center' });
+    if (companyProfile?.email) doc.text(`Email: ${companyProfile.email}`, 105, 40, { align: 'center' });
+    if (companyProfile?.gstin) doc.text(`GSTIN: ${companyProfile.gstin}`, 105, 45, { align: 'center' });
+
+    // Invoice details
+    doc.setFontSize(12);
+    doc.text(`Invoice: ${billNumber}`, 20, 60);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 65);
+    if (customerName) doc.text(`Customer: ${customerName}`, 20, 70);
+    if (customerPhone) doc.text(`Phone: ${customerPhone}`, 20, 75);
+
+    // Items table
+    let yPos = 90;
+    doc.setFontSize(10);
+    doc.text('Item', 20, yPos);
+    doc.text('Qty', 120, yPos);
+    doc.text('Price', 145, yPos);
+    doc.text('Total', 170, yPos);
+    
+    yPos += 7;
+    cartItems.forEach(item => {
+      doc.text(item.name, 20, yPos);
+      doc.text(item.quantity.toString(), 120, yPos);
+      doc.text(`₹${formatIndianNumber(Number(item.price.toFixed(2)))}`, 145, yPos);
+      doc.text(`₹${formatIndianNumber(Number((item.price * item.quantity).toFixed(2)))}`, 170, yPos);
+      yPos += 7;
+    });
+
+    // Totals
+    yPos += 10;
+    doc.text(`Subtotal: ₹${formatIndianNumber(Number(totals.subtotal.toFixed(2)))}`, 145, yPos);
+    yPos += 7;
+    doc.text(`Product Tax: ₹${formatIndianNumber(Number(totals.productTaxAmount.toFixed(2)))}`, 145, yPos);
+    yPos += 7;
+    if (totals.couponDiscountAmount > 0) {
+      doc.text(`Discount: -₹${formatIndianNumber(Number(totals.couponDiscountAmount.toFixed(2)))}`, 145, yPos);
+      yPos += 7;
+    }
+    if (totals.additionalTaxAmount > 0) {
+      doc.text(`Additional Tax: ₹${formatIndianNumber(Number(totals.additionalTaxAmount.toFixed(2)))}`, 145, yPos);
+      yPos += 7;
+    }
+    doc.setFontSize(12);
+    doc.text(`Total: ₹${formatIndianNumber(Number(totals.total.toFixed(2)))}`, 145, yPos);
+
+    // Footer
+    if (companyProfile?.thank_you_note) {
+      doc.setFontSize(10);
+      doc.text(companyProfile.thank_you_note, 105, 280, { align: 'center' });
+    }
+
+    doc.save(`${billNumber}.pdf`);
   };
 
   const totals = calculateTotals();
@@ -390,11 +497,27 @@ const ModernBilling = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex flex-col">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl sm:text-2xl font-bold">Modern Billing</h1>
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl sm:text-2xl font-bold">Modern Billing</h1>
+          </div>
+          <div className="w-48">
+            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Template" />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </header>
 
@@ -431,8 +554,7 @@ const ModernBilling = () => {
                   {products.map((product) => (
                     <Card
                       key={product.id}
-                      className="cursor-pointer hover:shadow-lg transition-shadow overflow-hidden"
-                      onClick={() => handleAddToCart(product)}
+                      className="hover:shadow-lg transition-shadow overflow-hidden"
                     >
                       <div className="aspect-square bg-muted relative overflow-hidden">
                         {product.image_url ? (
@@ -447,7 +569,7 @@ const ModernBilling = () => {
                           </div>
                         )}
                       </div>
-                      <CardContent className="p-2 sm:p-3">
+                      <CardContent className="p-2 sm:p-3 space-y-2">
                         <h3 className="font-semibold text-xs sm:text-sm truncate">{product.name}</h3>
                         <p className="text-primary font-bold text-sm sm:text-base">
                           ₹{formatIndianNumber(product.price)}
@@ -457,6 +579,25 @@ const ModernBilling = () => {
                             Stock: {product.stock_quantity}
                           </p>
                         )}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={productQuantities[product.id] || 1}
+                            onChange={(e) => setProductQuantities({
+                              ...productQuantities,
+                              [product.id]: parseInt(e.target.value) || 1
+                            })}
+                            className="h-8 text-xs"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
+                            className="flex-shrink-0"
+                          >
+                            Add
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -509,65 +650,8 @@ const ModernBilling = () => {
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="coupon">Apply Coupon</Label>
-                <select
-                  id="coupon"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2"
-                  value={selectedCoupon}
-                  onChange={(e) => setSelectedCoupon(e.target.value)}
-                >
-                  <option value="">No Coupon</option>
-                  {coupons.map((coupon) => (
-                    <option key={coupon.id} value={coupon.id}>
-                      {coupon.code} - {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `₹${coupon.discount_value}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="gst">Additional GST %</Label>
-                <Input
-                  id="gst"
-                  type="number"
-                  value={additionalGstRate}
-                  onChange={(e) => setAdditionalGstRate(e.target.value)}
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>₹{formatIndianNumber(Number(totals.subtotal.toFixed(2)))}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Product Tax:</span>
-                    <span>₹{formatIndianNumber(Number(totals.productTaxAmount.toFixed(2)))}</span>
-                  </div>
-                  {totals.couponDiscountAmount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Coupon Discount:</span>
-                      <span>-₹{formatIndianNumber(Number(totals.couponDiscountAmount.toFixed(2)))}</span>
-                    </div>
-                  )}
-                  {totals.additionalTaxAmount > 0 && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Additional Tax:</span>
-                      <span>₹{formatIndianNumber(Number(totals.additionalTaxAmount.toFixed(2)))}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-lg border-t pt-2">
-                    <span>Total:</span>
-                    <span>₹{formatIndianNumber(Number(totals.total.toFixed(2)))}</span>
-                  </div>
-                </div>
-              </div>
-
               {/* Cart Items */}
-              <div className="border-t pt-4 space-y-2 max-h-64 overflow-y-auto">
+              <div className="border-t pt-4 space-y-2 max-h-48 overflow-y-auto">
                 <h3 className="font-semibold">Cart Items ({cartItems.length})</h3>
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
@@ -598,6 +682,86 @@ const ModernBilling = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>₹{formatIndianNumber(Number(totals.subtotal.toFixed(2)))}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Product Tax (CGST + SGST):</span>
+                    <span>₹{formatIndianNumber(Number(totals.productTaxAmount.toFixed(2)))}</span>
+                  </div>
+                  {cartItems.length > 0 && (
+                    <div className="pl-4 space-y-1 text-xs">
+                      {cartItems.map(item => {
+                        const itemTotal = item.price * item.quantity;
+                        const cgst = (itemTotal * item.cgst) / 100;
+                        const sgst = (itemTotal * item.sgst) / 100;
+                        if (cgst > 0 || sgst > 0) {
+                          return (
+                            <div key={item.id} className="flex justify-between text-muted-foreground">
+                              <span>{item.name}:</span>
+                              <span>CGST: ₹{cgst.toFixed(2)} | SGST: ₹{sgst.toFixed(2)}</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  )}
+                  <div className="flex justify-between font-semibold border-t pt-2">
+                    <span>Total:</span>
+                    <span>₹{formatIndianNumber(Number(totals.subtotalWithProductTax.toFixed(2)))}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="coupon">Apply Coupon</Label>
+                <select
+                  id="coupon"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                  value={selectedCoupon}
+                  onChange={(e) => setSelectedCoupon(e.target.value)}
+                >
+                  <option value="">No Coupon</option>
+                  {coupons.map((coupon) => (
+                    <option key={coupon.id} value={coupon.id}>
+                      {coupon.code} - {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `₹${coupon.discount_value}`}
+                    </option>
+                  ))}
+                </select>
+                {totals.couponDiscountAmount > 0 && (
+                  <p className="text-xs text-green-600">
+                    Discount: -₹{formatIndianNumber(Number(totals.couponDiscountAmount.toFixed(2)))}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="gst">Apply Additional GST %</Label>
+                <Input
+                  id="gst"
+                  type="number"
+                  value={additionalGstRate}
+                  onChange={(e) => setAdditionalGstRate(e.target.value)}
+                  placeholder="0"
+                />
+                {totals.additionalTaxAmount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Additional Tax: ₹{formatIndianNumber(Number(totals.additionalTaxAmount.toFixed(2)))}
+                  </p>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Grand Total:</span>
+                  <span>₹{formatIndianNumber(Number(totals.total.toFixed(2)))}</span>
+                </div>
               </div>
 
               <Button
