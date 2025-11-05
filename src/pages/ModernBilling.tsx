@@ -32,8 +32,7 @@ const ModernBilling = () => {
   const [productDiscounts, setProductDiscounts] = useState<any[]>([]);
   const [activeTemplate, setActiveTemplate] = useState<any>(null);
   const [intraStateTrade, setIntraStateTrade] = useState<boolean>(false);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [invoiceFormat, setInvoiceFormat] = useState<"thermal" | "a4">("thermal");
   const [productQuantities, setProductQuantities] = useState<{ [key: string]: number }>({});
 
   // Initialize counter session
@@ -52,7 +51,6 @@ const ModernBilling = () => {
     fetchCoupons();
     fetchProductDiscounts();
     fetchActiveTemplate();
-    fetchTemplates();
   }, []);
 
   // Fetch products when category changes
@@ -197,26 +195,6 @@ const ModernBilling = () => {
     }
   };
 
-  const fetchTemplates = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('bill_templates')
-        .select('*')
-        .eq('created_by', user.id)
-        .order('name');
-
-      if (error) throw error;
-      setTemplates(data || []);
-      if (data && data.length > 0) {
-        setSelectedTemplate(data[0].id);
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const handleAddToCart = (product: any, quantity: number = 1) => {
     const discount = productDiscounts.find(
@@ -273,13 +251,27 @@ const ModernBilling = () => {
       return sum + (item.price * item.quantity);
     }, 0);
 
-    const productTaxAmount = cartItems.reduce((sum, item) => {
+    // Calculate taxes based on trade type
+    const productIGST = cartItems.reduce((sum, item) => {
       const itemTotal = item.price * item.quantity;
-      const cgst = (itemTotal * item.cgst) / 100;
-      const sgst = (itemTotal * item.sgst) / 100;
-      return sum + cgst + sgst;
+      const igstRate = item.igst || 0;
+      return sum + (itemTotal * igstRate / 100);
     }, 0);
-
+    
+    const productSGST = cartItems.reduce((sum, item) => {
+      const itemTotal = item.price * item.quantity;
+      const sgstRate = item.sgst || 0;
+      return sum + (itemTotal * sgstRate / 100);
+    }, 0);
+    
+    const productCGST = cartItems.reduce((sum, item) => {
+      const itemTotal = item.price * item.quantity;
+      const cgstRate = item.cgst || 0;
+      return sum + (itemTotal * cgstRate / 100);
+    }, 0);
+    
+    const productTaxAmount = intraStateTrade ? productIGST : (productSGST + productCGST);
+    
     const subtotalWithProductTax = subtotal + productTaxAmount;
 
     const coupon = coupons.find(c => c.id === selectedCoupon);
@@ -294,19 +286,34 @@ const ModernBilling = () => {
 
     const afterCouponDiscount = subtotalWithProductTax - couponDiscountAmount;
 
-    const additionalTaxAmount = additionalGstRate 
-      ? (afterCouponDiscount * Number(additionalGstRate)) / 100 
-      : 0;
-
-    const total = afterCouponDiscount + additionalTaxAmount;
+    // Calculate additional GST if provided
+    const additionalGstRateNum = parseFloat(additionalGstRate) || 0;
+    const additionalGstAmount = additionalGstRateNum > 0 ? (afterCouponDiscount * additionalGstRateNum / 100) : 0;
+    const additionalSGST = intraStateTrade ? 0 : (additionalGstAmount / 2);
+    const additionalCGST = intraStateTrade ? 0 : (additionalGstAmount / 2);
+    
+    const totalSGST = productSGST + additionalSGST;
+    const totalCGST = productCGST + additionalCGST;
+    const totalIGST = productIGST;
+    const taxAmount = productTaxAmount + additionalGstAmount;
+    const total = afterCouponDiscount + additionalGstAmount;
 
     return {
       subtotal,
       productTaxAmount,
+      productSGST,
+      productCGST,
+      productIGST,
       subtotalWithProductTax,
       couponDiscountAmount,
       afterCouponDiscount,
-      additionalTaxAmount,
+      additionalTaxAmount: additionalGstAmount,
+      additionalSGST,
+      additionalCGST,
+      totalSGST,
+      totalCGST,
+      totalIGST,
+      taxAmount,
       total
     };
   };
@@ -398,8 +405,19 @@ const ModernBilling = () => {
         }
       }
 
-      // Generate and download PDF
-      await generatePDF(billNumber, totals);
+      // Calculate required height based on content
+      const headerHeight = 45;
+      const itemsHeight = cartItems.length * 5 + 15;
+      const totalsHeight = (totals.couponDiscountAmount > 0 ? 4 : 0) + (additionalGstRate ? 4 : 0) + 30;
+      const footerHeight = 15;
+      const requiredHeight = headerHeight + itemsHeight + totalsHeight + footerHeight + 10;
+      
+      // Generate PDF based on selected format
+      if (invoiceFormat === 'a4') {
+        generateA4Invoice(billNumber, totals.subtotal, totals.productSGST, totals.productCGST, totals.productIGST, totals.couponDiscountAmount, totals.additionalSGST, totals.additionalCGST, totals.totalSGST, totals.totalCGST, totals.totalIGST, totals.taxAmount, totals.total);
+      } else {
+        generateThermalInvoice(billNumber, totals.subtotal, totals.productTaxAmount, totals.productIGST, totals.couponDiscountAmount, totals.additionalTaxAmount, totals.taxAmount, totals.total, requiredHeight);
+      }
 
       toast.success("Sale completed successfully!");
       
@@ -416,79 +434,455 @@ const ModernBilling = () => {
     }
   };
 
-  const generatePDF = async (billNumber: string, totals: any) => {
-    const template = templates.find(t => t.id === selectedTemplate) || templates[0];
-    if (!template) return;
-
-    const doc = new jsPDF();
-    const templateData = template.template_data;
-
-    // Background
-    if (templateData.background) {
-      doc.setFillColor(templateData.background);
-      doc.rect(0, 0, 210, 297, 'F');
-    }
-
-    // Header
-    doc.setFontSize(24);
-    doc.setTextColor(templateData.headerText || '#000000');
-    doc.text(companyProfile?.company_name || 'Company Name', 105, 20, { align: 'center' });
-
-    // Company details
-    doc.setFontSize(10);
-    doc.setTextColor(templateData.textColor || '#000000');
-    if (companyProfile?.address) doc.text(companyProfile.address, 105, 30, { align: 'center' });
-    if (companyProfile?.phone) doc.text(`Phone: ${companyProfile.phone}`, 105, 35, { align: 'center' });
-    if (companyProfile?.email) doc.text(`Email: ${companyProfile.email}`, 105, 40, { align: 'center' });
-    if (companyProfile?.gstin) doc.text(`GSTIN: ${companyProfile.gstin}`, 105, 45, { align: 'center' });
-
-    // Invoice details
-    doc.setFontSize(12);
-    doc.text(`Invoice: ${billNumber}`, 20, 60);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 65);
-    if (customerName) doc.text(`Customer: ${customerName}`, 20, 70);
-    if (customerPhone) doc.text(`Phone: ${customerPhone}`, 20, 75);
-
-    // Items table
-    let yPos = 90;
-    doc.setFontSize(10);
-    doc.text('Item', 20, yPos);
-    doc.text('Qty', 120, yPos);
-    doc.text('Price', 145, yPos);
-    doc.text('Total', 170, yPos);
-    
-    yPos += 7;
-    cartItems.forEach(item => {
-      doc.text(item.name, 20, yPos);
-      doc.text(item.quantity.toString(), 120, yPos);
-      doc.text(`₹${formatIndianNumber(Number(item.price.toFixed(2)))}`, 145, yPos);
-      doc.text(`₹${formatIndianNumber(Number((item.price * item.quantity).toFixed(2)))}`, 170, yPos);
-      yPos += 7;
+  const generateThermalInvoice = (
+    billNumber: string,
+    subtotal: number,
+    productTaxAmount: number,
+    productIGST: number,
+    couponDiscount: number,
+    additionalGstAmount: number,
+    taxAmount: number,
+    total: number,
+    requiredHeight: number
+  ) => {
+    const doc = new jsPDF({
+      unit: 'mm',
+      format: [80, Math.max(requiredHeight, 100)]
     });
-
-    // Totals
-    yPos += 10;
-    doc.text(`Subtotal: ₹${formatIndianNumber(Number(totals.subtotal.toFixed(2)))}`, 145, yPos);
-    yPos += 7;
-    doc.text(`Product Tax: ₹${formatIndianNumber(Number(totals.productTaxAmount.toFixed(2)))}`, 145, yPos);
-    yPos += 7;
-    if (totals.couponDiscountAmount > 0) {
-      doc.text(`Discount: -₹${formatIndianNumber(Number(totals.couponDiscountAmount.toFixed(2)))}`, 145, yPos);
-      yPos += 7;
+    
+    const pageWidth = 80;
+    const centerX = pageWidth / 2;
+    const leftMargin = 5;
+    const rightMargin = 75;
+    
+    let currentY = 10;
+    if (companyProfile) {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
+      
+      doc.setFontSize(8);
+      doc.setFont(undefined, 'normal');
+      currentY += 5;
+      if (companyProfile.address) {
+        doc.text(companyProfile.address, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
+      if (companyProfile.city || companyProfile.state || companyProfile.pincode) {
+        const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
+        doc.text(location, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
+      if (companyProfile.phone) {
+        doc.text(`Ph: ${companyProfile.phone}`, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
+      if (companyProfile.gstin) {
+        doc.text(`GSTIN: ${companyProfile.gstin}`, centerX, currentY, { align: "center" });
+        currentY += 4;
+      }
     }
-    if (totals.additionalTaxAmount > 0) {
-      doc.text(`Additional Tax: ₹${formatIndianNumber(Number(totals.additionalTaxAmount.toFixed(2)))}`, 145, yPos);
-      yPos += 7;
+    
+    currentY += 2;
+    doc.setLineWidth(0.3);
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 5;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text("INVOICE", centerX, currentY, { align: "center" });
+    
+    currentY += 5;
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Bill: ${billNumber}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin, currentY);
+    
+    currentY += 5;
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 4;
+    doc.text(`Customer: ${customerName}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Phone: ${customerPhone}`, leftMargin, currentY);
+    currentY += 4;
+    if (loyaltyPoints > 0) {
+      doc.text(`Loyalty Points: ${loyaltyPoints}`, leftMargin, currentY);
+      currentY += 4;
     }
-    doc.setFontSize(12);
-    doc.text(`Total: ₹${formatIndianNumber(Number(totals.total.toFixed(2)))}`, 145, yPos);
-
-    // Footer
-    if (companyProfile?.thank_you_note) {
-      doc.setFontSize(10);
-      doc.text(companyProfile.thank_you_note, 105, 280, { align: 'center' });
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 5;
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(7);
+    doc.text("Item", leftMargin, currentY);
+    doc.text("Qty", 45, currentY);
+    doc.text("Rate", 55, currentY);
+    doc.text("Amt", rightMargin, currentY, { align: "right" });
+    
+    currentY += 3;
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 4;
+    doc.setFont(undefined, 'normal');
+    cartItems.forEach(item => {
+      const itemName = item.name.length > 18 ? item.name.substring(0, 18) + '...' : item.name;
+      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)}kg` : item.quantity.toString();
+      
+      doc.text(itemName, leftMargin, currentY);
+      doc.text(qtyLabel, 43, currentY);
+      doc.text(formatIndianNumber(item.price), 53, currentY);
+      doc.text(formatIndianNumber(item.price * item.quantity), rightMargin - 2, currentY, { align: "right" });
+      currentY += 4.5;
+    });
+    
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 4;
+    
+    doc.setFontSize(8);
+    doc.text("Subtotal:", leftMargin, currentY);
+    doc.text(formatIndianNumber(subtotal), rightMargin - 2, currentY, { align: "right" });
+    currentY += 4;
+    
+    if (productTaxAmount > 0) {
+      doc.text("Tax:", leftMargin, currentY);
+      doc.text(formatIndianNumber(productTaxAmount), rightMargin - 2, currentY, { align: "right" });
+      currentY += 4;
     }
+    
+    if (couponDiscount > 0) {
+      doc.text("Discount:", leftMargin, currentY);
+      doc.text(`-${formatIndianNumber(couponDiscount)}`, rightMargin - 2, currentY, { align: "right" });
+      currentY += 4;
+    }
+    
+    if (additionalGstAmount > 0) {
+      doc.text("Add. Tax:", leftMargin, currentY);
+      doc.text(formatIndianNumber(additionalGstAmount), rightMargin - 2, currentY, { align: "right" });
+      currentY += 4;
+    }
+    
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 4;
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(10);
+    doc.text("TOTAL:", leftMargin, currentY);
+    doc.text("Rs. " + formatIndianNumber(total, 2), rightMargin - 2, currentY, { align: "right" });
+    
+    currentY += 8;
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    currentY += 5;
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(8);
+    const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
+    doc.text(thankYouNote, centerX, currentY, { align: "center" });
+    
+    doc.save(`${billNumber}.pdf`);
+  };
 
+  const generateA4Invoice = (
+    billNumber: string,
+    subtotal: number,
+    productSGST: number,
+    productCGST: number,
+    productIGST: number,
+    couponDiscount: number,
+    additionalSGST: number,
+    additionalCGST: number,
+    totalSGST: number,
+    totalCGST: number,
+    totalIGST: number,
+    taxAmount: number,
+    total: number
+  ) => {
+    const doc = new jsPDF({
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait'
+    });
+    
+    const pageWidth = 210;
+    const leftMargin = 15;
+    const rightMargin = 195;
+    const centerX = pageWidth / 2;
+    
+    // Helper function to convert hex to RGB
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 41, g: 128, b: 185 }; // Default blue
+    };
+    
+    // Use template colors or defaults
+    const primaryColor = activeTemplate?.template_data?.primaryColor 
+      ? hexToRgb(activeTemplate.template_data.primaryColor)
+      : { r: 41, g: 128, b: 185 };
+    
+    const headerBgColor = activeTemplate?.template_data?.headerBg 
+      ? hexToRgb(activeTemplate.template_data.headerBg)
+      : { r: 248, g: 250, b: 252 };
+    
+    // Header with template styling - larger and more professional
+    let currentY = 25;
+    const headerHeight = 55;
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.rect(0, 0, pageWidth, headerHeight, 'F');
+    
+    // Add gradient effect (lighter shade at bottom)
+    doc.setFillColor(
+      Math.min(255, primaryColor.r + 15),
+      Math.min(255, primaryColor.g + 15),
+      Math.min(255, primaryColor.b + 15)
+    );
+    doc.rect(0, headerHeight - 8, pageWidth, 8, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(32);
+    doc.setFont(undefined, 'bold');
+    if (companyProfile) {
+      doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
+      
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'normal');
+      currentY += 10;
+      if (companyProfile.address) {
+        doc.text(companyProfile.address, centerX, currentY, { align: "center" });
+        currentY += 6;
+      }
+      const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
+      if (location) {
+        doc.text(location, centerX, currentY, { align: "center" });
+        currentY += 6;
+      }
+      if (companyProfile.phone || companyProfile.gstin) {
+        const contact = [
+          companyProfile.phone ? `Ph: ${companyProfile.phone}` : '',
+          companyProfile.gstin ? `GSTIN: ${companyProfile.gstin}` : ''
+        ].filter(Boolean).join(' | ');
+        doc.text(contact, centerX, currentY, { align: "center" });
+      }
+    }
+    
+    currentY = headerHeight + 15;
+    
+    // Professional invoice title with light background
+    doc.setFillColor(250, 251, 252);
+    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 18, 'F');
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setLineWidth(0.5);
+    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 18);
+    
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(22);
+    doc.setFont(undefined, 'bold');
+    doc.text("TAX INVOICE", centerX, currentY + 12, { align: "center" });
+    
+    currentY += 25;
+    const boxY = currentY;
+    
+    // Info boxes with template colors
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setLineWidth(0.5);
+    doc.setFillColor(headerBgColor.r, headerBgColor.g, headerBgColor.b);
+    doc.rect(leftMargin, boxY, 85, 32, 'FD');
+    
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.text("Invoice Details", leftMargin + 3, boxY + 7);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Bill No: ${billNumber}`, leftMargin + 3, boxY + 14);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin + 3, boxY + 20);
+    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin + 3, boxY + 26);
+    
+    doc.setFillColor(headerBgColor.r, headerBgColor.g, headerBgColor.b);
+    doc.rect(110, boxY, 85, 32, 'FD');
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.text("Customer Details", 113, boxY + 7);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Name: ${customerName}`, 113, boxY + 14);
+    doc.text(`Phone: ${customerPhone}`, 113, boxY + 20);
+    if (loyaltyPoints > 0) {
+      doc.text(`Loyalty Points: ${loyaltyPoints}`, 113, boxY + 26);
+    }
+    
+    currentY = boxY + 40;
+    
+    // Products table header with template color
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(9);
+    doc.text("Item", leftMargin + 2, currentY + 6);
+    doc.text("Qty", 100, currentY + 6, { align: "center" });
+    doc.text("Rate", 130, currentY + 6, { align: "center" });
+    doc.text("Tax", 155, currentY + 6, { align: "center" });
+    doc.text("Amount", rightMargin - 2, currentY + 6, { align: "right" });
+    
+    currentY += 10;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    
+    // Draw table borders for each row
+    cartItems.forEach((item, index) => {
+      // Alternate row colors
+      if (index % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+      } else {
+        doc.setFillColor(255, 255, 255);
+      }
+      doc.rect(leftMargin, currentY, rightMargin - leftMargin, 8, 'F');
+      
+      // Draw cell borders
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.1);
+      doc.line(leftMargin, currentY, rightMargin, currentY);
+      
+      const itemName = item.name.length > 30 ? item.name.substring(0, 30) + '...' : item.name;
+      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : `${item.quantity}`;
+      const itemAmount = item.price * item.quantity;
+      
+      doc.text(itemName, leftMargin + 2, currentY + 5.5);
+      doc.text(qtyLabel, 100, currentY + 5.5, { align: "center" });
+      doc.text(`${item.price.toFixed(2)}`, 130, currentY + 5.5, { align: "center" });
+      doc.text(`${item.tax_rate.toFixed(1)}%`, 155, currentY + 5.5, { align: "center" });
+      doc.text(`${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5.5, { align: "right" });
+      
+      currentY += 8;
+    });
+    
+    // Bottom border of table
+    doc.setLineWidth(0.5);
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    
+    currentY += 8;
+    const totalsStartX = 125;
+    
+    // Totals box with background
+    const totalsBoxY = currentY;
+    doc.setFillColor(250, 252, 255);
+    const boxHeight = 
+      8 + // Subtotal
+      (productSGST > 0 ? 12 : 0) + // Product taxes
+      (couponDiscount > 0 ? 6 : 0) + // Coupon
+      (additionalSGST > 0 ? 12 : 0) + // Additional taxes  
+      (taxAmount > 0 ? 20 : 0) + // Total taxes
+      14; // Grand total
+    
+    doc.rect(totalsStartX - 3, totalsBoxY - 2, rightMargin - totalsStartX + 5, boxHeight, 'F');
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9.5);
+    doc.setFont(undefined, 'normal');
+    
+    currentY = totalsBoxY;
+    doc.text("Subtotal:", totalsStartX, currentY);
+    doc.text(formatIndianNumber(subtotal, 2), rightMargin - 2, currentY, { align: "right" });
+    currentY += 6;
+    
+    if (intraStateTrade) {
+      if (productIGST > 0) {
+        doc.text("IGST (Product):", totalsStartX, currentY);
+        doc.text(formatIndianNumber(productIGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      }
+    } else {
+      if (productSGST > 0) {
+        doc.text("SGST (Product):", totalsStartX, currentY);
+        doc.text(formatIndianNumber(productSGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+        
+        doc.text("CGST (Product):", totalsStartX, currentY);
+        doc.text(formatIndianNumber(productCGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      }
+    }
+    
+    if (couponDiscount > 0) {
+      const coupon = coupons.find(c => c.id === selectedCoupon);
+      doc.setTextColor(220, 53, 69);
+      doc.text(`Coupon (${coupon?.code}):`, totalsStartX, currentY);
+      doc.text(`-${formatIndianNumber(couponDiscount, 2)}`, rightMargin - 2, currentY, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      currentY += 6;
+    }
+    
+    if (additionalSGST > 0 && !intraStateTrade) {
+      doc.text(`Additional SGST (${additionalGstRate}%):`, totalsStartX, currentY);
+      doc.text(formatIndianNumber(additionalSGST, 2), rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+      
+      doc.text(`Additional CGST (${additionalGstRate}%):`, totalsStartX, currentY);
+      doc.text(formatIndianNumber(additionalCGST, 2), rightMargin - 2, currentY, { align: "right" });
+      currentY += 6;
+    }
+    
+    if (taxAmount > 0) {
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.3);
+      doc.line(totalsStartX, currentY, rightMargin - 2, currentY);
+      currentY += 5;
+      
+      doc.setFont(undefined, 'bold');
+      
+      if (intraStateTrade) {
+        doc.text("Total IGST:", totalsStartX, currentY);
+        doc.text(formatIndianNumber(totalIGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      } else {
+        doc.text("Total SGST:", totalsStartX, currentY);
+        doc.text(formatIndianNumber(totalSGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+        
+        doc.text("Total CGST:", totalsStartX, currentY);
+        doc.text(formatIndianNumber(totalCGST, 2), rightMargin - 2, currentY, { align: "right" });
+        currentY += 6;
+      }
+      
+      doc.text("Total Tax:", totalsStartX, currentY);
+      doc.text(formatIndianNumber(taxAmount, 2), rightMargin - 2, currentY, { align: "right" });
+      currentY += 8;
+      doc.setFont(undefined, 'normal');
+    }
+    
+    // Grand total with prominent styling using template color
+    const totalColor = activeTemplate?.template_data?.layout === 'compact' 
+      ? primaryColor 
+      : { r: 22, g: 163, b: 74 }; // Green for most templates, use primary for compact
+    
+    doc.setFillColor(totalColor.r, totalColor.g, totalColor.b);
+    doc.rect(totalsStartX - 5, currentY - 3, rightMargin - totalsStartX + 7, 12, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(13);
+    doc.text("GRAND TOTAL:", totalsStartX, currentY + 5);
+    doc.text(formatIndianNumber(total, 2), rightMargin - 2, currentY + 5, { align: "right" });
+    
+    doc.setTextColor(0, 0, 0);
+    currentY += 20;
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(10);
+    const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
+    doc.text(thankYouNote, centerX, currentY, { align: "center" });
+    
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setLineWidth(1);
+    doc.line(leftMargin, 280, rightMargin, 280);
+    
     doc.save(`${billNumber}.pdf`);
   };
 
@@ -505,18 +899,14 @@ const ModernBilling = () => {
             <h1 className="text-xl sm:text-2xl font-bold">Modern Billing</h1>
           </div>
           <div className="w-48">
-            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Template" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              value={invoiceFormat}
+              onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="thermal">Thermal Print (80mm)</option>
+              <option value="a4">A4 Size</option>
+            </select>
           </div>
         </div>
       </header>
