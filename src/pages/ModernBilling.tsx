@@ -497,7 +497,7 @@ const ModernBilling = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex flex-col">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-5 w-5" />
@@ -523,13 +523,13 @@ const ModernBilling = () => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Categories */}
-        <div className="w-20 sm:w-32 md:w-48 border-r bg-card flex-shrink-0 overflow-y-auto">
-          <div className="p-2 sm:p-4 space-y-2">
+        <div className="w-16 sm:w-20 md:w-48 border-r bg-card flex-shrink-0 overflow-y-auto">
+          <div className="p-1 sm:p-2 md:p-4 space-y-1 sm:space-y-2">
             {categories.map((category) => (
               <Button
                 key={category.id}
                 variant={selectedCategory === category.name ? "default" : "outline"}
-                className="w-full justify-start text-xs sm:text-sm h-auto py-2 sm:py-3"
+                className="w-full justify-center md:justify-start text-[10px] sm:text-xs md:text-sm h-auto py-2 sm:py-2 md:py-3 px-1 sm:px-2 md:px-4"
                 onClick={() => setSelectedCategory(category.name)}
               >
                 <span className="truncate">{category.name}</span>
@@ -541,9 +541,9 @@ const ModernBilling = () => {
         {/* Main Content - Products Grid & Cart */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4">
             <div className="max-w-6xl mx-auto">
-              <h2 className="text-lg sm:text-xl font-semibold mb-4">{selectedCategory}</h2>
+              <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-2 sm:mb-4">{selectedCategory}</h2>
               
               {products.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
@@ -551,56 +551,87 @@ const ModernBilling = () => {
                 </p>
               ) : (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-                  {products.map((product) => (
-                    <Card
-                      key={product.id}
-                      className="hover:shadow-lg transition-shadow overflow-hidden"
-                    >
-                      <div className="aspect-square bg-muted relative overflow-hidden">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs sm:text-sm">
-                            No Image
-                          </div>
-                        )}
-                      </div>
-                      <CardContent className="p-2 sm:p-3 space-y-2">
-                        <h3 className="font-semibold text-xs sm:text-sm truncate">{product.name}</h3>
-                        <p className="text-primary font-bold text-sm sm:text-base">
-                          ₹{formatIndianNumber(product.price)}
-                        </p>
-                        {product.stock_quantity !== null && (
-                          <p className="text-xs text-muted-foreground">
-                            Stock: {product.stock_quantity}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={productQuantities[product.id] || 1}
-                            onChange={(e) => setProductQuantities({
-                              ...productQuantities,
-                              [product.id]: parseInt(e.target.value) || 1
-                            })}
-                            className="h-8 text-xs"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
-                            className="flex-shrink-0"
-                          >
-                            Add
-                          </Button>
+                  {products.map((product) => {
+                    const discount = productDiscounts.find(
+                      d => d.product_id === product.id && 
+                      new Date(d.start_date) <= new Date() && 
+                      new Date(d.end_date) >= new Date()
+                    );
+                    const discountPercentage = discount ? Number(discount.discount_percentage) : 0;
+                    const originalPrice = Number(product.price);
+                    const discountedPrice = originalPrice * (1 - discountPercentage / 100);
+
+                    return (
+                      <Card
+                        key={product.id}
+                        className="hover:shadow-lg transition-shadow overflow-hidden flex flex-col"
+                      >
+                        <div className="aspect-square bg-muted relative overflow-hidden">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs sm:text-sm">
+                              No Image
+                            </div>
+                          )}
+                          {discountPercentage > 0 && (
+                            <div className="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-2 py-1 rounded">
+                              {discountPercentage}% OFF
+                            </div>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        <CardContent className="p-2 sm:p-3 space-y-1 sm:space-y-2 flex flex-col flex-1">
+                          <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 min-h-[2.5rem] sm:min-h-[2rem]">
+                            {product.name}
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            {discountPercentage > 0 ? (
+                              <>
+                                <p className="text-primary font-bold text-sm sm:text-base">
+                                  ₹{formatIndianNumber(Number(discountedPrice.toFixed(2)))}
+                                </p>
+                                <p className="text-xs text-muted-foreground line-through">
+                                  ₹{formatIndianNumber(Number(originalPrice.toFixed(2)))}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-primary font-bold text-sm sm:text-base">
+                                ₹{formatIndianNumber(Number(originalPrice.toFixed(2)))}
+                              </p>
+                            )}
+                          </div>
+                          {product.stock_quantity !== null && (
+                            <p className="text-xs text-muted-foreground">
+                              Stock: {product.stock_quantity}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-1 sm:gap-2 mt-auto pt-2">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={productQuantities[product.id] || 1}
+                              onChange={(e) => setProductQuantities({
+                                ...productQuantities,
+                                [product.id]: parseInt(e.target.value) || 1
+                              })}
+                              className="h-7 sm:h-8 text-xs flex-1"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
+                              className="flex-shrink-0 h-7 sm:h-9 text-xs px-2 sm:px-4"
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -608,7 +639,7 @@ const ModernBilling = () => {
 
           {/* Right Sidebar - Cart */}
           <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l bg-card overflow-y-auto">
-            <div className="p-4 space-y-4">
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="customer-name">Customer Name</Label>
                 <Input
