@@ -394,6 +394,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_deleted: boolean | null
+          is_inclusive: boolean | null
           name: string
           price: number
           price_type: string | null
@@ -415,6 +416,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_deleted?: boolean | null
+          is_inclusive?: boolean | null
           name: string
           price: number
           price_type?: string | null
@@ -436,6 +438,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_deleted?: boolean | null
+          is_inclusive?: boolean | null
           name?: string
           price?: number
           price_type?: string | null

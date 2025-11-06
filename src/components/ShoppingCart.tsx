@@ -18,6 +18,7 @@ export interface CartItem {
   price_type?: string;
   category?: string;
   discountInfo?: string | null;
+  is_inclusive?: boolean;
 }
 
 interface ShoppingCartProps {

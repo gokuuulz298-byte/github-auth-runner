@@ -235,6 +235,23 @@ const ModernBilling = () => {
 
     const discountPercentage = discount ? Number(discount.discount_percentage) : 0;
     const priceAfterDiscount = Number(product.price) * (1 - discountPercentage / 100);
+    
+    // Calculate GST details based on is_inclusive flag
+    const isInclusive = product.is_inclusive !== false; // Default to true if not set
+    const gstRate = (Number(product.cgst) || 0) + (Number(product.sgst) || 0) || (Number(product.igst) || 0);
+    
+    let finalPrice = priceAfterDiscount;
+    let basePrice = priceAfterDiscount;
+    
+    if (isInclusive && gstRate > 0) {
+      // Price includes GST - extract base price
+      basePrice = priceAfterDiscount / (1 + gstRate / 100);
+      finalPrice = priceAfterDiscount; // MRP stays as is
+    } else if (!isInclusive && gstRate > 0) {
+      // Price is exclusive of GST - add GST on top
+      basePrice = priceAfterDiscount;
+      finalPrice = priceAfterDiscount * (1 + gstRate / 100);
+    }
 
     const existingItem = cartItems.find(item => item.id === product.id);
     if (existingItem) {
@@ -247,13 +264,15 @@ const ModernBilling = () => {
       const newItem: CartItem = {
         id: product.id,
         name: product.name,
-        price: priceAfterDiscount,
+        price: basePrice,
         quantity: quantity,
-        tax_rate: 0,
+        tax_rate: gstRate,
         cgst: Number(product.cgst) || 0,
         sgst: Number(product.sgst) || 0,
+        igst: Number(product.igst) || 0,
         price_type: product.price_type || 'quantity',
-        barcode: product.barcode || ''
+        barcode: product.barcode || '',
+        is_inclusive: isInclusive
       };
       setCartItems([...cartItems, newItem]);
     }
@@ -328,6 +347,10 @@ const ModernBilling = () => {
     const taxAmount = productTaxAmount + additionalGstAmount;
     const total = afterCouponDiscount + additionalGstAmount;
 
+    // Check if any items have inclusive pricing to show appropriate note
+    const hasInclusiveItems = cartItems.some(item => item.is_inclusive);
+    const hasExclusiveItems = cartItems.some(item => !item.is_inclusive);
+
     return {
       subtotal,
       productTaxAmount,
@@ -344,7 +367,12 @@ const ModernBilling = () => {
       totalCGST,
       totalIGST,
       taxAmount,
-      total
+      total,
+      gstNote: hasInclusiveItems && hasExclusiveItems 
+        ? "Some prices include GST, others have GST added extra" 
+        : hasInclusiveItems 
+        ? "Prices include GST" 
+        : "GST added extra"
     };
   };
 
@@ -442,7 +470,7 @@ const ModernBilling = () => {
 
       // Calculate required height based on content
       const headerHeight = 45;
-      const itemsHeight = cartItems.length * 5 + 15;
+      const itemsHeight = cartItems.length * 4.5 + 15;
       const totalsHeight = (totals.couponDiscountAmount > 0 ? 4 : 0) + (additionalGstRate ? 4 : 0) + 30;
       const footerHeight = 15;
       const requiredHeight = headerHeight + itemsHeight + totalsHeight + footerHeight + 10;
@@ -566,20 +594,11 @@ const ModernBilling = () => {
       const itemName = item.name.length > 18 ? item.name.substring(0, 18) + '...' : item.name;
       const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)}kg` : item.quantity.toString();
       
-      const taxRate = item.tax_rate || item.igst || (item.cgst + item.sgst) || 0;
       doc.text(itemName, leftMargin, currentY);
       doc.text(qtyLabel, 43, currentY);
       doc.text(formatIndianNumber(item.price), 53, currentY);
       doc.text(formatIndianNumber(item.price * item.quantity), rightMargin - 2, currentY, { align: "right" });
-      currentY += 3.5;
-      if (taxRate > 0) {
-        doc.setFontSize(6);
-        doc.text(`Tax: ${taxRate.toFixed(1)}%`, leftMargin + 2, currentY);
-        doc.setFontSize(7);
-        currentY += 3.5;
-      } else {
-        currentY += 1;
-      }
+      currentY += 4;
     });
     
     doc.line(leftMargin, currentY, rightMargin, currentY);
@@ -590,21 +609,55 @@ const ModernBilling = () => {
     doc.text(formatIndianNumber(subtotal), rightMargin - 2, currentY, { align: "right" });
     currentY += 4;
     
-    if (productTaxAmount > 0) {
-      doc.text("Tax:", leftMargin, currentY);
-      doc.text(formatIndianNumber(productTaxAmount), rightMargin - 2, currentY, { align: "right" });
-      currentY += 4;
+    // Show taxes based on trade type
+    if (intraStateTrade) {
+      if (productIGST > 0) {
+        doc.text("IGST:", leftMargin, currentY);
+        doc.text(formatIndianNumber(productIGST), rightMargin - 2, currentY, { align: "right" });
+        currentY += 4;
+      }
+    } else {
+      // Calculate SGST and CGST breakdown
+      const productSGST = cartItems.reduce((sum, item) => {
+        const itemTotal = item.price * item.quantity;
+        const sgstRate = item.sgst || 0;
+        return sum + (itemTotal * sgstRate / 100);
+      }, 0);
+      
+      const productCGST = cartItems.reduce((sum, item) => {
+        const itemTotal = item.price * item.quantity;
+        const cgstRate = item.cgst || 0;
+        return sum + (itemTotal * cgstRate / 100);
+      }, 0);
+      
+      if (productSGST > 0) {
+        doc.text("SGST:", leftMargin, currentY);
+        doc.text(formatIndianNumber(productSGST), rightMargin - 2, currentY, { align: "right" });
+        currentY += 4;
+      }
+      
+      if (productCGST > 0) {
+        doc.text("CGST:", leftMargin, currentY);
+        doc.text(formatIndianNumber(productCGST), rightMargin - 2, currentY, { align: "right" });
+        currentY += 4;
+      }
     }
     
     if (couponDiscount > 0) {
-      doc.text("Discount:", leftMargin, currentY);
+      const coupon = coupons.find(c => c.id === selectedCoupon);
+      doc.text(`Coupon (${coupon?.code}):`, leftMargin, currentY);
       doc.text(`-${formatIndianNumber(couponDiscount)}`, rightMargin - 2, currentY, { align: "right" });
       currentY += 4;
     }
     
     if (additionalGstAmount > 0) {
-      doc.text("Add. Tax:", leftMargin, currentY);
-      doc.text(formatIndianNumber(additionalGstAmount), rightMargin - 2, currentY, { align: "right" });
+      const additionalSGST = additionalGstAmount / 2;
+      const additionalCGST = additionalGstAmount / 2;
+      doc.text("Add. SGST:", leftMargin, currentY);
+      doc.text(formatIndianNumber(additionalSGST), rightMargin - 2, currentY, { align: "right" });
+      currentY += 4;
+      doc.text("Add. CGST:", leftMargin, currentY);
+      doc.text(formatIndianNumber(additionalCGST), rightMargin - 2, currentY, { align: "right" });
       currentY += 4;
     }
     
@@ -615,9 +668,17 @@ const ModernBilling = () => {
     doc.text("TOTAL:", leftMargin, currentY);
     doc.text("Rs. " + formatIndianNumber(total, 2), rightMargin - 2, currentY, { align: "right" });
     
-    currentY += 8;
+    currentY += 6;
     doc.line(leftMargin, currentY, rightMargin, currentY);
-    currentY += 5;
+    
+    // Add GST note
+    currentY += 4;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(7);
+    const gstNote = totals.gstNote || "Prices include GST";
+    doc.text(gstNote, centerX, currentY, { align: "center" });
+    
+    currentY += 4;
     doc.setFont(undefined, 'italic');
     doc.setFontSize(8);
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
@@ -919,6 +980,14 @@ const ModernBilling = () => {
     
     doc.setTextColor(0, 0, 0);
     currentY += 20;
+    
+    // Add GST note
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    const gstNote = totals.gstNote || "Prices include GST";
+    doc.text(`Note: ${gstNote}`, centerX, currentY, { align: "center" });
+    currentY += 8;
+    
     doc.setFont(undefined, 'italic');
     doc.setFontSize(10);
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
