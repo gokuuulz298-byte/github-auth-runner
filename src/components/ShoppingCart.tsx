@@ -77,7 +77,7 @@ const ShoppingCart = ({
           </div>
         ) : (
           <>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto mb-4">
+            <div className="space-y-4 mb-4">
               {items.map((item) => (
                 <div key={item.id} className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
                   <div className="flex-1">

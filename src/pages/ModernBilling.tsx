@@ -195,6 +195,36 @@ const ModernBilling = () => {
     }
   };
 
+  // Fetch loyalty points when customer phone changes
+  useEffect(() => {
+    const fetchLoyaltyPoints = async () => {
+      if (!customerPhone || customerPhone.length < 10) {
+        setLoyaltyPoints(0);
+        return;
+      }
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('loyalty_points')
+          .select('points')
+          .eq('customer_phone', customerPhone)
+          .eq('created_by', user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        setLoyaltyPoints(data?.points || 0);
+      } catch (error) {
+        console.error(error);
+        setLoyaltyPoints(0);
+      }
+    };
+
+    fetchLoyaltyPoints();
+  }, [customerPhone]);
+
 
   const handleAddToCart = (product: any, quantity: number = 1) => {
     const discount = productDiscounts.find(
@@ -339,14 +369,19 @@ const ModernBilling = () => {
       const totals = calculateTotals();
       const billNumber = `INV-${Date.now()}`;
 
-      // Update stock quantities
+      // Update stock quantities - fetch fresh data to avoid race conditions
       for (const item of cartItems) {
-        const product = products.find(p => p.id === item.id);
+        const { data: product } = await supabase
+          .from('products')
+          .select('stock_quantity')
+          .eq('id', item.id)
+          .single();
+
         if (product && product.stock_quantity !== null) {
           const newStock = Number(product.stock_quantity) - item.quantity;
           await supabase
             .from('products')
-            .update({ stock_quantity: newStock })
+            .update({ stock_quantity: Math.max(0, newStock) })
             .eq('id', item.id);
         }
       }
@@ -531,11 +566,20 @@ const ModernBilling = () => {
       const itemName = item.name.length > 18 ? item.name.substring(0, 18) + '...' : item.name;
       const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)}kg` : item.quantity.toString();
       
+      const taxRate = item.tax_rate || item.igst || (item.cgst + item.sgst) || 0;
       doc.text(itemName, leftMargin, currentY);
       doc.text(qtyLabel, 43, currentY);
       doc.text(formatIndianNumber(item.price), 53, currentY);
       doc.text(formatIndianNumber(item.price * item.quantity), rightMargin - 2, currentY, { align: "right" });
-      currentY += 4.5;
+      currentY += 3.5;
+      if (taxRate > 0) {
+        doc.setFontSize(6);
+        doc.text(`Tax: ${taxRate.toFixed(1)}%`, leftMargin + 2, currentY);
+        doc.setFontSize(7);
+        currentY += 3.5;
+      } else {
+        currentY += 1;
+      }
     });
     
     doc.line(leftMargin, currentY, rightMargin, currentY);
@@ -754,12 +798,13 @@ const ModernBilling = () => {
       const itemName = item.name.length > 30 ? item.name.substring(0, 30) + '...' : item.name;
       const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : `${item.quantity}`;
       const itemAmount = item.price * item.quantity;
+      const taxRate = item.tax_rate || item.igst || (item.cgst + item.sgst) || 0;
       
       doc.text(itemName, leftMargin + 2, currentY + 5.5);
       doc.text(qtyLabel, 100, currentY + 5.5, { align: "center" });
-      doc.text(`${item.price.toFixed(2)}`, 130, currentY + 5.5, { align: "center" });
-      doc.text(`${item.tax_rate.toFixed(1)}%`, 155, currentY + 5.5, { align: "center" });
-      doc.text(`${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5.5, { align: "right" });
+      doc.text(`₹${item.price.toFixed(2)}`, 130, currentY + 5.5, { align: "center" });
+      doc.text(`${taxRate.toFixed(1)}%`, 155, currentY + 5.5, { align: "center" });
+      doc.text(`₹${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5.5, { align: "right" });
       
       currentY += 8;
     });
@@ -931,7 +976,7 @@ const ModernBilling = () => {
         {/* Main Content - Products Grid & Cart */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 max-h-[calc(100vh-130px)]">
             <div className="max-w-6xl mx-auto">
               <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-2 sm:mb-4">{selectedCategory}</h2>
               
@@ -1072,7 +1117,7 @@ const ModernBilling = () => {
               </div>
 
               {/* Cart Items */}
-              <div className="border-t pt-4 space-y-2 max-h-48 overflow-y-auto">
+              <div className="border-t pt-4 space-y-2">
                 <h3 className="font-semibold">Cart Items ({cartItems.length})</h3>
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">

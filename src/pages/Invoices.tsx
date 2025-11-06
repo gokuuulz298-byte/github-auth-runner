@@ -243,35 +243,16 @@ const Invoices = () => {
   };
 
   const getFilteredInvoices = () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const last7Days = new Date(today);
-    last7Days.setDate(last7Days.getDate() - 7);
-    const last30Days = new Date(today);
-    last30Days.setDate(last30Days.getDate() - 30);
-
     return invoices.filter(invoice => {
       const invoiceDate = new Date(invoice.created_at);
       
       // Date filter
       let dateMatch = true;
-      switch (dateFilter) {
-        case "today":
-          dateMatch = invoiceDate >= today;
-          break;
-        case "yesterday":
-          dateMatch = invoiceDate >= yesterday && invoiceDate < today;
-          break;
-        case "last7days":
-          dateMatch = invoiceDate >= last7Days;
-          break;
-        case "last30days":
-          dateMatch = invoiceDate >= last30Days;
-          break;
-        default:
-          dateMatch = true;
+      if (dateFilter !== "all") {
+        const filterDate = new Date(dateFilter);
+        const invDate = new Date(invoiceDate.getFullYear(), invoiceDate.getMonth(), invoiceDate.getDate());
+        const filtDate = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate());
+        dateMatch = invDate.getTime() === filtDate.getTime();
       }
       
       // Search filter
@@ -300,22 +281,29 @@ const Invoices = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   All Invoices ({filteredInvoices.length})
                 </div>
-                <select
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="px-3 py-2 text-sm border rounded-md bg-background"
-                >
-                  <option value="all">All Time</option>
-                  <option value="today">Today</option>
-                  <option value="yesterday">Yesterday</option>
-                  <option value="last7days">Last 7 Days</option>
-                  <option value="last30days">Last 30 Days</option>
-                </select>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={dateFilter === "all" ? "" : dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value || "all")}
+                    className="w-auto"
+                    placeholder="Filter by date"
+                  />
+                  {dateFilter !== "all" && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setDateFilter("all")}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -447,13 +435,17 @@ const Invoices = () => {
                     </TableHeader>
                     <TableBody>
                       {selectedInvoice.items_data.map((item: any, index: number) => (
-                        <TableRow key={index}>
+                       <TableRow key={index}>
                           <TableCell>{item.name}</TableCell>
                           <TableCell className="text-right">
                             {item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : item.quantity}
                           </TableCell>
                           <TableCell className="text-right">{formatIndianCurrency(item.price)}</TableCell>
-                          <TableCell className="text-right">{item.tax_rate}%</TableCell>
+                          <TableCell className="text-right">
+                            {item.tax_rate ? `${item.tax_rate}%` : 
+                             item.igst ? `${item.igst}%` : 
+                             (item.cgst && item.sgst) ? `${(item.cgst + item.sgst)}%` : '0%'}
+                          </TableCell>
                           <TableCell className="text-right font-medium">
                             {formatIndianCurrency(item.price * item.quantity)}
                           </TableCell>
