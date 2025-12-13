@@ -34,6 +34,10 @@ interface BillingSettings {
     inclusiveBillType: "split" | "nosplit";
     allowIgst: boolean;
   };
+  isRestaurant?: boolean;
+  enableParcelBill?: boolean;
+  autoPrint?: boolean;
+  defaultPaymentMode?: string;
 }
 
 
@@ -126,7 +130,11 @@ if (profile.id) {
   const BillingSettingsSection = ({ companyProfile, refreshCompany }) => {
   const [settings, setSettings] = useState<any>({
     ModernBilling: { mode: "inclusive", inclusiveBillType: "split" },
-    ManualBilling: { mode: "exclusive", inclusiveBillType: "split", allowIgst: true }
+    ManualBilling: { mode: "exclusive", inclusiveBillType: "split", allowIgst: true },
+    isRestaurant: false,
+    enableParcelBill: false,
+    autoPrint: false,
+    defaultPaymentMode: "cash"
   });
 
   useEffect(() => {
@@ -140,7 +148,11 @@ if (profile.id) {
       mode: companyProfile.billing_settings.ManualBilling?.mode || "exclusive",
       inclusiveBillType: companyProfile.billing_settings.ManualBilling?.inclusiveBillType || "split",
       allowIgst: companyProfile.billing_settings.ManualBilling?.allowIgst ?? true
-    }
+    },
+    isRestaurant: companyProfile.billing_settings.isRestaurant ?? false,
+    enableParcelBill: companyProfile.billing_settings.enableParcelBill ?? false,
+    autoPrint: companyProfile.billing_settings.autoPrint ?? false,
+    defaultPaymentMode: companyProfile.billing_settings.defaultPaymentMode || "cash"
   });
 }
 
@@ -289,7 +301,78 @@ if (profile.id) {
             </div>
           </div>
 
-          <Button onClick={save}>Save Billing Settings</Button>
+          {/* Restaurant Settings */}
+          <div className="border-t pt-6">
+            <Label className="text-lg font-semibold">Restaurant Settings</Label>
+            
+            <div className="mt-4 flex items-center gap-3">
+              <Switch
+                checked={settings.isRestaurant}
+                onCheckedChange={(v) =>
+                  setSettings({
+                    ...settings,
+                    isRestaurant: v,
+                    enableParcelBill: v ? settings.enableParcelBill : false
+                  })
+                }
+              />
+              <span>Enable Restaurant Mode</span>
+            </div>
+
+            {settings.isRestaurant && (
+              <div className="mt-4 flex items-center gap-3">
+                <Switch
+                  checked={settings.enableParcelBill}
+                  onCheckedChange={(v) =>
+                    setSettings({
+                      ...settings,
+                      enableParcelBill: v
+                    })
+                  }
+                />
+                <span>Enable Parcel Bill Feature</span>
+              </div>
+            )}
+          </div>
+
+          {/* Print Settings */}
+          <div className="border-t pt-6">
+            <Label className="text-lg font-semibold">Print Settings</Label>
+            
+            <div className="mt-4 flex items-center gap-3">
+              <Switch
+                checked={settings.autoPrint}
+                onCheckedChange={(v) =>
+                  setSettings({
+                    ...settings,
+                    autoPrint: v
+                  })
+                }
+              />
+              <span>Auto-print on Complete Sale (Thermal Printer)</span>
+            </div>
+
+            <div className="mt-4">
+              <Label>Default Payment Mode</Label>
+              <select
+                value={settings.defaultPaymentMode}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    defaultPaymentMode: e.target.value
+                  })
+                }
+                className="border rounded p-2 w-64 mt-1"
+              >
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="upi">UPI</option>
+                <option value="mixed">Mixed Payment</option>
+              </select>
+            </div>
+          </div>
+
+          <Button onClick={save} className="mt-6">Save Billing Settings</Button>
         </CardContent>
       </Card>
     );

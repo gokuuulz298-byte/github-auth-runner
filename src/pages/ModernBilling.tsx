@@ -35,8 +35,9 @@ const ModernBilling = () => {
   const [intraStateTrade, setIntraStateTrade] = useState<boolean>(false);
   const [invoiceFormat, setInvoiceFormat] = useState<"thermal" | "a4">("thermal");
   const [productQuantities, setProductQuantities] = useState<{ [key: string]: number }>({});
-  //added by me
   const [billingSettings, setBillingSettings] = useState<any>(null);
+  const [paymentMode, setPaymentMode] = useState<string>("cash");
+  const [isParcel, setIsParcel] = useState<boolean>(false);
 
 
 
@@ -459,7 +460,21 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
       }
 
       const totals = calculateTotals();
-      const billNumber = `INV-${Date.now()}`;
+      
+      // Generate bill number in format: DDMMYY-XX
+      const today = new Date();
+      const dateStr = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
+      
+      // Get today's bill count
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const { count } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('created_by', user.id)
+        .gte('created_at', startOfToday.toISOString());
+      
+      const billCount = (count || 0) + 1;
+      const billNumber = `${dateStr}-${String(billCount).padStart(2, '0')}`;
 
       // Update stock quantities - fetch fresh data to avoid race conditions
       for (const item of cartItems) {
@@ -672,6 +687,14 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
     doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin, currentY);
     currentY += 4;
     doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Payment: ${paymentMode.toUpperCase()}`, leftMargin, currentY);
+    if (isParcel && billingSettings?.isRestaurant) {
+      currentY += 4;
+      doc.setFont(undefined, 'bold');
+      doc.text("*** PARCEL ***", centerX, currentY, { align: "center" });
+      doc.setFont(undefined, 'normal');
+    }
     
     currentY += 5;
     doc.line(leftMargin, currentY, rightMargin, currentY);
@@ -1350,10 +1373,32 @@ doc.text(gstNote, centerX, currentY, { align: "center" });
                 </select>
               </div>
 
+              {/* Payment Mode */}
+              <div className="space-y-1 sm:space-y-2">
+                <Label htmlFor="payment-mode" className="text-xs sm:text-sm">Payment Mode</Label>
+                <select
+                  id="payment-mode"
+                  className="w-full rounded-md border border-input bg-background px-2 sm:px-3 py-2 h-9 sm:h-10 text-xs sm:text-sm"
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value)}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="upi">UPI</option>
+                  <option value="mixed">Mixed Payment</option>
+                </select>
+              </div>
 
-
-
-
+              {/* Parcel Option - only show if restaurant mode enabled */}
+              {billingSettings?.isRestaurant && billingSettings?.enableParcelBill && (
+                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                  <Switch
+                    checked={isParcel}
+                    onCheckedChange={setIsParcel}
+                  />
+                  <Label className="text-sm cursor-pointer">Parcel Order</Label>
+                </div>
+              )}
 
 
 

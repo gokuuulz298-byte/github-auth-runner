@@ -34,6 +34,8 @@ const ManualBilling = () => {
   const [activeTemplate, setActiveTemplate] = useState<any>(null);
   const [intraStateTrade, setIntraStateTrade] = useState<boolean>(false);
   const [billingSettings, setBillingSettings] = useState<any>(null);
+  const [paymentMode, setPaymentMode] = useState<string>("cash");
+  const [isParcel, setIsParcel] = useState<boolean>(false);
 
   // Initialize counter session
   useEffect(() => {
@@ -465,7 +467,25 @@ const ManualBilling = () => {
       return;
     }
 
-    const billNumber = `INV-${Date.now()}`;
+    // Generate bill number in format: DDMMYY-XX
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
+    
+    // Get today's bill count
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    let billCount = 1;
+    if (user) {
+      const { count } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('created_by', user.id)
+        .gte('created_at', startOfToday.toISOString());
+      billCount = (count || 0) + 1;
+    }
+    
+    const billNumber = `${dateStr}-${String(billCount).padStart(2, '0')}`;
     const totals = calculateTotals();
     
     // Use calculated totals
