@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Scan, Loader2, Eye, EyeOff } from "lucide-react";
+import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp } from "lucide-react";
 import { Session, User } from "@supabase/supabase-js";
 
 const Auth = () => {
@@ -20,7 +20,6 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -32,7 +31,6 @@ const Auth = () => {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -81,113 +79,238 @@ const Auth = () => {
     setLoading(false);
   };
 
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-primary/10 rounded-2xl">
-              <Scan className="h-8 w-8 text-primary" />
-            </div>
+    <div className="min-h-screen flex bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 relative overflow-hidden">
+      {/* Animated Background SVG Graphics */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Floating circles */}
+        <svg className="absolute top-10 left-10 w-64 h-64 opacity-10 animate-pulse" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="80" fill="white" />
+        </svg>
+        <svg className="absolute bottom-20 left-1/4 w-48 h-48 opacity-5 animate-bounce" style={{ animationDuration: '3s' }} viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="80" fill="white" />
+        </svg>
+        <svg className="absolute top-1/3 left-20 w-32 h-32 opacity-10 animate-ping" style={{ animationDuration: '4s' }} viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="80" fill="white" />
+        </svg>
+        
+        {/* Floating rectangles */}
+        <svg className="absolute top-1/4 left-1/3 w-20 h-20 opacity-10 animate-spin" style={{ animationDuration: '20s' }} viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" rx="10" fill="white" />
+        </svg>
+        
+        {/* Wave pattern at bottom */}
+        <svg className="absolute bottom-0 left-0 w-full h-32 opacity-20" viewBox="0 0 1440 120" preserveAspectRatio="none">
+          <path d="M0,64L48,69.3C96,75,192,85,288,90.7C384,96,480,96,576,85.3C672,75,768,53,864,48C960,43,1056,53,1152,58.7C1248,64,1344,64,1392,64L1440,64L1440,120L1392,120C1344,120,1248,120,1152,120C1056,120,960,120,864,120C768,120,672,120,576,120C480,120,384,120,288,120C192,120,96,120,48,120L0,120Z" fill="white" />
+        </svg>
+        
+        {/* Moving dots pattern */}
+        <div className="absolute inset-0">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 bg-white/10 rounded-full animate-float"
+              style={{
+                left: `${Math.random() * 60}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${i * 0.5}s`,
+                animationDuration: `${3 + Math.random() * 4}s`
+              }}
+            />
+          ))}
+        </div>
+        
+        {/* Gradient overlay lines */}
+        <svg className="absolute top-0 right-1/2 w-full h-full opacity-5" viewBox="0 0 400 800">
+          <line x1="0" y1="0" x2="400" y2="800" stroke="white" strokeWidth="1" />
+          <line x1="100" y1="0" x2="500" y2="800" stroke="white" strokeWidth="1" />
+          <line x1="200" y1="0" x2="600" y2="800" stroke="white" strokeWidth="1" />
+        </svg>
+      </div>
+
+      {/* Left Side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-12 xl:px-20 relative z-10">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
+            <Scan className="h-12 w-12 text-white" />
           </div>
-          <CardTitle className="text-3xl font-bold">Eduvanca Billing</CardTitle>
-          <CardDescription>Your smart billing solution</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!showForgotPassword ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+        </div>
+        
+        <h1 className="text-5xl xl:text-6xl font-bold text-white mb-6 leading-tight">
+          Eduvanca<br />
+          <span className="text-blue-200">Billing</span>
+        </h1>
+        
+        <p className="text-xl text-blue-100 mb-8 leading-relaxed max-w-lg">
+          The complete billing and inventory management solution for modern businesses. 
+          Streamline your operations with powerful GST compliance, real-time analytics, 
+          and seamless multi-counter support.
+        </p>
+        
+        {/* Feature highlights */}
+        <div className="grid grid-cols-2 gap-4 mt-6">
+          <div className="flex items-center gap-3 text-blue-100">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <span className="text-sm">GST Compliant Invoicing</span>
+          </div>
+          <div className="flex items-center gap-3 text-blue-100">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <span className="text-sm">Real-time Analytics</span>
+          </div>
+          <div className="flex items-center gap-3 text-blue-100">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <Users className="h-5 w-5" />
+            </div>
+            <span className="text-sm">Multi-Counter Support</span>
+          </div>
+          <div className="flex items-center gap-3 text-blue-100">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <span className="text-sm">Profit Tracking</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative z-10">
+        <Card className="w-full max-w-md bg-white shadow-2xl border-0">
+          <CardHeader className="text-center pb-2">
+            <div className="flex justify-center mb-4 lg:hidden">
+              <div className="p-3 bg-blue-600 rounded-2xl">
+                <Scan className="h-8 w-8 text-white" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
+            </div>
+            <CardTitle className="text-2xl lg:text-3xl font-bold text-gray-900">
+              {showForgotPassword ? "Reset Password" : "Welcome Back"}
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              {showForgotPassword 
+                ? "Enter your email to receive a reset link" 
+                : "Sign in to your Eduvanca account"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {!showForgotPassword ? (
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
                   <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pr-10"
+                    className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+                <div className="text-center space-y-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    Forgot your password?
+                  </button>
+                  <p className="text-sm text-gray-500">
+                    Contact admin to create your account
+                  </p>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email" className="text-gray-700 font-medium">Email Address</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Reset Link"
+                  )}
+                </Button>
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                  >
+                    ← Back to Sign In
                   </button>
                 </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Logging in...
-                  </>
-                ) : (
-                  "Login"
-                )}
-              </Button>
-              <div className="text-center space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Forgot Password?
-                </button>
-                <p className="text-sm text-muted-foreground">
-                  Contact admin to create your account
-                </p>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reset-email">Email</Label>
-                <Input
-                  id="reset-email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  "Send Reset Link"
-                )}
-              </Button>
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(false)}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Back to Login
-                </button>
-              </div>
-            </form>
-          )}
-        </CardContent>
-      </Card>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Add floating animation keyframes */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 };
