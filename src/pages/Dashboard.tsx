@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode } from "lucide-react";
+import GuidelinesDialog from "@/components/GuidelinesDialog";
 import { toast } from "sonner";
 import { Session, User } from "@supabase/supabase-js";
 
@@ -100,10 +101,13 @@ const Dashboard = () => {
             <ShoppingCart className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold">Eduvanca Billing</h1>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <GuidelinesDialog />
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 

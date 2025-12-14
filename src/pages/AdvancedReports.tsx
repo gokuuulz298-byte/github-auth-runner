@@ -65,6 +65,27 @@ const AdvancedReports = () => {
 
   useEffect(() => {
     fetchAdvancedData();
+
+    // Set up real-time subscription for invoices
+    const channel = supabase
+      .channel('advanced-reports-invoices')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'invoices'
+        },
+        () => {
+          // Refresh data when invoices change
+          fetchAdvancedData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [timeRange, selectedCounter]);
 
   const fetchCounters = async () => {
