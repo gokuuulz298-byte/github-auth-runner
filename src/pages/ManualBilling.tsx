@@ -162,30 +162,47 @@ const ManualBilling = () => {
     }
   };
 
-  // Fetch loyalty points when customer phone changes
+  // Fetch customer details and loyalty points when phone changes
   useEffect(() => {
-    const fetchLoyaltyPoints = async () => {
+    const fetchCustomerDetails = async () => {
       if (!customerPhone || customerPhone.length < 10) {
         setLoyaltyPoints(0);
         return;
       }
 
       try {
-        const { data, error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Fetch customer name
+        const { data: customerData } = await supabase
+          .from('customers')
+          .select('name')
+          .eq('phone', customerPhone)
+          .eq('created_by', user.id)
+          .maybeSingle();
+
+        if (customerData?.name && !customerName) {
+          setCustomerName(customerData.name);
+        }
+
+        // Fetch loyalty points
+        const { data: loyaltyData, error } = await supabase
           .from('loyalty_points')
           .select('points')
           .eq('customer_phone', customerPhone)
+          .eq('created_by', user.id)
           .maybeSingle();
 
         if (error) throw error;
-        setLoyaltyPoints(data?.points || 0);
+        setLoyaltyPoints(loyaltyData?.points || 0);
       } catch (error) {
         console.error(error);
         setLoyaltyPoints(0);
       }
     };
 
-    fetchLoyaltyPoints();
+    fetchCustomerDetails();
   }, [customerPhone]);
 
   // Auto-search as user types
@@ -904,7 +921,20 @@ const ManualBilling = () => {
       currentY += 5; // Add extra padding
     }
     
-    doc.save(`${billNumber}.pdf`);
+    // Auto-print functionality
+    if (billingSettings?.autoPrint) {
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const printWindow = window.open(pdfUrl);
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+          URL.revokeObjectURL(pdfUrl);
+        };
+      }
+    } else {
+      doc.save(`${billNumber}.pdf`);
+    }
   };
 
   const generateA4Invoice = (
@@ -1026,7 +1056,7 @@ const ManualBilling = () => {
     doc.setTextColor(0, 0, 0);
     doc.text(`Bill No: ${billNumber}`, leftMargin + 3, boxY + 14);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin + 3, boxY + 20);
-    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin + 3, boxY + 26);
+    doc.text(`Payment: ${paymentMode.toUpperCase()}`, leftMargin + 3, boxY + 26);
     
     doc.setFillColor(headerBgColor.r, headerBgColor.g, headerBgColor.b);
     doc.rect(110, boxY, 85, 32, 'FD');
@@ -1037,10 +1067,16 @@ const ManualBilling = () => {
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
-    doc.text(`Name: ${customerName}`, 113, boxY + 14);
-    doc.text(`Phone: ${customerPhone}`, 113, boxY + 20);
+    doc.text(`Name: ${customerName || 'Walk-in Customer'}`, 113, boxY + 14);
+    doc.text(`Phone: ${customerPhone || 'N/A'}`, 113, boxY + 20);
     if (loyaltyPoints > 0) {
+      doc.setTextColor(22, 163, 74);
       doc.text(`Loyalty Points: ${loyaltyPoints}`, 113, boxY + 26);
+      doc.setTextColor(0, 0, 0);
+    } else if (isParcel && billingSettings?.isRestaurant) {
+      doc.setTextColor(220, 53, 69);
+      doc.text("PARCEL ORDER", 113, boxY + 26);
+      doc.setTextColor(0, 0, 0);
     }
     
     currentY = boxY + 40;
@@ -1238,7 +1274,20 @@ const ManualBilling = () => {
     doc.setLineWidth(1);
     doc.line(leftMargin, 280, rightMargin, 280);
     
-    doc.save(`${billNumber}.pdf`);
+    // Auto-print functionality
+    if (billingSettings?.autoPrint) {
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const printWindow = window.open(pdfUrl);
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+          URL.revokeObjectURL(pdfUrl);
+        };
+      }
+    } else {
+      doc.save(`${billNumber}.pdf`);
+    }
   };
 
   return (
@@ -1299,6 +1348,11 @@ const ManualBilling = () => {
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="Enter phone number"
                   />
+                  {loyaltyPoints > 0 && (
+                    <p className="text-xs text-green-600 mt-1 font-medium">
+                      Loyalty Points: {loyaltyPoints}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="gst-rate">Additional Tax % (Optional)</Label>
