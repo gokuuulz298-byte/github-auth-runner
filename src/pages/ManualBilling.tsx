@@ -705,6 +705,14 @@ const ManualBilling = () => {
     doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin, currentY);
     currentY += 4;
     doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin, currentY);
+    currentY += 4;
+    doc.text(`Payment: ${paymentMode.toUpperCase()}`, leftMargin, currentY);
+    if (isParcel && billingSettings?.isRestaurant) {
+      currentY += 4;
+      doc.setFont(undefined, 'bold');
+      doc.text("*** PARCEL ***", centerX, currentY, { align: "center" });
+      doc.setFont(undefined, 'normal');
+    }
     
     currentY += 5;
     doc.line(leftMargin, currentY, rightMargin, currentY);
@@ -721,101 +729,94 @@ const ManualBilling = () => {
     
     currentY += 5;
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     const showTaxColumn = billingSettings?.mode === "exclusive" ||
       (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "split");
     
-    doc.text("Item", leftMargin, currentY);
-    doc.text("Qty", 40, currentY);
-    doc.text("Rate", 55, currentY);
+    // Fixed column positions with proper spacing to prevent collision
+    const colItem = leftMargin;
+    const colQty = 38;
+    const colRate = 50;
+    const colTax = 62;
+    const colAmt = rightMargin - 2;
+    
+    doc.text("Item", colItem, currentY);
+    doc.text("Qty", colQty, currentY);
+    doc.text("Rate", colRate, currentY);
     if (showTaxColumn) {
-      doc.text("Tax", 67, currentY);
-      doc.text("Amt", 78, currentY, { align: "right" });
-    } else {
-      doc.text("Amt", 78, currentY, { align: "right" });
+      doc.text("Tax", colTax, currentY);
     }
+    doc.text("Amt", colAmt, currentY, { align: "right" });
     
     currentY += 3;
     doc.line(leftMargin, currentY, rightMargin, currentY);
     
     currentY += 4;
     doc.setFont(undefined, 'normal');
-    // Wrap text by actual width (mm)
-function wrapTextByWidth(doc: any, text: string, maxWidth: number) {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let currentLine = "";
+    
+    // Helper function to wrap text by width
+    function wrapTextByWidth(doc: any, text: string, maxWidth: number) {
+      const words = text.split(" ");
+      const lines: string[] = [];
+      let currentLine = "";
 
-  words.forEach(word => {
-    const testLine = currentLine ? currentLine + " " + word : word;
-    const width = doc.getTextWidth(testLine);
+      words.forEach(word => {
+        const testLine = currentLine ? currentLine + " " + word : word;
+        const width = doc.getTextWidth(testLine);
 
-    if (width > maxWidth) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
+        if (width > maxWidth) {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      });
+
+      if (currentLine) lines.push(currentLine);
+      return lines.length > 0 ? lines : [text.substring(0, 16)];
     }
-  });
 
-  if (currentLine) lines.push(currentLine);
-  return lines;
-}
+    // Fixed column positions
+    const colQtyPos = 38;
+    const colRatePos = 50;
+    const colTaxPos = 62;
+    const colAmtPos = rightMargin - 2;
 
     cartItems.forEach(item => {
-  // Wrap item name (max 24 chars per line)
-  // Wrap item name safely (max width = 32mm)
-const nameLines = wrapTextByWidth(doc, item.name, 32);
+      // Wrap item name (max width = 28mm to prevent collision)
+      const nameLines = wrapTextByWidth(doc, item.name, 28);
+      
+      // Qty label
+      const qtyLabel = item.price_type === "weight"
+        ? `${item.quantity.toFixed(2)}kg`
+        : item.quantity.toString();
 
+      const amount = item.price * item.quantity;
 
-  // Qty label
-  const qtyLabel =
-    item.price_type === "weight"
-      ? `${item.quantity.toFixed(3)}kg`
-      : item.quantity.toString();
+      nameLines.forEach((line, index) => {
+        const y = currentY;
+        const indent = index === 0 ? 0 : 2;
 
-  const amount = item.price * item.quantity;
+        // Print item name
+        doc.text(line.substring(0, 16), leftMargin + indent, y);
 
-  // FIXED COLUMN COORDINATES
-  // FINAL NON-OVERLAPPING COLUMN POSITIONS
-const colQty = 40;   // Qty column
-const colRate = 55;  // Rate column
-const colTax = 67;   // Tax column
-const colAmt = 78;   // Amount (always right)
+        // Only show values on first line
+        if (index === 0) {
+          doc.text(qtyLabel, colQtyPos, y);
+          doc.text(formatIndianNumber(item.price), colRatePos, y);
 
+          if (showTaxColumn) {
+            doc.text(`${item.tax_rate.toFixed(0)}%`, colTaxPos, y);
+          }
 
-  nameLines.forEach((line, index) => {
-  const y = currentY;
-  const indent = index === 0 ? 0 : 4;
+          doc.text(formatIndianNumber(amount), colAmtPos, y, { align: "right" });
+        }
 
-  // TEXT LINE
-  doc.text(line, leftMargin + indent, y);
+        currentY += index === 0 ? 4.2 : 3.5;
+      });
 
-  // FIRST LINE → Show Qty, Rate, Tax, Amt
-  if (index === 0) {
-
-    // FIXED FINAL COLUMN POSITIONS
-    const colQty = 40;
-    const colRate = 55;
-    const colTax = 67;
-    const colAmt = 78;
-
-    doc.text(qtyLabel, colQty, y);
-    doc.text(formatIndianNumber(item.price), colRate, y);
-
-    if (showTaxColumn) {
-      doc.text(`${item.tax_rate.toFixed(1)}%`, colTax, y);
-    }
-
-    doc.text(formatIndianNumber(amount), colAmt, y, { align: "right" });
-  }
-
-  currentY += index === 0 ? 4.5 : 4;
-});
-
-
-  currentY += 1; // small gap between products
-});
+      currentY += 0.5; // Small gap between products
+    });
 
 
     

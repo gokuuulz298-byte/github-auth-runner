@@ -45,6 +45,29 @@ const Analytics = () => {
     fetchAnalytics();
     fetchDailyData();
     fetchWeeklyData();
+
+    // Set up real-time subscription for invoices
+    const channel = supabase
+      .channel('analytics-invoices')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'invoices'
+        },
+        () => {
+          // Refresh all data when invoices change
+          fetchAnalytics();
+          fetchDailyData();
+          fetchWeeklyData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedDate, selectedCounter]);
 
   const fetchCounters = async () => {

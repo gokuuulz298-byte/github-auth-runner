@@ -711,49 +711,59 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
     
     currentY += 5;
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
+    
+    // Fixed column positions to prevent text collision
+    const colItem = leftMargin;
+    const colQty = 38;
+    const colRate = 50;
+    const colTax = 62;
+    const colAmt = rightMargin - 2;
+    
     if (billingSettings?.mode === "inclusive" &&
     billingSettings?.inclusiveBillType === "split")
- {
-  doc.text("Item", leftMargin, currentY);
-  doc.text("Qty", 40, currentY);
-  doc.text("Rate", 52, currentY);
-  doc.text("Tax", 63, currentY);
-  doc.text("Amt", rightMargin, currentY, { align: "right" });
-} else {
-  doc.text("Item", leftMargin, currentY);
-  doc.text("Qty", 45, currentY);
-  doc.text("Rate", 55, currentY);
-  doc.text("Amt", rightMargin, currentY, { align: "right" });
-}
+    {
+      doc.text("Item", colItem, currentY);
+      doc.text("Qty", colQty, currentY);
+      doc.text("Rate", colRate, currentY);
+      doc.text("Tax", colTax, currentY);
+      doc.text("Amt", colAmt, currentY, { align: "right" });
+    } else {
+      doc.text("Item", colItem, currentY);
+      doc.text("Qty", colQty, currentY);
+      doc.text("Rate", colRate, currentY);
+      doc.text("Amt", colAmt, currentY, { align: "right" });
+    }
 
-    
-    currentY += 3;
-    doc.line(leftMargin, currentY, rightMargin, currentY);
     
     currentY += 4;
     doc.setFont(undefined, 'normal');
+    doc.setFontSize(6.5);
+    
     cartItems.forEach(item => {
-      const itemName = item.name.length > 18 ? item.name.substring(0, 18) + '...' : item.name;
-      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)}kg` : item.quantity.toString();
+      // Truncate item name to prevent collision (max 16 chars)
+      const itemName = item.name.length > 16 ? item.name.substring(0, 14) + '..' : item.name;
+      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(2)}kg` : item.quantity.toString();
+      const amount = item.price * item.quantity;
       
       if (billingSettings?.mode === "inclusive" &&
-    billingSettings?.inclusiveBillType === "split") {
-  const taxRate = item.tax_rate || 0;
-  doc.text(itemName, leftMargin, currentY);
-  doc.text(qtyLabel, 40, currentY);
-  doc.text(formatIndianNumber(item.price), 52, currentY);
-  doc.text(`${taxRate.toFixed(1)}%`, 63, currentY);
-  doc.text(formatIndianNumber(item.price * item.quantity), rightMargin - 2, currentY, { align: "right" });
-} else {
-  doc.text(itemName, leftMargin, currentY);
-  doc.text(qtyLabel, 45, currentY);
-  doc.text(formatIndianNumber(item.price), 55, currentY);
-  doc.text(formatIndianNumber(item.price * item.quantity), rightMargin - 2, currentY, { align: "right" });
-}
+        billingSettings?.inclusiveBillType === "split") {
+        const taxRate = item.tax_rate || 0;
+        doc.text(itemName, colItem, currentY);
+        doc.text(qtyLabel, colQty, currentY);
+        doc.text(formatIndianNumber(item.price), colRate, currentY);
+        doc.text(`${taxRate.toFixed(0)}%`, colTax, currentY);
+        doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
+      } else {
+        doc.text(itemName, colItem, currentY);
+        doc.text(qtyLabel, colQty, currentY);
+        doc.text(formatIndianNumber(item.price), colRate, currentY);
+        doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
+      }
 
       currentY += 4;
     });
+    
     
     doc.line(leftMargin, currentY, rightMargin, currentY);
     currentY += 4;
