@@ -647,229 +647,214 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
 
     const doc = new jsPDF({
       unit: 'mm',
-      format: [80, Math.max(requiredHeight, 100)]
+      format: [80, Math.max(requiredHeight, 110)]
     });
     
     const pageWidth = 80;
     const centerX = pageWidth / 2;
-    const leftMargin = 5;
-    const rightMargin = 75;
+    const leftMargin = 4;
+    const rightMargin = 76;
     
-    let currentY = 10;
+    let currentY = 8;
+    
+    // TAKEAWAY header if parcel
+    if (isParcel && billingSettings?.isRestaurant) {
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.text("*** TAKEAWAY ***", centerX, currentY, { align: "center" });
+      currentY += 5;
+      doc.setFontSize(7);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Bill No: ${billNumber}`, centerX, currentY, { align: "center" });
+      currentY += 4;
+    }
+    
     if (companyProfile) {
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setFont(undefined, 'bold');
       doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
       
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setFont(undefined, 'normal');
-      currentY += 5;
+      currentY += 4;
       if (companyProfile.address) {
         doc.text(companyProfile.address, centerX, currentY, { align: "center" });
-        currentY += 4;
+        currentY += 3.5;
       }
       if (companyProfile.city || companyProfile.state || companyProfile.pincode) {
         const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
         doc.text(location, centerX, currentY, { align: "center" });
-        currentY += 4;
+        currentY += 3.5;
       }
       if (companyProfile.phone) {
         doc.text(`Ph: ${companyProfile.phone}`, centerX, currentY, { align: "center" });
-        currentY += 4;
+        currentY += 3.5;
       }
       if (companyProfile.gstin) {
         doc.text(`GSTIN: ${companyProfile.gstin}`, centerX, currentY, { align: "center" });
-        currentY += 4;
+        currentY += 3.5;
       }
     }
     
-    currentY += 2;
-    doc.setLineWidth(0.3);
+    currentY += 1;
+    doc.setLineWidth(0.2);
     doc.line(leftMargin, currentY, rightMargin, currentY);
     
-    currentY += 5;
-    doc.setFontSize(10);
+    currentY += 4;
+    doc.setFontSize(9);
     doc.setFont(undefined, 'bold');
-    doc.text("INVOICE", centerX, currentY, { align: "center" });
+    doc.text("TAX INVOICE", centerX, currentY, { align: "center" });
     
     currentY += 5;
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
+    
+    // Bill number, date/time, payment mode in parallel layout
     doc.text(`Bill: ${billNumber}`, leftMargin, currentY);
-    currentY += 4;
+    doc.text(`${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, centerX, currentY, { align: "center" });
+    doc.text(`${paymentMode.toUpperCase()}`, rightMargin, currentY, { align: "right" });
+    currentY += 3.5;
     doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin, currentY);
-    currentY += 4;
-    doc.text(`Time: ${new Date().toLocaleTimeString()}`, leftMargin, currentY);
-    currentY += 4;
-    doc.text(`Payment: ${paymentMode.toUpperCase()}`, leftMargin, currentY);
-    if (isParcel && billingSettings?.isRestaurant) {
-      currentY += 4;
-      doc.setFont(undefined, 'bold');
-      doc.text("*** PARCEL ***", centerX, currentY, { align: "center" });
-      doc.setFont(undefined, 'normal');
-    }
     
-    currentY += 5;
+    currentY += 4;
     doc.line(leftMargin, currentY, rightMargin, currentY);
-    currentY += 4;
-    doc.text(`Customer: ${customerName}`, leftMargin, currentY);
-    currentY += 4;
-    doc.text(`Phone: ${customerPhone}`, leftMargin, currentY);
-    currentY += 4;
-    if (loyaltyPoints > 0) {
-      doc.text(`Loyalty Points: ${loyaltyPoints}`, leftMargin, currentY);
-      currentY += 4;
+    currentY += 3.5;
+    
+    // Customer info
+    if (customerName) {
+      doc.text(`Customer: ${customerName.substring(0, 20)}`, leftMargin, currentY);
+      currentY += 3.5;
+    }
+    if (customerPhone) {
+      doc.text(`Phone: ${customerPhone}`, leftMargin, currentY);
+      if (loyaltyPoints > 0) {
+        doc.text(`Points: ${loyaltyPoints}`, rightMargin, currentY, { align: "right" });
+      }
+      currentY += 3.5;
     }
     doc.line(leftMargin, currentY, rightMargin, currentY);
     
-    currentY += 5;
+    currentY += 4;
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     
     // Fixed column positions to prevent text collision
     const colItem = leftMargin;
-    const colQty = 38;
-    const colRate = 50;
-    const colTax = 62;
-    const colAmt = rightMargin - 2;
+    const colQty = 36;
+    const colRate = 48;
+    const colTax = 60;
+    const colAmt = rightMargin;
     
-    if (billingSettings?.mode === "inclusive" &&
-    billingSettings?.inclusiveBillType === "split")
-    {
-      doc.text("Item", colItem, currentY);
-      doc.text("Qty", colQty, currentY);
-      doc.text("Rate", colRate, currentY);
+    const showTaxCol = billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "split";
+    
+    doc.text("Item", colItem, currentY);
+    doc.text("Qty", colQty, currentY);
+    doc.text("Rate", colRate, currentY);
+    if (showTaxCol) {
       doc.text("Tax", colTax, currentY);
-      doc.text("Amt", colAmt, currentY, { align: "right" });
-    } else {
-      doc.text("Item", colItem, currentY);
-      doc.text("Qty", colQty, currentY);
-      doc.text("Rate", colRate, currentY);
-      doc.text("Amt", colAmt, currentY, { align: "right" });
     }
+    doc.text("Amt", colAmt, currentY, { align: "right" });
 
+    currentY += 3;
+    doc.setLineWidth(0.1);
+    doc.line(leftMargin, currentY, rightMargin, currentY);
     
-    currentY += 4;
+    currentY += 3;
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     
     cartItems.forEach(item => {
-      // Truncate item name to prevent collision (max 16 chars)
-      const itemName = item.name.length > 16 ? item.name.substring(0, 14) + '..' : item.name;
-      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(2)}kg` : item.quantity.toString();
+      const itemName = item.name.length > 14 ? item.name.substring(0, 12) + '..' : item.name;
+      const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(2)}` : item.quantity.toString();
       const amount = item.price * item.quantity;
       
-      if (billingSettings?.mode === "inclusive" &&
-        billingSettings?.inclusiveBillType === "split") {
-        const taxRate = item.tax_rate || 0;
-        doc.text(itemName, colItem, currentY);
-        doc.text(qtyLabel, colQty, currentY);
-        doc.text(formatIndianNumber(item.price), colRate, currentY);
-        doc.text(`${taxRate.toFixed(0)}%`, colTax, currentY);
-        doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
-      } else {
-        doc.text(itemName, colItem, currentY);
-        doc.text(qtyLabel, colQty, currentY);
-        doc.text(formatIndianNumber(item.price), colRate, currentY);
-        doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
+      doc.text(itemName, colItem, currentY);
+      doc.text(qtyLabel, colQty, currentY);
+      doc.text(formatIndianNumber(item.price), colRate, currentY);
+      if (showTaxCol) {
+        doc.text(`${(item.tax_rate || 0).toFixed(0)}%`, colTax, currentY);
       }
-
-      currentY += 4;
+      doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
+      currentY += 3.5;
     });
     
-    
     doc.line(leftMargin, currentY, rightMargin, currentY);
-    currentY += 4;
+    currentY += 3.5;
     
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.text("Subtotal:", leftMargin, currentY);
-    doc.text(formatIndianNumber(subtotal), rightMargin - 2, currentY, { align: "right" });
-    currentY += 4;
+    doc.text(formatIndianNumber(subtotal), rightMargin, currentY, { align: "right" });
+    currentY += 3.5;
     
     // Show taxes based on trade type
-    if (billingSettings?.mode === "inclusive" &&
-    billingSettings?.inclusiveBillType === "split") {
-    if (intraStateTrade) {
-      if (productIGST > 0) {
-        doc.text("IGST:", leftMargin, currentY);
-        doc.text(formatIndianNumber(productIGST), rightMargin - 2, currentY, { align: "right" });
-        currentY += 4;
-      }
-    } else {
-      // Calculate SGST and CGST breakdown
-      const productSGST = cartItems.reduce((sum, item) => {
-        const itemTotal = item.price * item.quantity;
-        const sgstRate = item.sgst || 0;
-        return sum + (itemTotal * sgstRate / 100);
-      }, 0);
-      
-      
-      const productCGST = cartItems.reduce((sum, item) => {
-        const itemTotal = item.price * item.quantity;
-        const cgstRate = item.cgst || 0;
-        return sum + (itemTotal * cgstRate / 100);
-      }, 0);
-      
-      if (productSGST > 0) {
-        doc.text("SGST:", leftMargin, currentY);
-        doc.text(formatIndianNumber(productSGST), rightMargin - 2, currentY, { align: "right" });
-        currentY += 4;
-      }
-      
-      if (productCGST > 0) {
-        doc.text("CGST:", leftMargin, currentY);
-        doc.text(formatIndianNumber(productCGST), rightMargin - 2, currentY, { align: "right" });
-        currentY += 4;
+    if (showTaxCol) {
+      if (intraStateTrade) {
+        if (productIGST > 0) {
+          doc.text("IGST:", leftMargin, currentY);
+          doc.text(formatIndianNumber(productIGST), rightMargin, currentY, { align: "right" });
+          currentY += 3.5;
+        }
+      } else {
+        const productSGST = cartItems.reduce((sum, item) => {
+          const itemTotal = item.price * item.quantity;
+          return sum + (itemTotal * (item.sgst || 0) / 100);
+        }, 0);
+        const productCGST = cartItems.reduce((sum, item) => {
+          const itemTotal = item.price * item.quantity;
+          return sum + (itemTotal * (item.cgst || 0) / 100);
+        }, 0);
+        
+        if (productSGST > 0) {
+          doc.text("SGST:", leftMargin, currentY);
+          doc.text(formatIndianNumber(productSGST), rightMargin, currentY, { align: "right" });
+          currentY += 3.5;
+        }
+        if (productCGST > 0) {
+          doc.text("CGST:", leftMargin, currentY);
+          doc.text(formatIndianNumber(productCGST), rightMargin, currentY, { align: "right" });
+          currentY += 3.5;
+        }
       }
     }
-  }
+    
     if (couponDiscount > 0) {
       const coupon = coupons.find(c => c.id === selectedCoupon);
-      doc.text(`Coupon (${coupon?.code}):`, leftMargin, currentY);
-      doc.text(`-${formatIndianNumber(couponDiscount)}`, rightMargin - 2, currentY, { align: "right" });
-      currentY += 4;
+      doc.text(`Discount (${coupon?.code}):`, leftMargin, currentY);
+      doc.text(`-${formatIndianNumber(couponDiscount)}`, rightMargin, currentY, { align: "right" });
+      currentY += 3.5;
     }
     
     if (additionalGstAmount > 0) {
-      const additionalSGST = additionalGstAmount / 2;
-      const additionalCGST = additionalGstAmount / 2;
-      doc.text("Add. SGST:", leftMargin, currentY);
-      doc.text(formatIndianNumber(additionalSGST), rightMargin - 2, currentY, { align: "right" });
-      currentY += 4;
-      doc.text("Add. CGST:", leftMargin, currentY);
-      doc.text(formatIndianNumber(additionalCGST), rightMargin - 2, currentY, { align: "right" });
-      currentY += 4;
+      doc.text("Add. GST:", leftMargin, currentY);
+      doc.text(formatIndianNumber(additionalGstAmount), rightMargin, currentY, { align: "right" });
+      currentY += 3.5;
     }
     
+    doc.setLineWidth(0.3);
     doc.line(leftMargin, currentY, rightMargin, currentY);
     currentY += 4;
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.text("TOTAL:", leftMargin, currentY);
-    doc.text("Rs. " + formatIndianNumber(total, 2), rightMargin - 2, currentY, { align: "right" });
+    doc.text("Rs." + formatIndianNumber(total, 2), rightMargin, currentY, { align: "right" });
     
-    currentY += 6;
+    currentY += 5;
     doc.line(leftMargin, currentY, rightMargin, currentY);
     
-    // Add GST note
-    currentY += 4;
+    currentY += 3;
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(7);
-    const gstNote =
-  inclusiveBillType === "mrp"
-    ? "MRP Inclusive – Taxes included in total price"
-    : "Base + GST split shown";
-doc.text(gstNote, centerX, currentY, { align: "center" });
-
+    doc.setFontSize(6);
+    const gstNote = inclusiveBillType === "mrp" ? "MRP Inclusive – Taxes included" : "Base + GST shown";
+    doc.text(gstNote, centerX, currentY, { align: "center" });
     
-    currentY += 4;
+    currentY += 3;
     doc.setFont(undefined, 'italic');
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
     doc.text(thankYouNote, centerX, currentY, { align: "center" });
+    
     // Auto-print functionality
     if (billingSettings?.autoPrint) {
-      // Create blob and open in new window for print
       const pdfBlob = doc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       const printWindow = window.open(pdfUrl);
@@ -911,319 +896,300 @@ doc.text(gstNote, centerX, currentY, { align: "center" });
     const rightMargin = 195;
     const centerX = pageWidth / 2;
     
-    // Helper function to convert hex to RGB
     const hexToRgb = (hex: string) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result ? {
         r: parseInt(result[1], 16),
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16)
-      } : { r: 41, g: 128, b: 185 }; // Default blue
+      } : { r: 25, g: 55, b: 109 };
     };
     
-    // Use template colors or defaults
     const primaryColor = activeTemplate?.template_data?.primaryColor 
       ? hexToRgb(activeTemplate.template_data.primaryColor)
-      : { r: 41, g: 128, b: 185 };
+      : { r: 25, g: 55, b: 109 };
     
-    const headerBgColor = activeTemplate?.template_data?.headerBg 
-      ? hexToRgb(activeTemplate.template_data.headerBg)
-      : { r: 248, g: 250, b: 252 };
+    let currentY = 0;
     
-    // Header with template styling - larger and more professional
-    let currentY = 25;
-    const headerHeight = 55;
+    // Professional header band
+    const headerHeight = 45;
     doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.rect(0, 0, pageWidth, headerHeight, 'F');
     
-    // Add gradient effect (lighter shade at bottom)
-    doc.setFillColor(
-      Math.min(255, primaryColor.r + 15),
-      Math.min(255, primaryColor.g + 15),
-      Math.min(255, primaryColor.b + 15)
-    );
-    doc.rect(0, headerHeight - 8, pageWidth, 8, 'F');
-    
+    // Company name
+    currentY = 18;
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(32);
+    doc.setFontSize(26);
     doc.setFont(undefined, 'bold');
     if (companyProfile) {
-      doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
+      doc.text(companyProfile.company_name, leftMargin, currentY);
       
-      doc.setFontSize(11);
+      // Company details on right
+      doc.setFontSize(9);
       doc.setFont(undefined, 'normal');
-      currentY += 10;
+      let rightY = 12;
       if (companyProfile.address) {
-        doc.text(companyProfile.address, centerX, currentY, { align: "center" });
-        currentY += 6;
+        doc.text(companyProfile.address, rightMargin, rightY, { align: "right" });
+        rightY += 5;
       }
       const location = [companyProfile.city, companyProfile.state, companyProfile.pincode].filter(Boolean).join(', ');
       if (location) {
-        doc.text(location, centerX, currentY, { align: "center" });
-        currentY += 6;
+        doc.text(location, rightMargin, rightY, { align: "right" });
+        rightY += 5;
       }
-      if (companyProfile.phone || companyProfile.gstin) {
-        const contact = [
-          companyProfile.phone ? `Ph: ${companyProfile.phone}` : '',
-          companyProfile.gstin ? `GSTIN: ${companyProfile.gstin}` : ''
-        ].filter(Boolean).join(' | ');
-        doc.text(contact, centerX, currentY, { align: "center" });
+      if (companyProfile.phone) {
+        doc.text(`Tel: ${companyProfile.phone}`, rightMargin, rightY, { align: "right" });
+        rightY += 5;
+      }
+      if (companyProfile.email) {
+        doc.text(companyProfile.email, rightMargin, rightY, { align: "right" });
+        rightY += 5;
+      }
+      if (companyProfile.gstin) {
+        doc.text(`GSTIN: ${companyProfile.gstin}`, rightMargin, rightY, { align: "right" });
       }
     }
     
-    currentY = headerHeight + 15;
+    currentY = headerHeight + 8;
     
-    // Professional invoice title with light background
+    // Takeaway badge if parcel
+    if (isParcel && billingSettings?.isRestaurant) {
+      doc.setFillColor(255, 147, 0);
+      doc.roundedRect(leftMargin, currentY, 35, 8, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.text("TAKEAWAY", leftMargin + 17.5, currentY + 5.5, { align: "center" });
+      currentY += 12;
+    }
+    
+    // Invoice title and number
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.text("TAX INVOICE", leftMargin, currentY);
+    
+    // Invoice number badge
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(rightMargin - 55, currentY - 6, 55, 10, 2, 2, 'F');
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`#${billNumber}`, rightMargin - 27.5, currentY, { align: "center" });
+    
+    currentY += 12;
+    
+    // Horizontal divider
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.5);
+    doc.line(leftMargin, currentY, rightMargin, currentY);
+    
+    currentY += 10;
+    
+    // Two column info section
+    const col1X = leftMargin;
+    const col2X = 115;
+    
+    // Invoice Details Box
     doc.setFillColor(250, 251, 252);
-    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 18, 'F');
+    doc.roundedRect(col1X, currentY, 90, 38, 3, 3, 'F');
     doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.setLineWidth(0.5);
-    doc.rect(leftMargin, currentY, rightMargin - leftMargin, 18);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(col1X, currentY, 90, 38, 3, 3);
     
     doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.setFontSize(22);
+    doc.setFontSize(10);
     doc.setFont(undefined, 'bold');
-    doc.text("TAX INVOICE", centerX, currentY + 12, { align: "center" });
+    doc.text("INVOICE DETAILS", col1X + 5, currentY + 8);
     
-    currentY += 25;
-    const boxY = currentY;
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(9);
+    doc.text(`Invoice No:`, col1X + 5, currentY + 16);
+    doc.text(billNumber, col1X + 35, currentY + 16);
+    doc.text(`Date:`, col1X + 5, currentY + 23);
+    doc.text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col1X + 35, currentY + 23);
+    doc.text(`Time:`, col1X + 5, currentY + 30);
+    doc.text(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }), col1X + 35, currentY + 30);
     
-    // Info boxes with template colors
+    // Customer Details Box
+    doc.setFillColor(250, 251, 252);
+    doc.roundedRect(col2X, currentY, 80, 38, 3, 3, 'F');
     doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.setLineWidth(0.5);
-    doc.setFillColor(headerBgColor.r, headerBgColor.g, headerBgColor.b);
-    doc.rect(leftMargin, boxY, 85, 32, 'FD');
+    doc.roundedRect(col2X, currentY, 80, 38, 3, 3);
     
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
     doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.text("Invoice Details", leftMargin + 3, boxY + 7);
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Bill No: ${billNumber}`, leftMargin + 3, boxY + 14);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin + 3, boxY + 20);
-    doc.text(`Payment: ${paymentMode.toUpperCase()}`, leftMargin + 3, boxY + 26);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text("BILL TO", col2X + 5, currentY + 8);
     
-    doc.setFillColor(headerBgColor.r, headerBgColor.g, headerBgColor.b);
-    doc.rect(110, boxY, 85, 32, 'FD');
-    doc.setFont(undefined, 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.text("Customer Details", 113, boxY + 7);
     doc.setFont(undefined, 'normal');
+    doc.setTextColor(60, 60, 60);
     doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Name: ${customerName || 'Walk-in Customer'}`, 113, boxY + 14);
-    doc.text(`Phone: ${customerPhone || 'N/A'}`, 113, boxY + 20);
+    doc.text(customerName || 'Walk-in Customer', col2X + 5, currentY + 16);
+    if (customerPhone) {
+      doc.text(`Ph: ${customerPhone}`, col2X + 5, currentY + 23);
+    }
     if (loyaltyPoints > 0) {
       doc.setTextColor(22, 163, 74);
-      doc.text(`Loyalty Points: ${loyaltyPoints}`, 113, boxY + 26);
-      doc.setTextColor(0, 0, 0);
-    } else if (isParcel && billingSettings?.isRestaurant) {
-      doc.setTextColor(220, 53, 69);
-      doc.text("PARCEL ORDER", 113, boxY + 26);
-      doc.setTextColor(0, 0, 0);
+      doc.text(`Loyalty Points: ${loyaltyPoints}`, col2X + 5, currentY + 30);
     }
     
-    currentY = boxY + 40;
+    // Payment mode badge
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.roundedRect(col1X + 50, currentY + 25, 35, 8, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'bold');
+    doc.text(paymentMode.toUpperCase(), col1X + 67.5, currentY + 30.5, { align: "center" });
     
-    // Products table header with template color
+    currentY += 48;
+    
+    // Products table
+    const showTaxCol = billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "split";
+    
+    // Table header
     doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.rect(leftMargin, currentY, rightMargin - leftMargin, 10, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
     doc.setFontSize(9);
-    if (billingSettings?.mode === "inclusive" &&
-    billingSettings?.inclusiveBillType === "split"){
-  doc.text("Item", leftMargin + 2, currentY + 6);
-  doc.text("Qty", 100, currentY + 6, { align: "center" });
-  doc.text("Rate", 130, currentY + 6, { align: "center" });
-  doc.text("Tax", 155, currentY + 6, { align: "center" });
-  doc.text("Amount", rightMargin - 2, currentY + 6, { align: "right" });
-} else {
-  doc.text("Item", leftMargin + 2, currentY + 6);
-  doc.text("Qty", 110, currentY + 6, { align: "center" });
-  doc.text("Rate", 150, currentY + 6, { align: "center" });
-  doc.text("Amount", rightMargin - 2, currentY + 6, { align: "right" });
-}
-
+    
+    doc.text("S.No", leftMargin + 3, currentY + 6.5);
+    doc.text("Item Description", leftMargin + 18, currentY + 6.5);
+    doc.text("Qty", showTaxCol ? 105 : 120, currentY + 6.5, { align: "center" });
+    doc.text("Rate", showTaxCol ? 130 : 150, currentY + 6.5, { align: "center" });
+    if (showTaxCol) {
+      doc.text("GST %", 155, currentY + 6.5, { align: "center" });
+    }
+    doc.text("Amount", rightMargin - 3, currentY + 6.5, { align: "right" });
     
     currentY += 10;
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
     
-    // Draw table borders for each row
     cartItems.forEach((item, index) => {
-      // Alternate row colors
       if (index % 2 === 0) {
-        doc.setFillColor(248, 250, 252);
+        doc.setFillColor(250, 251, 252);
       } else {
         doc.setFillColor(255, 255, 255);
       }
-      doc.rect(leftMargin, currentY, rightMargin - leftMargin, 8, 'F');
+      doc.rect(leftMargin, currentY, rightMargin - leftMargin, 9, 'F');
       
-      // Draw cell borders
-      doc.setDrawColor(220, 220, 220);
+      doc.setDrawColor(235, 235, 235);
       doc.setLineWidth(0.1);
-      doc.line(leftMargin, currentY, rightMargin, currentY);
+      doc.line(leftMargin, currentY + 9, rightMargin, currentY + 9);
       
-      const itemName = item.name.length > 30 ? item.name.substring(0, 30) + '...' : item.name;
+      const itemName = item.name.length > 35 ? item.name.substring(0, 35) + '...' : item.name;
       const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(3)} kg` : `${item.quantity}`;
       const itemAmount = item.price * item.quantity;
-      const taxRate = item.tax_rate || item.igst || (item.cgst + item.sgst) || 0;
+      const taxRate = item.tax_rate || 0;
       
-      if (billingSettings?.mode === "inclusive" &&
-    billingSettings?.inclusiveBillType === "split"){
-  doc.text(itemName, leftMargin + 2, currentY + 5.5);
-  doc.text(qtyLabel, 100, currentY + 5.5, { align: "center" });
-  doc.text(`₹${item.price.toFixed(2)}`, 130, currentY + 5.5, { align: "center" });
-  doc.text(`${taxRate.toFixed(1)}%`, 155, currentY + 5.5, { align: "center" });
-  doc.text(`₹${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5.5, { align: "right" });
-} else {
-  doc.text(itemName, leftMargin + 2, currentY + 5.5);
-  doc.text(qtyLabel, 120, currentY + 5.5, { align: "center" });
-  doc.text(`₹${item.price.toFixed(2)}`, 160, currentY + 5.5, { align: "center" });
-  doc.text(`₹${itemAmount.toFixed(2)}`, rightMargin - 2, currentY + 5.5, { align: "right" });
-}
-
+      doc.setTextColor(80, 80, 80);
+      doc.text(`${index + 1}`, leftMargin + 6, currentY + 6, { align: "center" });
+      doc.setTextColor(30, 30, 30);
+      doc.text(itemName, leftMargin + 18, currentY + 6);
+      doc.text(qtyLabel, showTaxCol ? 105 : 120, currentY + 6, { align: "center" });
+      doc.text(`₹${item.price.toFixed(2)}`, showTaxCol ? 130 : 150, currentY + 6, { align: "center" });
+      if (showTaxCol) {
+        doc.text(`${taxRate.toFixed(1)}%`, 155, currentY + 6, { align: "center" });
+      }
+      doc.setFont(undefined, 'bold');
+      doc.text(`₹${itemAmount.toFixed(2)}`, rightMargin - 3, currentY + 6, { align: "right" });
+      doc.setFont(undefined, 'normal');
       
-      currentY += 8;
+      currentY += 9;
     });
     
-    // Bottom border of table
+    // Table bottom border
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.setLineWidth(0.5);
     doc.line(leftMargin, currentY, rightMargin, currentY);
     
+    currentY += 10;
     
-    currentY += 8;
-    const totalsStartX = 125;
+    // Totals section
+    const totalsX = 130;
+    const totalsWidth = rightMargin - totalsX + 3;
     
-    // Totals box with background
-    const totalsBoxY = currentY;
-    doc.setFillColor(250, 252, 255);
-    const boxHeight = 
-      8 + // Subtotal
-      (productSGST > 0 ? 12 : 0) + // Product taxes
-      (couponDiscount > 0 ? 6 : 0) + // Coupon
-      (additionalSGST > 0 ? 12 : 0) + // Additional taxes  
-      (taxAmount > 0 ? 20 : 0) + // Total taxes
-      14; // Grand total
+    doc.setFillColor(250, 251, 252);
+    doc.roundedRect(totalsX - 3, currentY - 3, totalsWidth, 50 + (showTaxCol && (productSGST > 0 || productIGST > 0) ? 14 : 0) + (couponDiscount > 0 ? 7 : 0), 3, 3, 'F');
     
-    doc.rect(totalsStartX - 3, totalsBoxY - 2, rightMargin - totalsStartX + 5, boxHeight, 'F');
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(9.5);
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
     
-    currentY = totalsBoxY;
-    doc.text("Subtotal:", totalsStartX, currentY);
-    doc.text(formatIndianNumber(subtotal, 2), rightMargin - 2, currentY, { align: "right" });
-    currentY += 6;
-    if (billingSettings?.mode === "inclusive" &&
-    billingSettings?.inclusiveBillType === "split")
-     {
-    if (intraStateTrade) {
-      if (productIGST > 0) {
-        doc.text("IGST (Product):", totalsStartX, currentY);
-        doc.text(formatIndianNumber(productIGST, 2), rightMargin - 2, currentY, { align: "right" });
-        currentY += 6;
-      }
-    } else {
-      if (productSGST > 0) {
-        doc.text("SGST (Product):", totalsStartX, currentY);
-        doc.text(formatIndianNumber(productSGST, 2), rightMargin - 2, currentY, { align: "right" });
-        currentY += 6;
-        
-        doc.text("CGST (Product):", totalsStartX, currentY);
-        doc.text(formatIndianNumber(productCGST, 2), rightMargin - 2, currentY, { align: "right" });
-        currentY += 6;
+    doc.text("Subtotal:", totalsX, currentY + 4);
+    doc.text(`₹${formatIndianNumber(subtotal, 2)}`, rightMargin - 3, currentY + 4, { align: "right" });
+    currentY += 7;
+    
+    if (showTaxCol) {
+      if (intraStateTrade && productIGST > 0) {
+        doc.text("IGST:", totalsX, currentY + 4);
+        doc.text(`₹${formatIndianNumber(productIGST, 2)}`, rightMargin - 3, currentY + 4, { align: "right" });
+        currentY += 7;
+      } else if (!intraStateTrade && productSGST > 0) {
+        doc.text("SGST:", totalsX, currentY + 4);
+        doc.text(`₹${formatIndianNumber(productSGST, 2)}`, rightMargin - 3, currentY + 4, { align: "right" });
+        currentY += 7;
+        doc.text("CGST:", totalsX, currentY + 4);
+        doc.text(`₹${formatIndianNumber(productCGST, 2)}`, rightMargin - 3, currentY + 4, { align: "right" });
+        currentY += 7;
       }
     }
-  }
     
     if (couponDiscount > 0) {
       const coupon = coupons.find(c => c.id === selectedCoupon);
       doc.setTextColor(220, 53, 69);
-      doc.text(`Coupon (${coupon?.code}):`, totalsStartX, currentY);
-      doc.text(`-${formatIndianNumber(couponDiscount, 2)}`, rightMargin - 2, currentY, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-      currentY += 6;
+      doc.text(`Discount (${coupon?.code}):`, totalsX, currentY + 4);
+      doc.text(`-₹${formatIndianNumber(couponDiscount, 2)}`, rightMargin - 3, currentY + 4, { align: "right" });
+      doc.setTextColor(60, 60, 60);
+      currentY += 7;
     }
     
-    if (additionalSGST > 0 && !intraStateTrade) {
-      doc.text(`Additional SGST (${additionalGstRate}%):`, totalsStartX, currentY);
-      doc.text(formatIndianNumber(additionalSGST, 2), rightMargin - 2, currentY, { align: "right" });
-      currentY += 6;
-      
-      doc.text(`Additional CGST (${additionalGstRate}%):`, totalsStartX, currentY);
-      doc.text(formatIndianNumber(additionalCGST, 2), rightMargin - 2, currentY, { align: "right" });
-      currentY += 6;
-    }
-    
-    if (taxAmount > 0) {
+    if (taxAmount > 0 && showTaxCol) {
       doc.setDrawColor(180, 180, 180);
-      doc.setLineWidth(0.3);
-      doc.line(totalsStartX, currentY, rightMargin - 2, currentY);
+      doc.setLineWidth(0.2);
+      doc.line(totalsX, currentY + 2, rightMargin - 3, currentY + 2);
       currentY += 5;
       
       doc.setFont(undefined, 'bold');
-      
-      if (intraStateTrade) {
-        doc.text("Total IGST:", totalsStartX, currentY);
-        doc.text(formatIndianNumber(totalIGST, 2), rightMargin - 2, currentY, { align: "right" });
-        currentY += 6;
-      } else {
-        doc.text("Total SGST:", totalsStartX, currentY);
-        doc.text(formatIndianNumber(totalSGST, 2), rightMargin - 2, currentY, { align: "right" });
-        currentY += 6;
-        
-        doc.text("Total CGST:", totalsStartX, currentY);
-        doc.text(formatIndianNumber(totalCGST, 2), rightMargin - 2, currentY, { align: "right" });
-        currentY += 6;
-      }
-      
-      doc.text("Total Tax:", totalsStartX, currentY);
-      doc.text(formatIndianNumber(taxAmount, 2), rightMargin - 2, currentY, { align: "right" });
-      currentY += 8;
+      doc.text("Total Tax:", totalsX, currentY + 4);
+      doc.text(`₹${formatIndianNumber(taxAmount, 2)}`, rightMargin - 3, currentY + 4, { align: "right" });
+      currentY += 10;
       doc.setFont(undefined, 'normal');
     }
     
-    // Grand total with prominent styling using template color
-    const totalColor = activeTemplate?.template_data?.layout === 'compact' 
-      ? primaryColor 
-      : { r: 22, g: 163, b: 74 }; // Green for most templates, use primary for compact
-    
-    doc.setFillColor(totalColor.r, totalColor.g, totalColor.b);
-    doc.rect(totalsStartX - 5, currentY - 3, rightMargin - totalsStartX + 7, 12, 'F');
+    // Grand total
+    currentY += 3;
+    doc.setFillColor(22, 163, 74);
+    doc.roundedRect(totalsX - 3, currentY, totalsWidth, 14, 3, 3, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(13);
-    doc.text("GRAND TOTAL:", totalsStartX, currentY + 5);
-    doc.text(formatIndianNumber(total, 2), rightMargin - 2, currentY + 5, { align: "right" });
+    doc.setFontSize(12);
+    doc.text("GRAND TOTAL", totalsX + 2, currentY + 9);
+    doc.text(`₹${formatIndianNumber(total, 2)}`, rightMargin - 5, currentY + 9, { align: "right" });
     
-    doc.setTextColor(0, 0, 0);
-    currentY += 20;
+    currentY += 25;
     
-    // Add GST note
+    // GST note
+    doc.setTextColor(100, 100, 100);
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    const gstNote = inclusiveBillType === "mrp"
-  ? "MRP Inclusive – All taxes included in price"
-  : "Base + GST shown separately";
-doc.text(gstNote, centerX, currentY, { align: "center" });
-
-    currentY += 8;
+    doc.setFontSize(8);
+    const gstNote = inclusiveBillType === "mrp" ? "Note: All prices are MRP inclusive of GST" : "Note: GST calculated as per applicable rates";
+    doc.text(gstNote, centerX, currentY, { align: "center" });
     
+    currentY += 8;
     doc.setFont(undefined, 'italic');
     doc.setFontSize(10);
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
     doc.text(thankYouNote, centerX, currentY, { align: "center" });
     
+    // Footer line
     doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.setLineWidth(1);
-    doc.line(leftMargin, 280, rightMargin, 280);
+    doc.line(leftMargin, 282, rightMargin, 282);
     
     // Auto-print functionality
     if (billingSettings?.autoPrint) {
@@ -1445,13 +1411,13 @@ doc.text(gstNote, centerX, currentY, { align: "center" });
               </div>
 
               {/* Parcel Option - only show if restaurant mode enabled */}
-              {billingSettings?.isRestaurant && billingSettings?.enableParcelBill && (
-                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+              {billingSettings?.isRestaurant && (
+                <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-950/30 rounded border border-orange-200 dark:border-orange-800">
                   <Switch
                     checked={isParcel}
                     onCheckedChange={setIsParcel}
                   />
-                  <Label className="text-sm cursor-pointer">Parcel Order</Label>
+                  <Label className="text-sm cursor-pointer font-medium">Takeaway / Parcel Order</Label>
                 </div>
               )}
 

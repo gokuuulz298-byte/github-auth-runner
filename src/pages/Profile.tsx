@@ -311,28 +311,15 @@ if (profile.id) {
                 onCheckedChange={(v) =>
                   setSettings({
                     ...settings,
-                    isRestaurant: v,
-                    enableParcelBill: v ? settings.enableParcelBill : false
+                    isRestaurant: v
                   })
                 }
               />
               <span>Enable Restaurant Mode</span>
             </div>
-
-            {settings.isRestaurant && (
-              <div className="mt-4 flex items-center gap-3">
-                <Switch
-                  checked={settings.enableParcelBill}
-                  onCheckedChange={(v) =>
-                    setSettings({
-                      ...settings,
-                      enableParcelBill: v
-                    })
-                  }
-                />
-                <span>Enable Parcel Bill Feature</span>
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground mt-2 ml-10">
+              When enabled, parcel/takeaway toggle will appear in billing interfaces
+            </p>
           </div>
 
           {/* Print Settings */}
