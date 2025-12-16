@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Minus } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Monitor } from "lucide-react";
 import { toast } from "sonner";
 import ShoppingCart, { CartItem } from "@/components/ShoppingCart";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { setCounterSession, getCounterSession } from "@/lib/counterSession";
 import { saveInvoiceToIndexedDB } from "@/lib/indexedDB";
 import jsPDF from "jspdf";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import OrderStatusMonitor from "@/components/OrderStatusMonitor";
 
 const ModernBilling = () => {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const ModernBilling = () => {
   const [billingSettings, setBillingSettings] = useState<any>(null);
   const [paymentMode, setPaymentMode] = useState<string>("cash");
   const [isParcel, setIsParcel] = useState<boolean>(false);
+  const [showOrderMonitor, setShowOrderMonitor] = useState<boolean>(false);
 
 
 
@@ -525,6 +527,22 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
         .insert([invoiceData]);
 
       if (error) throw error;
+
+      // Send to kitchen if parcel and kitchen interface enabled
+      if (isParcel && billingSettings?.enableKitchenInterface) {
+        await supabase
+          .from('kitchen_orders')
+          .insert([{
+            bill_number: billNumber,
+            order_type: 'takeaway',
+            items_data: JSON.parse(JSON.stringify(cartItems)),
+            customer_name: customerName || null,
+            customer_phone: customerPhone || null,
+            status: 'pending',
+            total_amount: totals.total,
+            created_by: user.id
+          }]);
+      }
 
       // Update or create loyalty points
       if (customerPhone) {
@@ -1219,11 +1237,21 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
             </Button>
             <h1 className="text-xl sm:text-2xl font-bold">Modern Billing</h1>
           </div>
-          <div className="w-48">
+          <div className="flex items-center gap-2">
+            {billingSettings?.enableKitchenInterface && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowOrderMonitor(!showOrderMonitor)}
+                className="relative"
+              >
+                <Monitor className="h-4 w-4" />
+              </Button>
+            )}
             <select
               value={invoiceFormat}
               onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="thermal">Thermal Print (80mm)</option>
               <option value="a4">A4 Size</option>
@@ -1231,6 +1259,9 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
           </div>
         </div>
       </header>
+
+      {/* Order Status Monitor */}
+      <OrderStatusMonitor isOpen={showOrderMonitor} onClose={() => setShowOrderMonitor(false)} />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Sidebar - Categories */}

@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode } from "lucide-react";
+import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode, ChefHat } from "lucide-react";
 import GuidelinesDialog from "@/components/GuidelinesDialog";
+import InterfaceSelector from "@/components/InterfaceSelector";
 import { toast } from "sonner";
 import { Session, User } from "@supabase/supabase-js";
 
@@ -14,16 +15,20 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [companyName, setCompanyName] = useState<string>("");
+  const [billingSettings, setBillingSettings] = useState<any>(null);
+  const [showInterfaceSelector, setShowInterfaceSelector] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   const menuItems = [
-    { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", color: "from-purple-500 to-pink-500" },
-    { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", color: "from-blue-500 to-indigo-500" },
+    { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", color: "from-purple-500 to-pink-500", requiresAuth: true },
+    { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", color: "from-blue-500 to-indigo-500", requiresAuth: true },
+    { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", color: "from-orange-500 to-amber-500", requiresAuth: true, kitchenOnly: true },
     { icon: Package, label: "Inventory", path: "/inventory", color: "from-green-500 to-emerald-500" },
     { icon: AlertTriangle, label: "Low Stocks", path: "/low-stocks", color: "from-yellow-500 to-orange-500" },
     { icon: FileText, label: "Invoices", path: "/invoices", color: "from-orange-500 to-amber-500" },
     { icon: Users, label: "Customers", path: "/customers", color: "from-indigo-500 to-purple-500" },
     { icon: BarChart3, label: "Analytics", path: "/analytics", color: "from-red-500 to-pink-500" },
-     { icon: BarChart4, label: "Advanced Reports", path: "/advanced-reports", color: "from-red-600 to-orange-600" },
+    { icon: BarChart4, label: "Advanced Reports", path: "/advanced-reports", color: "from-red-600 to-orange-600" },
     { icon: Building2, label: "Profile", path: "/profile", color: "from-blue-500 to-cyan-500" },
     { icon: FolderOpen, label: "Categories", path: "/categories", color: "from-teal-500 to-cyan-500" },
     { icon: LayoutGrid, label: "Counters", path: "/counters", color: "from-violet-500 to-purple-500" },
@@ -67,17 +72,54 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from('company_profiles')
-        .select('company_name')
+        .select('company_name, billing_settings')
         .eq('user_id', userId)
         .maybeSingle();
       
       if (!error && data) {
         setCompanyName(data.company_name);
+        setBillingSettings(data.billing_settings as any);
       }
     } catch (error) {
       console.error("Error fetching company profile:", error);
     }
   };
+
+  const handleMenuClick = (path: string, item: any) => {
+    const isBillingOrKitchen = item.requiresAuth;
+    const isKitchenPath = path === '/kitchen';
+    
+    // Check if security protection is enabled and this is a protected path
+    if (billingSettings?.securityProtection && isBillingOrKitchen) {
+      setPendingNavigation(path);
+      setShowInterfaceSelector(true);
+    } else {
+      // Check if kitchen is enabled for kitchen path
+      if (isKitchenPath && !billingSettings?.enableKitchenInterface) {
+        toast.error("Kitchen interface is not enabled");
+        return;
+      }
+      navigate(path);
+    }
+  };
+
+  const handleInterfaceSelect = (type: 'billing' | 'kitchen') => {
+    setShowInterfaceSelector(false);
+    if (type === 'billing') {
+      navigate(pendingNavigation || '/modern-billing');
+    } else {
+      navigate('/kitchen');
+    }
+    setPendingNavigation(null);
+  };
+
+  // Filter menu items based on settings
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.kitchenOnly) {
+      return billingSettings?.enableKitchenInterface;
+    }
+    return true;
+  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -120,11 +162,11 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <Card 
               key={item.path}
               className="card-hover cursor-pointer group transition-all"
-              onClick={() => navigate(item.path)}
+              onClick={() => handleMenuClick(item.path, item)}
             >
               <CardHeader className="p-3 sm:p-6">
                 <div className={`p-2 sm:p-3 bg-gradient-to-br ${item.color} bg-opacity-10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-transform`}>
@@ -134,6 +176,7 @@ const Dashboard = () => {
                 <CardDescription className="hidden sm:block text-xs sm:text-sm">
                   {item.label === "Manual Billing" && "Create bills by searching products"}
                   {item.label === "Modern Billing" && "Visual product grid with categories"}
+                  {item.label === "Kitchen Display" && "Real-time order management for kitchen"}
                   {item.label === "Inventory" && "Manage your product catalog"}
                   {item.label === "Low Stocks" && "Monitor products with low inventory"}
                   {item.label === "Invoices" && "View billing history"}
@@ -153,6 +196,7 @@ const Dashboard = () => {
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   {item.label === "Manual Billing" && "Search and add products to create bills quickly"}
                   {item.label === "Modern Billing" && "Browse products by category with images"}
+                  {item.label === "Kitchen Display" && "View and update order status in real-time"}
                   {item.label === "Inventory" && "Add, edit, and track your product inventory"}
                   {item.label === "Low Stocks" && "Get alerts for products running out of stock"}
                   {item.label === "Invoices" && "Access past invoices and sales records"}
@@ -171,6 +215,16 @@ const Dashboard = () => {
             </Card>
           ))}
         </div>
+
+        {/* Interface Selector Dialog */}
+        <InterfaceSelector
+          open={showInterfaceSelector}
+          onClose={() => setShowInterfaceSelector(false)}
+          onSelect={handleInterfaceSelect}
+          billingPassword={billingSettings?.billingPassword}
+          kitchenPassword={billingSettings?.kitchenPassword}
+          securityEnabled={billingSettings?.securityProtection || false}
+        />
       </main>
     </div>
   );
