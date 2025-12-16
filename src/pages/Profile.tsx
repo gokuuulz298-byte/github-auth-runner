@@ -38,6 +38,10 @@ interface BillingSettings {
   enableParcelBill?: boolean;
   autoPrint?: boolean;
   defaultPaymentMode?: string;
+  enableKitchenInterface?: boolean;
+  securityProtection?: boolean;
+  billingPassword?: string;
+  kitchenPassword?: string;
 }
 
 
@@ -134,7 +138,11 @@ if (profile.id) {
     isRestaurant: false,
     enableParcelBill: false,
     autoPrint: false,
-    defaultPaymentMode: "cash"
+    defaultPaymentMode: "cash",
+    enableKitchenInterface: false,
+    securityProtection: false,
+    billingPassword: "",
+    kitchenPassword: ""
   });
 
   useEffect(() => {
@@ -152,7 +160,11 @@ if (profile.id) {
     isRestaurant: companyProfile.billing_settings.isRestaurant ?? false,
     enableParcelBill: companyProfile.billing_settings.enableParcelBill ?? false,
     autoPrint: companyProfile.billing_settings.autoPrint ?? false,
-    defaultPaymentMode: companyProfile.billing_settings.defaultPaymentMode || "cash"
+    defaultPaymentMode: companyProfile.billing_settings.defaultPaymentMode || "cash",
+    enableKitchenInterface: companyProfile.billing_settings.enableKitchenInterface ?? false,
+    securityProtection: companyProfile.billing_settings.securityProtection ?? false,
+    billingPassword: companyProfile.billing_settings.billingPassword || "",
+    kitchenPassword: companyProfile.billing_settings.kitchenPassword || ""
   });
 }
 
@@ -311,7 +323,8 @@ if (profile.id) {
                 onCheckedChange={(v) =>
                   setSettings({
                     ...settings,
-                    isRestaurant: v
+                    isRestaurant: v,
+                    enableKitchenInterface: v ? settings.enableKitchenInterface : false
                   })
                 }
               />
@@ -320,6 +333,86 @@ if (profile.id) {
             <p className="text-xs text-muted-foreground mt-2 ml-10">
               When enabled, parcel/takeaway toggle will appear in billing interfaces
             </p>
+
+            {settings.isRestaurant && (
+              <>
+                <div className="mt-4 flex items-center gap-3 ml-6">
+                  <Switch
+                    checked={settings.enableKitchenInterface}
+                    onCheckedChange={(v) =>
+                      setSettings({
+                        ...settings,
+                        enableKitchenInterface: v
+                      })
+                    }
+                  />
+                  <span>Enable Kitchen Interface</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 ml-16">
+                  Orders with parcel toggle will be sent to kitchen display
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Security Settings */}
+          <div className="border-t pt-6">
+            <Label className="text-lg font-semibold">Security Settings</Label>
+            
+            <div className="mt-4 flex items-center gap-3">
+              <Switch
+                checked={settings.securityProtection}
+                onCheckedChange={(v) =>
+                  setSettings({
+                    ...settings,
+                    securityProtection: v
+                  })
+                }
+              />
+              <span>Enable Password Protection</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 ml-10">
+              Require password to access billing and kitchen interfaces
+            </p>
+
+            {settings.securityProtection && (
+              <div className="mt-4 ml-6 space-y-4">
+                <div>
+                  <Label htmlFor="billingPassword">Billing Interface Password</Label>
+                  <Input
+                    id="billingPassword"
+                    type="password"
+                    value={settings.billingPassword}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        billingPassword: e.target.value
+                      })
+                    }
+                    placeholder="Set billing password"
+                    className="mt-1 w-64"
+                  />
+                </div>
+                {settings.enableKitchenInterface && (
+                  <div>
+                    <Label htmlFor="kitchenPassword">Kitchen Interface Password</Label>
+                    <Input
+                      id="kitchenPassword"
+                      type="password"
+                      value={settings.kitchenPassword}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          kitchenPassword: e.target.value
+                        })
+                      }
+                      placeholder="Set kitchen password"
+                      className="mt-1 w-64"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Print Settings */}

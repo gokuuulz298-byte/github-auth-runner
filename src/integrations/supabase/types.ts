@@ -302,6 +302,51 @@ export type Database = {
           },
         ]
       }
+      kitchen_orders: {
+        Row: {
+          bill_number: string
+          created_at: string
+          created_by: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          items_data: Json
+          notes: string | null
+          order_type: string | null
+          status: string | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          bill_number: string
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_data: Json
+          notes?: string | null
+          order_type?: string | null
+          status?: string | null
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          bill_number?: string
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_data?: Json
+          notes?: string | null
+          order_type?: string | null
+          status?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       loyalty_points: {
         Row: {
           created_at: string | null
