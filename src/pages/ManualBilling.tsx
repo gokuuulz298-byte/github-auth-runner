@@ -79,8 +79,13 @@ const ManualBilling = () => {
       setCompanyProfile(data);
 
       // Fetch billing settings from profile
-      if (data?.billing_settings && typeof data.billing_settings === "object" && "ManualBilling" in data.billing_settings) {
-        setBillingSettings((data.billing_settings as any).ManualBilling);
+      if (data?.billing_settings && typeof data.billing_settings === "object") {
+        const settings = data.billing_settings as any;
+        setBillingSettings({
+          ...settings.ManualBilling,
+          isRestaurant: settings.isRestaurant,
+          enableKitchenInterface: settings.enableKitchenInterface
+        });
       }
     } catch (error) {
       console.error(error);

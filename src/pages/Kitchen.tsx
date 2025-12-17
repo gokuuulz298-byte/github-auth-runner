@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ChefHat, Clock, CheckCircle2, Truck, RefreshCw, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, ChefHat, Clock, CheckCircle2, Truck, RefreshCw, UtensilsCrossed, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 
@@ -26,6 +26,23 @@ const Kitchen = () => {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const previousOrderCountRef = useRef<number>(0);
+
+  // Create audio element for notification sound
+  useEffect(() => {
+    audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleVN0m8nP1sFVJyNNkMPPtrxxPCYuTXyftaxpQzxMg6q+oXlON0Jkl7a9q4dgSVBxmaW5spBxZW2EpKOilodwYnCIqLS5rpSCe4SWpKWgkX9xZnSJnKStqJqRh4SOkpOQhnxuaHWLnqessJyVkpGTk5OMhH55d4OSnJ+gnJmYl5eWlZSSj4uJiYyPkpSTkpGQj4+OjYyLioqKi4yNjo+PkJCQkJCQkJCQkJCQkJCQkJCQkA==');
+    audioRef.current.volume = 0.8;
+  }, []);
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    if (soundEnabled && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+    }
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -36,7 +53,32 @@ const Kitchen = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'kitchen_orders'
+        },
+        (payload) => {
+          // New order arrived - play sound
+          playNotificationSound();
+          toast.success("🔔 New order received!", { duration: 5000 });
+          fetchOrders();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'kitchen_orders'
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
           schema: 'public',
           table: 'kitchen_orders'
         },
@@ -49,7 +91,7 @@ const Kitchen = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [soundEnabled]);
 
   const fetchOrders = async () => {
     try {
@@ -142,14 +184,25 @@ const Kitchen = () => {
                 </div>
               </div>
             </div>
-            <Button 
-              onClick={fetchOrders} 
-              variant="secondary"
-              className="gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setSoundEnabled(!soundEnabled)} 
+                variant="secondary"
+                size="icon"
+                className={soundEnabled ? "" : "opacity-50"}
+                title={soundEnabled ? "Sound On" : "Sound Off"}
+              >
+                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
+              <Button 
+                onClick={fetchOrders} 
+                variant="secondary"
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
       </header>
