@@ -347,6 +347,65 @@ export type Database = {
         }
         Relationships: []
       }
+      live_orders: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          items_data: Json
+          notes: string | null
+          order_type: string | null
+          status: string | null
+          table_number: string | null
+          total_amount: number | null
+          updated_at: string | null
+          waiter_id: string | null
+          waiter_name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_data?: Json
+          notes?: string | null
+          order_type?: string | null
+          status?: string | null
+          table_number?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          waiter_id?: string | null
+          waiter_name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_data?: Json
+          notes?: string | null
+          order_type?: string | null
+          status?: string | null
+          table_number?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          waiter_id?: string | null
+          waiter_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_orders_waiter_id_fkey"
+            columns: ["waiter_id"]
+            isOneToOne: false
+            referencedRelation: "waiters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loyalty_points: {
         Row: {
           created_at: string | null
@@ -523,6 +582,39 @@ export type Database = {
           role?: string | null
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      waiters: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          display_name: string
+          id: string
+          is_active: boolean | null
+          password: string
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          password: string
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          password?: string
+          updated_at?: string | null
+          username?: string
         }
         Relationships: []
       }

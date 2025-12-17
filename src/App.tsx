@@ -23,6 +23,7 @@ import Barcodes from "./pages/Barcodes";
 import Templates from "./pages/Templates";
 import ModernBilling from "./pages/ModernBilling";
 import Kitchen from "./pages/Kitchen";
+import WaiterInterface from "./pages/WaiterInterface";
 
 const queryClient = new QueryClient();
 

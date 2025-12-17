@@ -125,9 +125,14 @@ const ModernBilling = () => {
       if (error) throw error;
       setCompanyProfile(data);
 
-      if (data?.billing_settings && typeof data.billing_settings === "object" && "ModernBilling" in data.billing_settings) {
-  setBillingSettings((data.billing_settings as any).ModernBilling);
-}
+      if (data?.billing_settings && typeof data.billing_settings === "object") {
+        const settings = data.billing_settings as any;
+        setBillingSettings({
+          ...settings.ModernBilling,
+          isRestaurant: settings.isRestaurant,
+          enableKitchenInterface: settings.enableKitchenInterface
+        });
+      }
 
 
     } catch (error) {
