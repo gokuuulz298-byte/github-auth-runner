@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import WaiterCard from "@/components/WaiterCard";
 
 interface CompanyProfile {
   id?: string;
@@ -42,8 +43,16 @@ interface BillingSettings {
   securityProtection?: boolean;
   billingPassword?: string;
   kitchenPassword?: string;
+  enableWaiters?: boolean;
 }
 
+interface Waiter {
+  id: string;
+  username: string;
+  password: string;
+  display_name: string;
+  is_active: boolean;
+}
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -51,6 +60,7 @@ const Profile = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [profile, setProfile] = useState<CompanyProfile>({
     company_name: "",
     phone: "",
@@ -65,7 +75,26 @@ const Profile = () => {
 
   useEffect(() => {
     fetchProfile();
+    fetchWaiters();
   }, []);
+
+  const fetchWaiters = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('waiters')
+        .select('*')
+        .eq('created_by', user.id)
+        .order('display_name');
+
+      if (error) throw error;
+      setWaiters((data || []) as Waiter[]);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -642,6 +671,13 @@ if (profile.id) {
           </CardContent>
         </Card>
         <BillingSettingsSection companyProfile={profile} refreshCompany={fetchProfile} />
+        
+        {/* Waiter Management - Only show when restaurant mode is enabled */}
+        {(profile.billing_settings as BillingSettings)?.isRestaurant && (
+          <div className="mt-6">
+            <WaiterCard waiters={waiters} onRefresh={fetchWaiters} />
+          </div>
+        )}
       </main>
     </div>
   );

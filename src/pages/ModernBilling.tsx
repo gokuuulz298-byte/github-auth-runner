@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Minus, Monitor } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Monitor, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import ShoppingCart, { CartItem } from "@/components/ShoppingCart";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import { saveInvoiceToIndexedDB } from "@/lib/indexedDB";
 import jsPDF from "jspdf";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import OrderStatusMonitor from "@/components/OrderStatusMonitor";
+import LiveOrdersPanel from "@/components/LiveOrdersPanel";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const ModernBilling = () => {
   const navigate = useNavigate();
@@ -40,7 +42,7 @@ const ModernBilling = () => {
   const [paymentMode, setPaymentMode] = useState<string>("cash");
   const [isParcel, setIsParcel] = useState<boolean>(false);
   const [showOrderMonitor, setShowOrderMonitor] = useState<boolean>(false);
-
+  const [showLiveOrders, setShowLiveOrders] = useState<boolean>(false);
 
 
   // Initialize counter session
@@ -1248,10 +1250,50 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                 variant="outline"
                 size="icon"
                 onClick={() => setShowOrderMonitor(!showOrderMonitor)}
+                title="Order Status Monitor"
                 className="relative"
               >
                 <Monitor className="h-4 w-4" />
               </Button>
+            )}
+            {billingSettings?.isRestaurant && (
+              <Sheet open={showLiveOrders} onOpenChange={setShowLiveOrders}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Live Orders from Waiters"
+                    className="relative"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[400px] sm:w-[450px] p-0">
+                  <LiveOrdersPanel 
+                    onGenerateBill={(order) => {
+                      const orderItems = order.items_data.map((item: any) => ({
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        quantity: item.quantity,
+                        sgst: item.sgst || 0,
+                        cgst: item.cgst || 0,
+                        igst: item.igst || 0,
+                        taxRate: item.taxRate || 0,
+                        basePrice: item.basePrice || item.price,
+                        totalPrice: item.price * item.quantity,
+                        barcode: item.barcode || "",
+                        tax_rate: item.tax_rate || 0
+                      }));
+                      setCartItems(orderItems);
+                      setCustomerName(order.customer_name || "");
+                      setIsParcel(order.order_type === "takeaway");
+                      setShowLiveOrders(false);
+                      toast.success("Order loaded to cart - Complete the sale to generate bill");
+                    }}
+                  />
+                </SheetContent>
+              </Sheet>
             )}
             <select
               value={invoiceFormat}
