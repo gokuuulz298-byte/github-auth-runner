@@ -9,6 +9,14 @@ import InterfaceSelector from "@/components/InterfaceSelector";
 import { toast } from "sonner";
 import { Session, User } from "@supabase/supabase-js";
 
+interface Waiter {
+  id: string;
+  username: string;
+  password: string;
+  display_name: string;
+  is_active: boolean;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
@@ -18,6 +26,8 @@ const Dashboard = () => {
   const [billingSettings, setBillingSettings] = useState<any>(null);
   const [showInterfaceSelector, setShowInterfaceSelector] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [waiters, setWaiters] = useState<Waiter[]>([]);
+  const [initialSelectorShown, setInitialSelectorShown] = useState(false);
 
   const menuItems = [
     { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", color: "from-purple-500 to-pink-500", requiresAuth: true },
@@ -49,6 +59,7 @@ const Dashboard = () => {
           navigate("/auth");
         } else {
           fetchCompanyProfile(session.user.id);
+          fetchWaiters(session.user.id);
         }
       }
     );
@@ -62,11 +73,20 @@ const Dashboard = () => {
         navigate("/auth");
       } else {
         fetchCompanyProfile(session.user.id);
+        fetchWaiters(session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Show interface selector on initial load if security is enabled
+  useEffect(() => {
+    if (billingSettings?.securityProtection && billingSettings?.isRestaurant && !initialSelectorShown) {
+      setShowInterfaceSelector(true);
+      setInitialSelectorShown(true);
+    }
+  }, [billingSettings, initialSelectorShown]);
 
   const fetchCompanyProfile = async (userId: string) => {
     try {
@@ -82,6 +102,22 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error("Error fetching company profile:", error);
+    }
+  };
+
+  const fetchWaiters = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('waiters')
+        .select('*')
+        .eq('created_by', userId)
+        .eq('is_active', true);
+
+      if (!error && data) {
+        setWaiters(data as Waiter[]);
+      }
+    } catch (error) {
+      console.error("Error fetching waiters:", error);
     }
   };
 
@@ -103,12 +139,20 @@ const Dashboard = () => {
     }
   };
 
-  const handleInterfaceSelect = (type: 'billing' | 'kitchen') => {
+  const handleInterfaceSelect = (type: 'billing' | 'kitchen' | 'waiter', waiterData?: { id: string; name: string }) => {
     setShowInterfaceSelector(false);
-    if (type === 'billing') {
-      navigate(pendingNavigation || '/modern-billing');
-    } else {
+    
+    if (type === 'waiter' && waiterData) {
+      // Store waiter info and navigate to waiter interface
+      sessionStorage.setItem('waiterData', JSON.stringify({
+        ...waiterData,
+        ownerId: user?.id
+      }));
+      navigate('/waiter');
+    } else if (type === 'kitchen') {
       navigate('/kitchen');
+    } else {
+      navigate(pendingNavigation || '/modern-billing');
     }
     setPendingNavigation(null);
   };
@@ -224,6 +268,8 @@ const Dashboard = () => {
           billingPassword={billingSettings?.billingPassword}
           kitchenPassword={billingSettings?.kitchenPassword}
           securityEnabled={billingSettings?.securityProtection || false}
+          waiters={waiters}
+          enableWaiters={waiters.length > 0 && billingSettings?.isRestaurant}
         />
       </main>
     </div>

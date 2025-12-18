@@ -19,13 +19,33 @@ interface CartItem {
 }
 
 interface WaiterInterfaceProps {
-  waiterId: string;
-  waiterName: string;
-  ownerId: string;
+  waiterId?: string;
+  waiterName?: string;
+  ownerId?: string;
 }
 
-const WaiterInterface = ({ waiterId, waiterName, ownerId }: WaiterInterfaceProps) => {
+const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, ownerId: propOwnerId }: WaiterInterfaceProps) => {
   const navigate = useNavigate();
+  
+  // Get waiter data from session storage or props
+  const [waiterData, setWaiterData] = useState<{ id: string; name: string; ownerId: string } | null>(null);
+  
+  useEffect(() => {
+    const stored = sessionStorage.getItem('waiterData');
+    if (stored) {
+      setWaiterData(JSON.parse(stored));
+    } else if (propWaiterId && propWaiterName && propOwnerId) {
+      setWaiterData({ id: propWaiterId, name: propWaiterName, ownerId: propOwnerId });
+    } else {
+      // No waiter data, redirect to auth
+      navigate('/auth');
+    }
+  }, [propWaiterId, propWaiterName, propOwnerId, navigate]);
+
+  const waiterId = waiterData?.id || '';
+  const waiterName = waiterData?.name || '';
+  const ownerId = waiterData?.ownerId || '';
+  
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
