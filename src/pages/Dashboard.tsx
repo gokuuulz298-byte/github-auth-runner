@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode, ChefHat } from "lucide-react";
+import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode, ChefHat, ClipboardList } from "lucide-react";
 import GuidelinesDialog from "@/components/GuidelinesDialog";
 import InterfaceSelector from "@/components/InterfaceSelector";
+import LiveOrdersPanel from "@/components/LiveOrdersPanel";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { Session, User } from "@supabase/supabase-js";
 
@@ -25,14 +27,12 @@ const Dashboard = () => {
   const [companyName, setCompanyName] = useState<string>("");
   const [billingSettings, setBillingSettings] = useState<any>(null);
   const [showInterfaceSelector, setShowInterfaceSelector] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [waiters, setWaiters] = useState<Waiter[]>([]);
-  const [initialSelectorShown, setInitialSelectorShown] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const menuItems = [
-    { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", color: "from-purple-500 to-pink-500", requiresAuth: true },
-    { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", color: "from-blue-500 to-indigo-500", requiresAuth: true },
-    { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", color: "from-orange-500 to-amber-500", requiresAuth: true, kitchenOnly: true },
+    { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", color: "from-purple-500 to-pink-500" },
+    { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", color: "from-blue-500 to-indigo-500" },
     { icon: Package, label: "Inventory", path: "/inventory", color: "from-green-500 to-emerald-500" },
     { icon: AlertTriangle, label: "Low Stocks", path: "/low-stocks", color: "from-yellow-500 to-orange-500" },
     { icon: FileText, label: "Invoices", path: "/invoices", color: "from-orange-500 to-amber-500" },
@@ -57,9 +57,10 @@ const Dashboard = () => {
         
         if (!session) {
           navigate("/auth");
-        } else {
+        } else if (!authChecked) {
           fetchCompanyProfile(session.user.id);
           fetchWaiters(session.user.id);
+          setAuthChecked(true);
         }
       }
     );
@@ -71,22 +72,15 @@ const Dashboard = () => {
       
       if (!session) {
         navigate("/auth");
-      } else {
+      } else if (!authChecked) {
         fetchCompanyProfile(session.user.id);
         fetchWaiters(session.user.id);
+        setAuthChecked(true);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  // Show interface selector on initial load if security is enabled
-  useEffect(() => {
-    if (billingSettings?.securityProtection && billingSettings?.isRestaurant && !initialSelectorShown) {
-      setShowInterfaceSelector(true);
-      setInitialSelectorShown(true);
-    }
-  }, [billingSettings, initialSelectorShown]);
+  }, [navigate, authChecked]);
 
   const fetchCompanyProfile = async (userId: string) => {
     try {
@@ -98,7 +92,13 @@ const Dashboard = () => {
       
       if (!error && data) {
         setCompanyName(data.company_name);
-        setBillingSettings(data.billing_settings as any);
+        const settings = data.billing_settings as any;
+        setBillingSettings(settings);
+        
+        // Show interface selector if security is enabled AND restaurant mode is on
+        if (settings?.securityProtection && settings?.isRestaurant) {
+          setShowInterfaceSelector(true);
+        }
       }
     } catch (error) {
       console.error("Error fetching company profile:", error);
@@ -121,29 +121,10 @@ const Dashboard = () => {
     }
   };
 
-  const handleMenuClick = (path: string, item: any) => {
-    const isBillingOrKitchen = item.requiresAuth;
-    const isKitchenPath = path === '/kitchen';
-    
-    // Check if security protection is enabled and this is a protected path
-    if (billingSettings?.securityProtection && isBillingOrKitchen) {
-      setPendingNavigation(path);
-      setShowInterfaceSelector(true);
-    } else {
-      // Check if kitchen is enabled for kitchen path
-      if (isKitchenPath && !billingSettings?.enableKitchenInterface) {
-        toast.error("Kitchen interface is not enabled");
-        return;
-      }
-      navigate(path);
-    }
-  };
-
   const handleInterfaceSelect = (type: 'billing' | 'kitchen' | 'waiter', waiterData?: { id: string; name: string }) => {
     setShowInterfaceSelector(false);
     
     if (type === 'waiter' && waiterData) {
-      // Store waiter info and navigate to waiter interface
       sessionStorage.setItem('waiterData', JSON.stringify({
         ...waiterData,
         ownerId: user?.id
@@ -151,19 +132,9 @@ const Dashboard = () => {
       navigate('/waiter');
     } else if (type === 'kitchen') {
       navigate('/kitchen');
-    } else {
-      navigate(pendingNavigation || '/modern-billing');
     }
-    setPendingNavigation(null);
+    // For billing, just close the selector and show dashboard
   };
-
-  // Filter menu items based on settings
-  const filteredMenuItems = menuItems.filter(item => {
-    if (item.kitchenOnly) {
-      return billingSettings?.enableKitchenInterface;
-    }
-    return true;
-  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -171,11 +142,33 @@ const Dashboard = () => {
     navigate("/auth");
   };
 
+  const handleGenerateBill = (order: any) => {
+    // Navigate to billing with order data
+    sessionStorage.setItem('liveOrderToBill', JSON.stringify(order));
+    navigate('/modern-billing');
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  // Show interface selector as fullscreen when security is enabled
+  if (showInterfaceSelector) {
+    return (
+      <InterfaceSelector
+        open={showInterfaceSelector}
+        onClose={() => setShowInterfaceSelector(false)}
+        onSelect={handleInterfaceSelect}
+        billingPassword={billingSettings?.billingPassword}
+        kitchenPassword={billingSettings?.kitchenPassword}
+        securityEnabled={billingSettings?.securityProtection || false}
+        waiters={waiters}
+        enableWaiters={waiters.length > 0 && billingSettings?.isRestaurant}
+      />
     );
   }
 
@@ -188,6 +181,32 @@ const Dashboard = () => {
             <h1 className="text-2xl font-bold">Eduvanca Billing</h1>
           </div>
           <div className="flex items-center gap-2">
+            {/* Live Orders Button - Only show if restaurant mode */}
+            {billingSettings?.isRestaurant && (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" title="Live Orders">
+                    <ClipboardList className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-[400px] sm:w-[540px] p-0">
+                  <LiveOrdersPanel onGenerateBill={handleGenerateBill} />
+                </SheetContent>
+              </Sheet>
+            )}
+            
+            {/* Kitchen Display Button - Only show if enabled */}
+            {billingSettings?.enableKitchenInterface && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => navigate('/kitchen')}
+                title="Kitchen Display"
+              >
+                <ChefHat className="h-5 w-5" />
+              </Button>
+            )}
+            
             <GuidelinesDialog />
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
@@ -206,11 +225,11 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-          {filteredMenuItems.map((item) => (
+          {menuItems.map((item) => (
             <Card 
               key={item.path}
               className="card-hover cursor-pointer group transition-all"
-              onClick={() => handleMenuClick(item.path, item)}
+              onClick={() => navigate(item.path)}
             >
               <CardHeader className="p-3 sm:p-6">
                 <div className={`p-2 sm:p-3 bg-gradient-to-br ${item.color} bg-opacity-10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-transform`}>
@@ -220,7 +239,6 @@ const Dashboard = () => {
                 <CardDescription className="hidden sm:block text-xs sm:text-sm">
                   {item.label === "Manual Billing" && "Create bills by searching products"}
                   {item.label === "Modern Billing" && "Visual product grid with categories"}
-                  {item.label === "Kitchen Display" && "Real-time order management for kitchen"}
                   {item.label === "Inventory" && "Manage your product catalog"}
                   {item.label === "Low Stocks" && "Monitor products with low inventory"}
                   {item.label === "Invoices" && "View billing history"}
@@ -240,7 +258,6 @@ const Dashboard = () => {
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   {item.label === "Manual Billing" && "Search and add products to create bills quickly"}
                   {item.label === "Modern Billing" && "Browse products by category with images"}
-                  {item.label === "Kitchen Display" && "View and update order status in real-time"}
                   {item.label === "Inventory" && "Add, edit, and track your product inventory"}
                   {item.label === "Low Stocks" && "Get alerts for products running out of stock"}
                   {item.label === "Invoices" && "Access past invoices and sales records"}
@@ -259,18 +276,6 @@ const Dashboard = () => {
             </Card>
           ))}
         </div>
-
-        {/* Interface Selector Dialog */}
-        <InterfaceSelector
-          open={showInterfaceSelector}
-          onClose={() => setShowInterfaceSelector(false)}
-          onSelect={handleInterfaceSelect}
-          billingPassword={billingSettings?.billingPassword}
-          kitchenPassword={billingSettings?.kitchenPassword}
-          securityEnabled={billingSettings?.securityProtection || false}
-          waiters={waiters}
-          enableWaiters={waiters.length > 0 && billingSettings?.isRestaurant}
-        />
       </main>
     </div>
   );

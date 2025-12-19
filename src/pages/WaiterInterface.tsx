@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Minus, Send, UtensilsCrossed, Package } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Plus, Minus, Send, UtensilsCrossed, Package, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { formatIndianNumber, formatIndianCurrency } from "@/lib/numberFormat";
 
@@ -18,33 +19,12 @@ interface CartItem {
   quantity: number;
 }
 
-interface WaiterInterfaceProps {
-  waiterId?: string;
-  waiterName?: string;
-  ownerId?: string;
-}
-
-const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, ownerId: propOwnerId }: WaiterInterfaceProps) => {
+const WaiterInterface = () => {
   const navigate = useNavigate();
   
-  // Get waiter data from session storage or props
+  // Get waiter data from session storage
   const [waiterData, setWaiterData] = useState<{ id: string; name: string; ownerId: string } | null>(null);
-  
-  useEffect(() => {
-    const stored = sessionStorage.getItem('waiterData');
-    if (stored) {
-      setWaiterData(JSON.parse(stored));
-    } else if (propWaiterId && propWaiterName && propOwnerId) {
-      setWaiterData({ id: propWaiterId, name: propWaiterName, ownerId: propOwnerId });
-    } else {
-      // No waiter data, redirect to auth
-      navigate('/auth');
-    }
-  }, [propWaiterId, propWaiterName, propOwnerId, navigate]);
-
-  const waiterId = waiterData?.id || '';
-  const waiterName = waiterData?.name || '';
-  const ownerId = waiterData?.ownerId || '';
+  const [loading, setLoading] = useState(true);
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -54,27 +34,42 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
   const [tableNumber, setTableNumber] = useState<string>("");
   const [customerName, setCustomerName] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
-  const [productQuantities, setProductQuantities] = useState<{ [key: string]: number }>({});
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    const stored = sessionStorage.getItem('waiterData');
+    if (stored) {
+      const data = JSON.parse(stored);
+      setWaiterData(data);
+    } else {
+      navigate('/auth');
+    }
+  }, [navigate]);
+
+  // Fetch data only when waiterData is available
+  useEffect(() => {
+    if (waiterData?.ownerId) {
+      fetchCategories();
+    }
+  }, [waiterData?.ownerId]);
 
   useEffect(() => {
-    if (selectedCategory) {
+    if (selectedCategory && waiterData?.ownerId) {
       fetchProducts(selectedCategory);
     } else {
       setProducts([]);
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, waiterData?.ownerId]);
 
   const fetchCategories = async () => {
+    if (!waiterData?.ownerId) return;
+    
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('categories')
         .select('*')
-        .eq('created_by', ownerId)
+        .eq('created_by', waiterData.ownerId)
         .order('name');
 
       if (error) throw error;
@@ -84,15 +79,20 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
       }
     } catch (error) {
       console.error(error);
+      toast.error("Failed to load categories");
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchProducts = async (category: string) => {
+    if (!waiterData?.ownerId) return;
+    
     try {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', ownerId)
+        .eq('created_by', waiterData.ownerId)
         .eq('category', category)
         .eq('is_deleted', false)
         .order('name');
@@ -104,12 +104,12 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
     }
   };
 
-  const handleAddToCart = (product: any, quantity: number = 1) => {
+  const handleAddToCart = (product: any) => {
     const existingItem = cartItems.find(item => item.id === product.id);
     if (existingItem) {
       setCartItems(cartItems.map(item =>
         item.id === product.id
-          ? { ...item, quantity: item.quantity + quantity }
+          ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
@@ -117,12 +117,11 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
         id: product.id,
         name: product.name,
         price: Number(product.price),
-        quantity: quantity,
+        quantity: 1,
       };
       setCartItems([...cartItems, newItem]);
     }
     toast.success(`${product.name} added`);
-    setProductQuantities({ ...productQuantities, [product.id]: 1 });
   };
 
   const handleUpdateQuantity = (id: string, newQuantity: number) => {
@@ -140,6 +139,8 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
   };
 
   const sendToKitchen = async () => {
+    if (!waiterData) return;
+    
     if (cartItems.length === 0) {
       toast.error("Add items to send to kitchen");
       return;
@@ -152,9 +153,9 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
 
     try {
       const orderData = {
-        created_by: ownerId,
-        waiter_id: waiterId,
-        waiter_name: waiterName,
+        created_by: waiterData.ownerId,
+        waiter_id: waiterData.id,
+        waiter_name: waiterData.name,
         order_type: isParcel ? 'takeaway' : 'dine-in',
         table_number: isParcel ? null : tableNumber,
         items_data: cartItems as unknown as any,
@@ -165,7 +166,6 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
       };
 
       if (activeOrderId) {
-        // Update existing order - add new items
         const { data: existingOrder } = await supabase
           .from('live_orders')
           .select('items_data, total_amount, notes')
@@ -200,7 +200,6 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
           toast.success("Items added to existing order!");
         }
       } else {
-        // Create new order
         const { data, error } = await supabase
           .from('live_orders')
           .insert([orderData])
@@ -214,7 +213,7 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
 
       // Also send to kitchen_orders for kitchen display
       const kitchenOrder = {
-        created_by: ownerId,
+        created_by: waiterData.ownerId,
         bill_number: `W-${Date.now().toString().slice(-6)}`,
         order_type: isParcel ? 'takeaway' : 'dine-in',
         items_data: cartItems as unknown as any,
@@ -222,7 +221,7 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
         customer_phone: null,
         status: 'pending',
         total_amount: calculateTotal(),
-        notes: notes ? `${waiterName}: ${notes}` : `Waiter: ${waiterName}`,
+        notes: notes ? `${waiterData.name}: ${notes}` : `Waiter: ${waiterData.name}`,
       };
 
       await supabase.from('kitchen_orders').insert([kitchenOrder]);
@@ -244,193 +243,241 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
     setIsParcel(false);
   };
 
+  const handleLogout = () => {
+    sessionStorage.removeItem('waiterData');
+    navigate('/auth');
+  };
+
+  if (!waiterData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3">
+      <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg flex-shrink-0">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-lg font-bold">Waiter Interface</h1>
+                <p className="text-indigo-100 text-sm">{waiterData.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeOrderId && (
+                <Badge variant="secondary" className="bg-green-500 text-white">
+                  Active Order
+                </Badge>
+              )}
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={() => navigate("/auth")}
+                onClick={handleLogout}
                 className="text-white hover:bg-white/20"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <LogOut className="h-5 w-5" />
               </Button>
-              <div>
-                <h1 className="text-xl font-bold">Waiter Interface</h1>
-                <p className="text-indigo-100 text-sm">{waiterName}</p>
-              </div>
             </div>
-            {activeOrderId && (
-              <Badge variant="secondary" className="bg-green-500 text-white">
-                Active Order
-              </Badge>
-            )}
           </div>
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Categories & Products */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Categories */}
-          <div className="bg-white/80 dark:bg-gray-800/80 border-b p-2 overflow-x-auto">
-            <div className="flex gap-2">
-              {categories.map((cat) => (
-                <Button
-                  key={cat.id}
-                  variant={selectedCategory === cat.name ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat.name)}
-                  className="whitespace-nowrap"
-                >
-                  {cat.name}
-                </Button>
-              ))}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Categories */}
+        <div className="w-24 md:w-32 bg-muted/50 border-r flex-shrink-0 overflow-hidden flex flex-col">
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-1">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : categories.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No categories</p>
+              ) : (
+                categories.map((cat) => (
+                  <Button
+                    key={cat.id}
+                    variant={selectedCategory === cat.name ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(cat.name)}
+                    className="w-full justify-start text-xs h-auto py-2 px-2"
+                  >
+                    <span className="truncate">{cat.name}</span>
+                  </Button>
+                ))
+              )}
             </div>
-          </div>
-
-          {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {products.map((product) => (
-                <Card
-                  key={product.id}
-                  className="hover:shadow-lg transition-shadow overflow-hidden cursor-pointer"
-                  onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
-                >
-                  <div className="aspect-square bg-muted relative overflow-hidden">
-                    {product.image_url ? (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                        {product.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <CardContent className="p-2">
-                    <h3 className="font-semibold text-sm line-clamp-1">{product.name}</h3>
-                    <p className="text-primary font-bold">
-                      ₹{formatIndianNumber(Number(product.price))}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+          </ScrollArea>
         </div>
 
-        {/* Right Panel - Order Details */}
-        <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l bg-card flex flex-col max-h-[50vh] lg:max-h-none">
-          <div className="p-4 space-y-4 overflow-y-auto flex-1">
-            {/* Order Type Toggle */}
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-950/50 dark:to-amber-950/50 rounded-lg">
-              <UtensilsCrossed className={`h-5 w-5 ${!isParcel ? 'text-orange-600' : 'text-muted-foreground'}`} />
-              <Switch
-                checked={isParcel}
-                onCheckedChange={setIsParcel}
-              />
-              <Package className={`h-5 w-5 ${isParcel ? 'text-orange-600' : 'text-muted-foreground'}`} />
-              <span className="text-sm font-medium">
-                {isParcel ? 'Takeaway' : 'Dine-in'}
-              </span>
-            </div>
-
-            {/* Table Number (for dine-in) */}
-            {!isParcel && (
-              <div className="space-y-1">
-                <Label className="text-sm">Table Number *</Label>
-                <Input
-                  value={tableNumber}
-                  onChange={(e) => setTableNumber(e.target.value)}
-                  placeholder="Enter table number"
-                  className="h-10"
-                />
-              </div>
-            )}
-
-            {/* Customer Name */}
-            <div className="space-y-1">
-              <Label className="text-sm">Customer Name</Label>
-              <Input
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Optional"
-                className="h-10"
-              />
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-1">
-              <Label className="text-sm">Special Instructions</Label>
-              <Input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any special requests..."
-                className="h-10"
-              />
-            </div>
-
-            {/* Cart Items */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Order Items</Label>
-              {cartItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Tap products to add
-                </p>
+        {/* Middle - Products Grid */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="p-2 border-b bg-muted/30 flex-shrink-0">
+            <h2 className="font-semibold text-sm">{selectedCategory || 'Select Category'}</h2>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-3">
+              {products.length === 0 ? (
+                <div className="text-center text-muted-foreground py-12">
+                  <p className="text-sm">No products in this category</p>
+                </div>
               ) : (
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between bg-muted/50 rounded p-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          ₹{formatIndianNumber(item.price)} × {item.quantity}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {products.map((product) => (
+                    <Card
+                      key={product.id}
+                      className="hover:shadow-lg transition-shadow overflow-hidden cursor-pointer group"
+                      onClick={() => handleAddToCart(product)}
+                    >
+                      <div className="aspect-square bg-muted relative overflow-hidden">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-2xl font-bold bg-gradient-to-br from-primary/10 to-primary/5">
+                            {product.name.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      <CardContent className="p-2">
+                        <h3 className="font-medium text-xs line-clamp-2 min-h-[2rem]">{product.name}</h3>
+                        <p className="text-primary font-bold text-sm">
+                          ₹{formatIndianNumber(Number(product.price))}
                         </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                        >
-                          <Minus className="h-3 w-3" />
+                        <Button size="sm" className="w-full mt-2 h-7 text-xs">
+                          <Plus className="h-3 w-3 mr-1" /> Add
                         </Button>
-                        <span className="w-6 text-center text-sm">{item.quantity}</span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}
             </div>
+          </ScrollArea>
+        </div>
 
-            {/* Total */}
+        {/* Right Panel - Order Details */}
+        <div className="w-72 md:w-80 border-l bg-card flex flex-col flex-shrink-0 overflow-hidden">
+          <div className="p-3 border-b bg-muted/30 flex-shrink-0">
+            <h2 className="font-semibold">Current Order</h2>
+          </div>
+          
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-3">
+              {/* Order Type Toggle */}
+              <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                <UtensilsCrossed className={`h-4 w-4 ${!isParcel ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                <Switch
+                  checked={isParcel}
+                  onCheckedChange={setIsParcel}
+                />
+                <Package className={`h-4 w-4 ${isParcel ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                <span className="text-xs font-medium">
+                  {isParcel ? 'Takeaway' : 'Dine-in'}
+                </span>
+              </div>
+
+              {/* Table Number (for dine-in) */}
+              {!isParcel && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Table Number *</Label>
+                  <Input
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    placeholder="Enter table number"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Customer Name */}
+              <div className="space-y-1">
+                <Label className="text-xs">Customer Name</Label>
+                <Input
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Optional"
+                  className="h-8 text-sm"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1">
+                <Label className="text-xs">Special Instructions</Label>
+                <Input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any special requests..."
+                  className="h-8 text-sm"
+                />
+              </div>
+
+              {/* Cart Items */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Order Items ({cartItems.length})</Label>
+                {cartItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    Tap products to add
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {cartItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between bg-muted/50 rounded p-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            ₹{formatIndianNumber(item.price)} × {item.quantity}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateQuantity(item.id, item.quantity - 1);
+                            }}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-5 text-center text-xs">{item.quantity}</span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateQuantity(item.id, item.quantity + 1);
+                            }}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+
+          {/* Footer with Total and Actions */}
+          <div className="p-3 border-t space-y-2 flex-shrink-0 bg-muted/30">
             {cartItems.length > 0 && (
-              <div className="flex justify-between items-center font-bold text-lg border-t pt-3">
+              <div className="flex justify-between items-center font-bold text-base">
                 <span>Total</span>
                 <span className="text-green-600">{formatIndianCurrency(calculateTotal())}</span>
               </div>
             )}
-          </div>
-
-          {/* Actions */}
-          <div className="p-4 border-t space-y-2">
             <Button
               onClick={sendToKitchen}
               disabled={cartItems.length === 0}
@@ -444,6 +491,7 @@ const WaiterInterface = ({ waiterId: propWaiterId, waiterName: propWaiterName, o
                 variant="outline"
                 onClick={clearOrder}
                 className="w-full"
+                size="sm"
               >
                 Start New Order
               </Button>
