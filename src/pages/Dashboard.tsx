@@ -24,8 +24,14 @@ const Dashboard = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [companyName, setCompanyName] = useState<string>("");
-  const [billingSettings, setBillingSettings] = useState<any>(null);
+  const [companyName, setCompanyName] = useState<string>(() => {
+    // Initialize from sessionStorage for instant display
+    return sessionStorage.getItem('companyName') || "";
+  });
+  const [billingSettings, setBillingSettings] = useState<any>(() => {
+    const cached = sessionStorage.getItem('billingSettings');
+    return cached ? JSON.parse(cached) : null;
+  });
   const [showInterfaceSelector, setShowInterfaceSelector] = useState(false);
   const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [authChecked, setAuthChecked] = useState(false);
@@ -46,6 +52,7 @@ const Dashboard = () => {
     { icon: Percent, label: "Limited Discounts", path: "/limited-discounts", color: "from-amber-500 to-yellow-500" },
     { icon: QrCode, label: "Barcodes", path: "/barcodes", color: "from-cyan-500 to-blue-500" },
     { icon: FileText, label: "Templates", path: "/templates", color: "from-indigo-500 to-blue-500" },
+    { icon: Package, label: "Purchases", path: "/purchases", color: "from-emerald-500 to-teal-500" },
   ];
 
   useEffect(() => {
@@ -92,8 +99,10 @@ const Dashboard = () => {
       
       if (!error && data) {
         setCompanyName(data.company_name);
+        sessionStorage.setItem('companyName', data.company_name);
         const settings = data.billing_settings as any;
         setBillingSettings(settings);
+        sessionStorage.setItem('billingSettings', JSON.stringify(settings));
         
         // Show interface selector if security is enabled AND restaurant mode is on
         if (settings?.securityProtection && settings?.isRestaurant) {

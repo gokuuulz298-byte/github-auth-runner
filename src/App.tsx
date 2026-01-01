@@ -24,6 +24,7 @@ import Templates from "./pages/Templates";
 import ModernBilling from "./pages/ModernBilling";
 import Kitchen from "./pages/Kitchen";
 import WaiterInterface from "./pages/WaiterInterface";
+import Purchases from "./pages/Purchases";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
           <Route path="/limited-discounts" element={<LimitedDiscounts />} />
           <Route path="/barcodes" element={<Barcodes />} />
           <Route path="/templates" element={<Templates />} />
+          <Route path="/purchases" element={<Purchases />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

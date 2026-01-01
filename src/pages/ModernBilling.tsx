@@ -551,9 +551,38 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
           }]);
       }
 
-      // Update or create loyalty points
+      // Update or create loyalty points and customer
       if (customerPhone) {
         const pointsToAdd = Math.floor(totals.total / 100);
+        
+        // Create or update customer record
+        const { data: existingCustomer, error: customerFetchError } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('phone', customerPhone)
+          .eq('created_by', user.id)
+          .maybeSingle();
+
+        if (!customerFetchError) {
+          if (existingCustomer) {
+            // Update existing customer name if provided
+            if (customerName && customerName !== existingCustomer.name) {
+              await supabase
+                .from('customers')
+                .update({ name: customerName })
+                .eq('id', existingCustomer.id);
+            }
+          } else {
+            // Create new customer
+            await supabase
+              .from('customers')
+              .insert({
+                name: customerName || 'Customer',
+                phone: customerPhone,
+                created_by: user.id
+              });
+          }
+        }
         
         if (pointsToAdd > 0) {
           const { data: existingLoyalty, error: fetchError } = await supabase
@@ -734,10 +763,10 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
     
-    // Bill number, date/time, payment mode in parallel layout
+    // Bill number, date, time, mode in parallel layout
     doc.text(`Bill: ${billNumber}`, leftMargin, currentY);
-    doc.text(`${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, centerX, currentY, { align: "center" });
-    doc.text(`${paymentMode.toUpperCase()}`, rightMargin, currentY, { align: "right" });
+    doc.text(`Time: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, centerX, currentY, { align: "center" });
+    doc.text(`Mode: ${paymentMode.toUpperCase()}`, rightMargin, currentY, { align: "right" });
     currentY += 3.5;
     doc.text(`Date: ${new Date().toLocaleDateString()}`, leftMargin, currentY);
     
@@ -789,18 +818,35 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
     doc.setFontSize(6);
     
     cartItems.forEach(item => {
-      const itemName = item.name.length > 14 ? item.name.substring(0, 12) + '..' : item.name;
+      // Handle long product names - wrap to next line if needed
+      const maxNameLen = showTaxCol ? 14 : 18;
+      let itemName = item.name;
       const qtyLabel = item.price_type === 'weight' ? `${item.quantity.toFixed(2)}` : item.quantity.toString();
       const amount = item.price * item.quantity;
       
-      doc.text(itemName, colItem, currentY);
-      doc.text(qtyLabel, colQty, currentY);
-      doc.text(formatIndianNumber(item.price), colRate, currentY);
-      if (showTaxCol) {
-        doc.text(`${(item.tax_rate || 0).toFixed(0)}%`, colTax, currentY);
+      if (itemName.length > maxNameLen) {
+        // Print first line
+        doc.text(itemName.substring(0, maxNameLen), colItem, currentY);
+        doc.text(qtyLabel, colQty, currentY);
+        doc.text(formatIndianNumber(item.price), colRate, currentY);
+        if (showTaxCol) {
+          doc.text(`${(item.tax_rate || 0).toFixed(0)}%`, colTax, currentY);
+        }
+        doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
+        currentY += 3;
+        // Print remaining name on second line
+        doc.text(itemName.substring(maxNameLen), colItem, currentY);
+        currentY += 3.5;
+      } else {
+        doc.text(itemName, colItem, currentY);
+        doc.text(qtyLabel, colQty, currentY);
+        doc.text(formatIndianNumber(item.price), colRate, currentY);
+        if (showTaxCol) {
+          doc.text(`${(item.tax_rate || 0).toFixed(0)}%`, colTax, currentY);
+        }
+        doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
+        currentY += 3.5;
       }
-      doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
-      currentY += 3.5;
     });
     
     doc.line(leftMargin, currentY, rightMargin, currentY);
