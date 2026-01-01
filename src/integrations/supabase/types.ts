@@ -585,6 +585,93 @@ export type Database = {
         }
         Relationships: []
       }
+      purchases: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          expected_date: string | null
+          id: string
+          items_data: Json
+          notes: string | null
+          purchase_number: string
+          received_date: string | null
+          status: string
+          supplier_name: string | null
+          supplier_phone: string | null
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          expected_date?: string | null
+          id?: string
+          items_data?: Json
+          notes?: string | null
+          purchase_number: string
+          received_date?: string | null
+          status?: string
+          supplier_name?: string | null
+          supplier_phone?: string | null
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          expected_date?: string | null
+          id?: string
+          items_data?: Json
+          notes?: string | null
+          purchase_number?: string
+          received_date?: string | null
+          status?: string
+          supplier_name?: string | null
+          supplier_phone?: string | null
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      staff: {
+        Row: {
+          allowed_modules: string[]
+          created_at: string | null
+          created_by: string
+          display_name: string
+          email: string
+          id: string
+          is_active: boolean | null
+          password_hash: string
+          show_in_bill: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_modules?: string[]
+          created_at?: string | null
+          created_by: string
+          display_name: string
+          email: string
+          id?: string
+          is_active?: boolean | null
+          password_hash: string
+          show_in_bill?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_modules?: string[]
+          created_at?: string | null
+          created_by?: string
+          display_name?: string
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          password_hash?: string
+          show_in_bill?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       waiters: {
         Row: {
           created_at: string | null

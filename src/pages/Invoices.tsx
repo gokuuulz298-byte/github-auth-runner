@@ -458,27 +458,43 @@ const Invoices = () => {
 
               {/* Totals */}
               <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatIndianCurrency(selectedInvoice.total_amount - selectedInvoice.tax_amount)}</span>
-                </div>
-                
-                {/* GST Breakdown */}
+                {/* GST Breakdown - Calculate based on is_inclusive flag */}
                 {(() => {
                   const items = selectedInvoice.items_data;
+                  let baseSubtotal = 0;
                   let totalCGST = 0;
                   let totalSGST = 0;
                   let totalIGST = 0;
                   
                   items.forEach((item: any) => {
                     const itemTotal = item.price * item.quantity;
-                    if (item.cgst) totalCGST += (itemTotal * item.cgst / 100);
-                    if (item.sgst) totalSGST += (itemTotal * item.sgst / 100);
-                    if (item.igst) totalIGST += (itemTotal * item.igst / 100);
+                    const taxRate = (item.cgst || 0) + (item.sgst || 0) + (item.igst || 0);
+                    
+                    // Check if pricing is inclusive (MRP includes tax)
+                    if (item.is_inclusive) {
+                      // For inclusive pricing, extract tax from the price
+                      const baseAmount = itemTotal / (1 + taxRate / 100);
+                      baseSubtotal += baseAmount;
+                      if (item.cgst) totalCGST += baseAmount * (item.cgst / 100);
+                      if (item.sgst) totalSGST += baseAmount * (item.sgst / 100);
+                      if (item.igst) totalIGST += baseAmount * (item.igst / 100);
+                    } else {
+                      // For exclusive pricing, add tax on top
+                      baseSubtotal += itemTotal;
+                      if (item.cgst) totalCGST += itemTotal * (item.cgst / 100);
+                      if (item.sgst) totalSGST += itemTotal * (item.sgst / 100);
+                      if (item.igst) totalIGST += itemTotal * (item.igst / 100);
+                    }
                   });
+                  
+                  const calculatedTax = totalCGST + totalSGST + totalIGST;
                   
                   return (
                     <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>{formatIndianCurrency(baseSubtotal)}</span>
+                      </div>
                       {totalIGST > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">IGST</span>
@@ -497,14 +513,13 @@ const Invoices = () => {
                           <span>{formatIndianCurrency(totalSGST)}</span>
                         </div>
                       )}
+                      <div className="flex justify-between text-sm font-medium">
+                        <span className="text-muted-foreground">Total Tax</span>
+                        <span>{formatIndianCurrency(calculatedTax)}</span>
+                      </div>
                     </>
                   );
                 })()}
-                
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-muted-foreground">Total Tax</span>
-                  <span>{formatIndianCurrency(selectedInvoice.tax_amount)}</span>
-                </div>
                 {selectedInvoice.discount_amount > 0 && (
                   <div className="flex justify-between text-sm text-destructive">
                     <span>Discount</span>
