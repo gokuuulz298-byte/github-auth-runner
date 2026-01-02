@@ -215,6 +215,45 @@ export type Database = {
         }
         Relationships: []
       }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          expense_date: string
+          id: string
+          payment_mode: string | null
+          receipt_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_mode?: string | null
+          receipt_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_mode?: string | null
+          receipt_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       hsn_codes: {
         Row: {
           created_at: string | null
