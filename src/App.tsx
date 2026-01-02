@@ -25,6 +25,7 @@ import ModernBilling from "./pages/ModernBilling";
 import Kitchen from "./pages/Kitchen";
 import WaiterInterface from "./pages/WaiterInterface";
 import Purchases from "./pages/Purchases";
+import Expenses from "./pages/Expenses";
 
 const queryClient = new QueryClient();
 
