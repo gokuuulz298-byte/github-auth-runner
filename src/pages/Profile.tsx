@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Building2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Building2, Settings, Lock, UserCog, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import WaiterCard from "@/components/WaiterCard";
+import StaffCard from "@/components/StaffCard";
 
 interface CompanyProfile {
   id?: string;
@@ -54,6 +56,16 @@ interface Waiter {
   is_active: boolean;
 }
 
+interface Staff {
+  id: string;
+  email: string;
+  password_hash: string;
+  display_name: string;
+  allowed_modules: string[];
+  is_active: boolean;
+  show_in_bill: boolean;
+}
+
 const Profile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -61,6 +73,7 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [waiters, setWaiters] = useState<Waiter[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
   const [profile, setProfile] = useState<CompanyProfile>({
     company_name: "",
     phone: "",
@@ -76,6 +89,7 @@ const Profile = () => {
   useEffect(() => {
     fetchProfile();
     fetchWaiters();
+    fetchStaff();
   }, []);
 
   const fetchWaiters = async () => {
@@ -96,6 +110,24 @@ const Profile = () => {
     }
   };
 
+  const fetchStaff = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('created_by', user.id)
+        .order('display_name');
+
+      if (error) throw error;
+      setStaff((data || []) as Staff[]);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const fetchProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -110,10 +142,9 @@ const Profile = () => {
       if (error) throw error;
       if (data) {
         setProfile({
-  ...data,
-  billing_settings: (data.billing_settings as unknown as BillingSettings) ?? null
-});
-
+          ...data,
+          billing_settings: (data.billing_settings as unknown as BillingSettings) ?? null
+        });
       }
     } catch (error) {
       console.error(error);
@@ -128,29 +159,29 @@ const Profile = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Make billing_settings JSON safe for Supabase
-const safeProfile: any = {
-  ...profile,
-  billing_settings: profile.billing_settings as unknown as any
-};
+      const safeProfile: any = {
+        ...profile,
+        billing_settings: profile.billing_settings as unknown as any
+      };
 
-if (profile.id) {
-  const { error } = await supabase
-    .from("company_profiles")
-    .update(safeProfile)
-    .eq("id", profile.id);
+      if (profile.id) {
+        const { error } = await supabase
+          .from("company_profiles")
+          .update(safeProfile)
+          .eq("id", profile.id);
 
-  if (error) throw error;
-} else {
-  const { error } = await supabase
-    .from("company_profiles")
-    .insert([{ ...safeProfile, user_id: user.id }]);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("company_profiles")
+          .insert([{ ...safeProfile, user_id: user.id }]);
 
-  if (error) throw error;
-}
-
+        if (error) throw error;
+      }
 
       toast.success("Profile saved successfully!");
+      // Update session cache
+      sessionStorage.setItem('companyName', profile.company_name);
       fetchProfile();
     } catch (error) {
       console.error(error);
@@ -158,333 +189,6 @@ if (profile.id) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const BillingSettingsSection = ({ companyProfile, refreshCompany }) => {
-  const [settings, setSettings] = useState<any>({
-    ModernBilling: { mode: "inclusive", inclusiveBillType: "split" },
-    ManualBilling: { mode: "exclusive", inclusiveBillType: "split", allowIgst: true },
-    isRestaurant: false,
-    enableParcelBill: false,
-    autoPrint: false,
-    defaultPaymentMode: "cash",
-    enableKitchenInterface: false,
-    securityProtection: false,
-    billingPassword: "",
-    kitchenPassword: ""
-  });
-
-  useEffect(() => {
-    if (companyProfile?.billing_settings) {
-  setSettings({
-    ModernBilling: {
-      mode: companyProfile.billing_settings.ModernBilling?.mode || "inclusive",
-      inclusiveBillType: companyProfile.billing_settings.ModernBilling?.inclusiveBillType || "split"
-    },
-    ManualBilling: {
-      mode: companyProfile.billing_settings.ManualBilling?.mode || "exclusive",
-      inclusiveBillType: companyProfile.billing_settings.ManualBilling?.inclusiveBillType || "split",
-      allowIgst: companyProfile.billing_settings.ManualBilling?.allowIgst ?? true
-    },
-    isRestaurant: companyProfile.billing_settings.isRestaurant ?? false,
-    enableParcelBill: companyProfile.billing_settings.enableParcelBill ?? false,
-    autoPrint: companyProfile.billing_settings.autoPrint ?? false,
-    defaultPaymentMode: companyProfile.billing_settings.defaultPaymentMode || "cash",
-    enableKitchenInterface: companyProfile.billing_settings.enableKitchenInterface ?? false,
-    securityProtection: companyProfile.billing_settings.securityProtection ?? false,
-    billingPassword: companyProfile.billing_settings.billingPassword || "",
-    kitchenPassword: companyProfile.billing_settings.kitchenPassword || ""
-  });
-}
-
-  }, [companyProfile]);
-
-  const save = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sign in required");
-      const { error } = await supabase
-        .from('company_profiles')
-        .update({ billing_settings: settings as unknown as any })
-        .eq('user_id', user.id);
-      if (error) throw error;
-      toast.success("Billing settings saved");
-      refreshCompany?.();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to save");
-    }
-  };
-  return (
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Billing Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          
-          {/* Modern Billing */}
-          <div>
-            <Label>Modern Billing — Mode</Label>
-            <div className="flex gap-2 mt-2">
-              <Button
-                variant={settings.ModernBilling.mode === "inclusive" ? "default" : "outline"}
-                onClick={() =>
-                  setSettings({
-                    ...settings,
-                    ModernBilling: { ...settings.ModernBilling, mode: "inclusive" }
-                  })
-                }
-              >
-                Inclusive (MRP)
-              </Button>
-
-              <Button
-                variant={settings.ModernBilling.mode === "exclusive" ? "default" : "outline"}
-                onClick={() =>
-                  setSettings({
-                    ...settings,
-                    ModernBilling: { ...settings.ModernBilling, mode: "exclusive" }
-                  })
-                }
-              >
-                Exclusive (Add GST)
-              </Button>
-            </div>
-
-            {settings.ModernBilling.mode === "inclusive" && (
-              <div className="mt-4">
-                <Label>Show Tax Type</Label>
-                <select
-                  value={settings.ModernBilling.inclusiveBillType}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      ModernBilling: {
-                        ...settings.ModernBilling,
-                        inclusiveBillType: e.target.value
-                      }
-                    })
-                  }
-                  className="border rounded p-2 w-64 mt-1"
-                >
-                  <option value="split">Show Tax Split (Base + GST)</option>
-                  <option value="mrp">No Tax Columns (MRP Inclusive)</option>
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Manual Billing */}
-          <div>
-            <Label>Manual Billing — Mode</Label>
-            <div className="flex gap-2 mt-2">
-              <Button
-                variant={settings.ManualBilling.mode === "inclusive" ? "default" : "outline"}
-                onClick={() =>
-                  setSettings({
-                    ...settings,
-                    ManualBilling: { ...settings.ManualBilling, mode: "inclusive" }
-                  })
-                }
-              >
-                Inclusive
-              </Button>
-
-              <Button
-                variant={settings.ManualBilling.mode === "exclusive" ? "default" : "outline"}
-                onClick={() =>
-                  setSettings({
-                    ...settings,
-                    ManualBilling: { ...settings.ManualBilling, mode: "exclusive" }
-                  })
-                }
-              >
-                Exclusive
-              </Button>
-            </div>
-
-            {settings.ManualBilling.mode === "inclusive" && (
-              <div className="mt-4">
-                <Label>Show Tax Type</Label>
-                <select
-                  value={settings.ManualBilling.inclusiveBillType}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      ManualBilling: {
-                        ...settings.ManualBilling,
-                        inclusiveBillType: e.target.value
-                      }
-                    })
-                  }
-                  className="border rounded p-2 w-64 mt-1"
-                >
-                  <option value="split">Show Tax Split</option>
-                  <option value="mrp">No Tax Columns (MRP)</option>
-                </select>
-              </div>
-            )}
-
-            <div className="mt-4 flex items-center gap-3">
-              <Switch
-                checked={settings.ManualBilling.allowIgst}
-                onCheckedChange={(v) =>
-                  setSettings({
-                    ...settings,
-                    ManualBilling: {
-                      ...settings.ManualBilling,
-                      allowIgst: v
-                    }
-                  })
-                }
-              />
-              <span>Allow IGST (Manual Billing only)</span>
-            </div>
-          </div>
-
-          {/* Restaurant Settings */}
-          <div className="border-t pt-6">
-            <Label className="text-lg font-semibold">Restaurant Settings</Label>
-            
-            <div className="mt-4 flex items-center gap-3">
-              <Switch
-                checked={settings.isRestaurant}
-                onCheckedChange={(v) =>
-                  setSettings({
-                    ...settings,
-                    isRestaurant: v,
-                    enableKitchenInterface: v ? settings.enableKitchenInterface : false
-                  })
-                }
-              />
-              <span>Enable Restaurant Mode</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 ml-10">
-              When enabled, parcel/takeaway toggle will appear in billing interfaces
-            </p>
-
-            {settings.isRestaurant && (
-              <>
-                <div className="mt-4 flex items-center gap-3 ml-6">
-                  <Switch
-                    checked={settings.enableKitchenInterface}
-                    onCheckedChange={(v) =>
-                      setSettings({
-                        ...settings,
-                        enableKitchenInterface: v
-                      })
-                    }
-                  />
-                  <span>Enable Kitchen Interface</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2 ml-16">
-                  Orders with parcel toggle will be sent to kitchen display
-                </p>
-              </>
-            )}
-          </div>
-
-          {/* Security Settings */}
-          <div className="border-t pt-6">
-            <Label className="text-lg font-semibold">Security Settings</Label>
-            
-            <div className="mt-4 flex items-center gap-3">
-              <Switch
-                checked={settings.securityProtection}
-                onCheckedChange={(v) =>
-                  setSettings({
-                    ...settings,
-                    securityProtection: v
-                  })
-                }
-              />
-              <span>Enable Password Protection</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 ml-10">
-              Require password to access billing and kitchen interfaces
-            </p>
-
-            {settings.securityProtection && (
-              <div className="mt-4 ml-6 space-y-4">
-                <div>
-                  <Label htmlFor="billingPassword">Billing Interface Password</Label>
-                  <Input
-                    id="billingPassword"
-                    type="password"
-                    value={settings.billingPassword}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        billingPassword: e.target.value
-                      })
-                    }
-                    placeholder="Set billing password"
-                    className="mt-1 w-64"
-                  />
-                </div>
-                {settings.enableKitchenInterface && (
-                  <div>
-                    <Label htmlFor="kitchenPassword">Kitchen Interface Password</Label>
-                    <Input
-                      id="kitchenPassword"
-                      type="password"
-                      value={settings.kitchenPassword}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          kitchenPassword: e.target.value
-                        })
-                      }
-                      placeholder="Set kitchen password"
-                      className="mt-1 w-64"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Print Settings */}
-          <div className="border-t pt-6">
-            <Label className="text-lg font-semibold">Print Settings</Label>
-            
-            <div className="mt-4 flex items-center gap-3">
-              <Switch
-                checked={settings.autoPrint}
-                onCheckedChange={(v) =>
-                  setSettings({
-                    ...settings,
-                    autoPrint: v
-                  })
-                }
-              />
-              <span>Auto-print on Complete Sale (Thermal Printer)</span>
-            </div>
-
-            <div className="mt-4">
-              <Label>Default Payment Mode</Label>
-              <select
-                value={settings.defaultPaymentMode}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    defaultPaymentMode: e.target.value
-                  })
-                }
-                className="border rounded p-2 w-64 mt-1"
-              >
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="upi">UPI</option>
-                <option value="mixed">Mixed Payment</option>
-              </select>
-            </div>
-          </div>
-
-          <Button onClick={save} className="mt-6">Save Billing Settings</Button>
-        </CardContent>
-      </Card>
-    );
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -520,6 +224,319 @@ if (profile.id) {
     }
   };
 
+  // Billing Settings Component
+  const BillingSettingsSection = () => {
+    const [settings, setSettings] = useState<BillingSettings>({
+      ModernBilling: { mode: "inclusive", inclusiveBillType: "split" },
+      ManualBilling: { mode: "exclusive", inclusiveBillType: "split", allowIgst: true },
+      isRestaurant: false,
+      enableParcelBill: false,
+      autoPrint: false,
+      defaultPaymentMode: "cash",
+      enableKitchenInterface: false,
+      securityProtection: false,
+      billingPassword: "",
+      kitchenPassword: ""
+    });
+
+    useEffect(() => {
+      if (profile?.billing_settings) {
+        setSettings({
+          ModernBilling: {
+            mode: profile.billing_settings.ModernBilling?.mode || "inclusive",
+            inclusiveBillType: profile.billing_settings.ModernBilling?.inclusiveBillType || "split"
+          },
+          ManualBilling: {
+            mode: profile.billing_settings.ManualBilling?.mode || "exclusive",
+            inclusiveBillType: profile.billing_settings.ManualBilling?.inclusiveBillType || "split",
+            allowIgst: profile.billing_settings.ManualBilling?.allowIgst ?? true
+          },
+          isRestaurant: profile.billing_settings.isRestaurant ?? false,
+          enableParcelBill: profile.billing_settings.enableParcelBill ?? false,
+          autoPrint: profile.billing_settings.autoPrint ?? false,
+          defaultPaymentMode: profile.billing_settings.defaultPaymentMode || "cash",
+          enableKitchenInterface: profile.billing_settings.enableKitchenInterface ?? false,
+          securityProtection: profile.billing_settings.securityProtection ?? false,
+          billingPassword: profile.billing_settings.billingPassword || "",
+          kitchenPassword: profile.billing_settings.kitchenPassword || ""
+        });
+      }
+    }, [profile]);
+
+    const save = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Sign in required");
+        
+        const { error } = await supabase
+          .from('company_profiles')
+          .update({ billing_settings: settings as unknown as any })
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+        
+        // Update session cache
+        sessionStorage.setItem('billingSettings', JSON.stringify(settings));
+        
+        toast.success("Settings saved successfully");
+        fetchProfile();
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err.message || "Failed to save");
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Modern Billing */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Modern Billing Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Tax Mode</Label>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant={settings.ModernBilling.mode === "inclusive" ? "default" : "outline"}
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      ModernBilling: { ...settings.ModernBilling, mode: "inclusive" }
+                    })
+                  }
+                >
+                  Inclusive (MRP)
+                </Button>
+                <Button
+                  type="button"
+                  variant={settings.ModernBilling.mode === "exclusive" ? "default" : "outline"}
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      ModernBilling: { ...settings.ModernBilling, mode: "exclusive" }
+                    })
+                  }
+                >
+                  Exclusive (Add GST)
+                </Button>
+              </div>
+            </div>
+
+            {settings.ModernBilling.mode === "inclusive" && (
+              <div>
+                <Label>Show Tax Type</Label>
+                <select
+                  value={settings.ModernBilling.inclusiveBillType}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      ModernBilling: {
+                        ...settings.ModernBilling,
+                        inclusiveBillType: e.target.value as "split" | "nosplit"
+                      }
+                    })
+                  }
+                  className="border rounded p-2 w-full mt-1 bg-background"
+                >
+                  <option value="split">Show Tax Split (Base + GST)</option>
+                  <option value="mrp">No Tax Columns (MRP Inclusive)</option>
+                </select>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Manual Billing */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Manual Billing Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Tax Mode</Label>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant={settings.ManualBilling.mode === "inclusive" ? "default" : "outline"}
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      ManualBilling: { ...settings.ManualBilling, mode: "inclusive" }
+                    })
+                  }
+                >
+                  Inclusive
+                </Button>
+                <Button
+                  type="button"
+                  variant={settings.ManualBilling.mode === "exclusive" ? "default" : "outline"}
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      ManualBilling: { ...settings.ManualBilling, mode: "exclusive" }
+                    })
+                  }
+                >
+                  Exclusive
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={settings.ManualBilling.allowIgst}
+                onCheckedChange={(v) =>
+                  setSettings({
+                    ...settings,
+                    ManualBilling: { ...settings.ManualBilling, allowIgst: v }
+                  })
+                }
+              />
+              <span>Allow IGST</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Restaurant Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Restaurant Mode</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={settings.isRestaurant || false}
+                onCheckedChange={(v) =>
+                  setSettings({
+                    ...settings,
+                    isRestaurant: v,
+                    enableKitchenInterface: v ? settings.enableKitchenInterface : false
+                  })
+                }
+              />
+              <div>
+                <span className="font-medium">Enable Restaurant Mode</span>
+                <p className="text-xs text-muted-foreground">
+                  Shows parcel/takeaway toggle and enables kitchen & waiter interfaces
+                </p>
+              </div>
+            </div>
+
+            {settings.isRestaurant && (
+              <div className="ml-6 space-y-4 border-l-2 pl-4">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={settings.enableKitchenInterface || false}
+                    onCheckedChange={(v) =>
+                      setSettings({ ...settings, enableKitchenInterface: v })
+                    }
+                  />
+                  <span>Enable Kitchen Interface</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Security Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Security</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={settings.securityProtection || false}
+                onCheckedChange={(v) =>
+                  setSettings({ ...settings, securityProtection: v })
+                }
+              />
+              <div>
+                <span className="font-medium">Password Protection</span>
+                <p className="text-xs text-muted-foreground">
+                  Require passwords to access billing and kitchen
+                </p>
+              </div>
+            </div>
+
+            {settings.securityProtection && (
+              <div className="ml-6 space-y-4 border-l-2 pl-4">
+                <div>
+                  <Label htmlFor="billingPassword">Billing Password</Label>
+                  <Input
+                    id="billingPassword"
+                    type="password"
+                    value={settings.billingPassword || ""}
+                    onChange={(e) =>
+                      setSettings({ ...settings, billingPassword: e.target.value })
+                    }
+                    placeholder="Set billing password"
+                    className="mt-1 max-w-xs"
+                  />
+                </div>
+                {settings.enableKitchenInterface && (
+                  <div>
+                    <Label htmlFor="kitchenPassword">Kitchen Password</Label>
+                    <Input
+                      id="kitchenPassword"
+                      type="password"
+                      value={settings.kitchenPassword || ""}
+                      onChange={(e) =>
+                        setSettings({ ...settings, kitchenPassword: e.target.value })
+                      }
+                      placeholder="Set kitchen password"
+                      className="mt-1 max-w-xs"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Print Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Print Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={settings.autoPrint || false}
+                onCheckedChange={(v) => setSettings({ ...settings, autoPrint: v })}
+              />
+              <span>Auto-print on Complete Sale</span>
+            </div>
+
+            <div>
+              <Label>Default Payment Mode</Label>
+              <select
+                value={settings.defaultPaymentMode || "cash"}
+                onChange={(e) =>
+                  setSettings({ ...settings, defaultPaymentMode: e.target.value })
+                }
+                className="border rounded p-2 w-full max-w-xs mt-1 bg-background"
+              >
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="upi">UPI</option>
+                <option value="mixed">Mixed Payment</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button onClick={save} className="w-full sm:w-auto">
+          Save All Settings
+        </Button>
+      </div>
+    );
+  };
+
+  const isRestaurantMode = profile.billing_settings?.isRestaurant;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
@@ -527,157 +544,192 @@ if (profile.id) {
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Company Profile</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Settings</h1>
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Business Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">Company Name *</Label>
-                  <Input
-                    id="company_name"
-                    value={profile.company_name}
-                    onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
-                    required
-                  />
-                </div>
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <Tabs defaultValue="business" className="space-y-6">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-4 lg:w-fit gap-1">
+            <TabsTrigger value="business" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Business</span>
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="gap-2">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Billing</span>
+            </TabsTrigger>
+            <TabsTrigger value="team" className="gap-2">
+              <UserCog className="h-4 w-4" />
+              <span className="hidden sm:inline">Team</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="gap-2">
+              <Lock className="h-4 w-4" />
+              <span className="hidden sm:inline">Account</span>
+            </TabsTrigger>
+          </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                    required
-                  />
-                </div>
+          {/* Business Details Tab */}
+          <TabsContent value="business">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Business Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="company_name">Company Name *</Label>
+                      <Input
+                        id="company_name"
+                        value={profile.company_name}
+                        onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
+                        required
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        value={profile.phone}
+                        onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                        required
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="gstin">GSTIN</Label>
-                  <Input
-                    id="gstin"
-                    value={profile.gstin}
-                    onChange={(e) => setProfile({ ...profile, gstin: e.target.value })}
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={profile.email}
+                        onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                      />
+                    </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={profile.address}
-                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="gstin">GSTIN</Label>
+                      <Input
+                        id="gstin"
+                        value={profile.gstin}
+                        onChange={(e) => setProfile({ ...profile, gstin: e.target.value })}
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    value={profile.city}
-                    onChange={(e) => setProfile({ ...profile, city: e.target.value })}
-                  />
-                </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="address">Address</Label>
+                      <Input
+                        id="address"
+                        value={profile.address}
+                        onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    value={profile.state}
-                    onChange={(e) => setProfile({ ...profile, state: e.target.value })}
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        value={profile.city}
+                        onChange={(e) => setProfile({ ...profile, city: e.target.value })}
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="pincode">Pincode</Label>
-                  <Input
-                    id="pincode"
-                    value={profile.pincode}
-                    onChange={(e) => setProfile({ ...profile, pincode: e.target.value })}
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State</Label>
+                      <Input
+                        id="state"
+                        value={profile.state}
+                        onChange={(e) => setProfile({ ...profile, state: e.target.value })}
+                      />
+                    </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="thank_you_note">Thank You Note</Label>
-                  <Textarea
-                    id="thank_you_note"
-                    value={profile.thank_you_note}
-                    onChange={(e) => setProfile({ ...profile, thank_you_note: e.target.value })}
-                    placeholder="Thank you for your business!"
-                    rows={3}
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pincode">Pincode</Label>
+                      <Input
+                        id="pincode"
+                        value={profile.pincode}
+                        onChange={(e) => setProfile({ ...profile, pincode: e.target.value })}
+                      />
+                    </div>
 
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Save Profile"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="thank_you_note">Thank You Note</Label>
+                      <Textarea
+                        id="thank_you_note"
+                        value={profile.thank_you_note}
+                        onChange={(e) => setProfile({ ...profile, thank_you_note: e.target.value })}
+                        placeholder="Thank you for your business!"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
 
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Change Password</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter new password"
-                  required
-                />
-              </div>
-              <Button type="submit" disabled={passwordLoading}>
-                {passwordLoading ? "Changing..." : "Change Password"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-        <BillingSettingsSection companyProfile={profile} refreshCompany={fetchProfile} />
-        
-        {/* Waiter Management - Only show when restaurant mode is enabled */}
-        {(profile.billing_settings as BillingSettings)?.isRestaurant && (
-          <div className="mt-6">
-            <WaiterCard waiters={waiters} onRefresh={fetchWaiters} />
-          </div>
-        )}
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Saving..." : "Save Profile"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Billing Settings Tab */}
+          <TabsContent value="billing">
+            <BillingSettingsSection />
+          </TabsContent>
+
+          {/* Team Management Tab */}
+          <TabsContent value="team" className="space-y-6">
+            {/* Staff Management */}
+            <StaffCard staff={staff} onRefresh={fetchStaff} />
+            
+            {/* Waiter Management - Only show when restaurant mode is enabled */}
+            {isRestaurantMode && (
+              <WaiterCard waiters={waiters} onRefresh={fetchWaiters} />
+            )}
+          </TabsContent>
+
+          {/* Account Security Tab */}
+          <TabsContent value="security">
+            <Card>
+              <CardHeader>
+                <CardTitle>Change Account Password</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" disabled={passwordLoading}>
+                    {passwordLoading ? "Changing..." : "Change Password"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

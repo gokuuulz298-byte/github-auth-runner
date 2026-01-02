@@ -53,6 +53,7 @@ const Dashboard = () => {
     { icon: QrCode, label: "Barcodes", path: "/barcodes", color: "from-cyan-500 to-blue-500" },
     { icon: FileText, label: "Templates", path: "/templates", color: "from-indigo-500 to-blue-500" },
     { icon: Package, label: "Purchases", path: "/purchases", color: "from-emerald-500 to-teal-500" },
+    { icon: Package, label: "Expenses", path: "/expenses", color: "from-red-500 to-rose-500" },
   ];
 
   useEffect(() => {
