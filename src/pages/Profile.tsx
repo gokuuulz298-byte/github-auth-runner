@@ -684,7 +684,7 @@ const Profile = () => {
           {/* Team Management Tab */}
           <TabsContent value="team" className="space-y-6">
             {/* Staff Management */}
-            <StaffCard staff={staff} onRefresh={fetchStaff} />
+            <StaffCard staff={staff} onRefresh={fetchStaff} isRestaurantMode={isRestaurantMode || false} />
             
             {/* Waiter Management - Only show when restaurant mode is enabled */}
             {isRestaurantMode && (

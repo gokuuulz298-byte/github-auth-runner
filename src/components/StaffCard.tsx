@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt } from "lucide-react";
+import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt, ChefHat, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -33,11 +33,15 @@ interface Staff {
 interface StaffCardProps {
   staff: Staff[];
   onRefresh: () => void;
+  isRestaurantMode?: boolean;
 }
 
-const AVAILABLE_MODULES = [
+const BILLING_MODULES = [
   { id: "manual-billing", label: "Manual Billing" },
   { id: "modern-billing", label: "Modern Billing" },
+];
+
+const MANAGEMENT_MODULES = [
   { id: "inventory", label: "Inventory" },
   { id: "invoices", label: "Invoices" },
   { id: "customers", label: "Customers" },
@@ -49,11 +53,18 @@ const AVAILABLE_MODULES = [
   { id: "barcodes", label: "Barcodes" },
   { id: "templates", label: "Templates" },
   { id: "purchases", label: "Purchases" },
+  { id: "expenses", label: "Expenses" },
   { id: "low-stocks", label: "Low Stocks" },
   { id: "advanced-reports", label: "Advanced Reports" },
+  { id: "profile", label: "Profile" },
 ];
 
-const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
+const RESTAURANT_MODULES = [
+  { id: "kitchen", label: "Kitchen Display", icon: ChefHat },
+  { id: "waiter", label: "Waiter Interface", icon: Users },
+];
+
+const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
@@ -65,6 +76,14 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
     allowed_modules: [] as string[],
     show_in_bill: false,
   });
+
+  const getAllModules = () => {
+    const modules = [...BILLING_MODULES, ...MANAGEMENT_MODULES];
+    if (isRestaurantMode) {
+      modules.push(...RESTAURANT_MODULES);
+    }
+    return modules;
+  };
 
   const resetForm = () => {
     setFormData({ email: "", password: "", display_name: "", allowed_modules: [], show_in_bill: false });
@@ -84,7 +103,7 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
 
       const { error } = await supabase.from("staff").insert({
         created_by: user.id,
-        email: formData.email,
+        email: formData.email.toLowerCase().trim(),
         password_hash: formData.password, // In production, hash this
         display_name: formData.display_name,
         allowed_modules: formData.allowed_modules,
@@ -117,7 +136,7 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
 
     try {
       const updateData: any = {
-        email: formData.email,
+        email: formData.email.toLowerCase().trim(),
         display_name: formData.display_name,
         allowed_modules: formData.allowed_modules,
         show_in_bill: formData.show_in_bill,
@@ -199,7 +218,7 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
   const selectAllModules = () => {
     setFormData(prev => ({
       ...prev,
-      allowed_modules: AVAILABLE_MODULES.map(m => m.id)
+      allowed_modules: getAllModules().map(m => m.id)
     }));
   };
 
@@ -284,7 +303,7 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
             </div>
 
             {/* Module Access */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Module Access</Label>
                 <div className="flex gap-2">
@@ -296,19 +315,65 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-background rounded-lg border">
-                {AVAILABLE_MODULES.map((module) => (
-                  <div key={module.id} className="flex items-center gap-2">
-                    <Checkbox
-                      id={module.id}
-                      checked={formData.allowed_modules.includes(module.id)}
-                      onCheckedChange={() => toggleModule(module.id)}
-                    />
-                    <Label htmlFor={module.id} className="text-xs cursor-pointer">
-                      {module.label}
-                    </Label>
+              
+              {/* Billing Modules */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Billing</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-background rounded-lg border">
+                  {BILLING_MODULES.map((module) => (
+                    <div key={module.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={module.id}
+                        checked={formData.allowed_modules.includes(module.id)}
+                        onCheckedChange={() => toggleModule(module.id)}
+                      />
+                      <Label htmlFor={module.id} className="text-xs cursor-pointer">
+                        {module.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Restaurant Modules - Only show in restaurant mode */}
+              {isRestaurantMode && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Restaurant</p>
+                  <div className="grid grid-cols-2 gap-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                    {RESTAURANT_MODULES.map((module) => (
+                      <div key={module.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={module.id}
+                          checked={formData.allowed_modules.includes(module.id)}
+                          onCheckedChange={() => toggleModule(module.id)}
+                        />
+                        <Label htmlFor={module.id} className="text-xs cursor-pointer flex items-center gap-1">
+                          <module.icon className="h-3 w-3" />
+                          {module.label}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              )}
+
+              {/* Management Modules */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Management</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-background rounded-lg border">
+                  {MANAGEMENT_MODULES.map((module) => (
+                    <div key={module.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={module.id}
+                        checked={formData.allowed_modules.includes(module.id)}
+                        onCheckedChange={() => toggleModule(module.id)}
+                      />
+                      <Label htmlFor={module.id} className="text-xs cursor-pointer">
+                        {module.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -320,7 +385,7 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
               />
               <div>
                 <Label className="text-sm">Show in Thermal Bill</Label>
-                <p className="text-xs text-muted-foreground">Display staff name and counter on printed bills</p>
+                <p className="text-xs text-muted-foreground">Display staff name on printed bills</p>
               </div>
             </div>
 
@@ -376,9 +441,18 @@ const StaffCard = ({ staff, onRefresh }: StaffCardProps) => {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {member.allowed_modules?.length || 0} modules
-                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {member.allowed_modules?.slice(0, 3).map(mod => (
+                        <Badge key={mod} variant="outline" className="text-[10px] py-0">
+                          {mod}
+                        </Badge>
+                      ))}
+                      {(member.allowed_modules?.length || 0) > 3 && (
+                        <Badge variant="outline" className="text-[10px] py-0">
+                          +{(member.allowed_modules?.length || 0) - 3} more
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
