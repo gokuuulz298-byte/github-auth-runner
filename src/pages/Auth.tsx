@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp } from "lucide-react";
+import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp, UserCog } from "lucide-react";
 import { Session, User } from "@supabase/supabase-js";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const Auth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginType, setLoginType] = useState<"admin" | "staff">("admin");
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -25,7 +27,9 @@ const Auth = () => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session) {
+        // Check if this is staff login (staff data in session storage)
+        const staffData = sessionStorage.getItem('staffSession');
+        if (session && !staffData) {
           navigate("/dashboard");
         }
       }
@@ -35,6 +39,13 @@ const Auth = () => {
       setSession(session);
       setUser(session?.user ?? null);
       
+      // Check if there's existing staff session
+      const staffData = sessionStorage.getItem('staffSession');
+      if (staffData) {
+        navigate("/dashboard");
+        return;
+      }
+      
       if (session) {
         navigate("/dashboard");
       }
@@ -43,9 +54,12 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Clear any existing staff session
+    sessionStorage.removeItem('staffSession');
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -56,6 +70,66 @@ const Auth = () => {
       toast.error(error.message);
     } else {
       toast.success("Logged in successfully!");
+    }
+
+    setLoading(false);
+  };
+
+  const handleStaffLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // First, find the staff member by email
+      const { data: staffList, error: staffError } = await supabase
+        .from("staff")
+        .select("*")
+        .eq("email", email.toLowerCase().trim())
+        .eq("is_active", true);
+
+      if (staffError) throw staffError;
+
+      if (!staffList || staffList.length === 0) {
+        toast.error("Staff account not found or inactive");
+        setLoading(false);
+        return;
+      }
+
+      // Check password (plain text for now - in production should be hashed)
+      const staff = staffList.find(s => s.password_hash === password);
+      
+      if (!staff) {
+        toast.error("Invalid password");
+        setLoading(false);
+        return;
+      }
+
+      // Now sign in as the admin (created_by) to get access to their data
+      // But store staff info in session to limit access
+      
+      // Get the admin's credentials - we need to authenticate as admin
+      // For staff login, we'll use service key or edge function
+      // For now, store staff session locally and redirect
+      
+      sessionStorage.setItem('staffSession', JSON.stringify({
+        id: staff.id,
+        email: staff.email,
+        display_name: staff.display_name,
+        allowed_modules: staff.allowed_modules,
+        show_in_bill: staff.show_in_bill,
+        created_by: staff.created_by, // The admin user ID
+      }));
+
+      // Sign in using admin account with staff marker
+      // This requires admin to have shared credentials or we use a different approach
+      // For simplicity, we'll redirect and check staffSession on dashboard
+      
+      toast.success(`Welcome, ${staff.display_name}!`);
+      navigate("/dashboard");
+
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Login failed. Please try again.");
     }
 
     setLoading(false);
@@ -197,67 +271,87 @@ const Auth = () => {
           </CardHeader>
           <CardContent className="pt-4">
             {!showForgotPassword ? (
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
-                  <div className="relative">
+              <>
+                <Tabs value={loginType} onValueChange={(v) => setLoginType(v as "admin" | "staff")} className="mb-4">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="admin" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Admin
+                    </TabsTrigger>
+                    <TabsTrigger value="staff" className="flex items-center gap-2">
+                      <UserCog className="h-4 w-4" />
+                      Staff
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <form onSubmit={loginType === "admin" ? handleAdminLogin : handleStaffLogin} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
                     <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
                   </div>
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-                <div className="text-center space-y-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base"
+                    disabled={loading}
                   >
-                    Forgot your password?
-                  </button>
-                  <p className="text-sm text-gray-500">
-                    Contact admin to create your account
-                  </p>
-                </div>
-              </form>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      `Sign In as ${loginType === "admin" ? "Admin" : "Staff"}`
+                    )}
+                  </Button>
+                  <div className="text-center space-y-3 pt-2">
+                    {loginType === "admin" && (
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                      >
+                        Forgot your password?
+                      </button>
+                    )}
+                    <p className="text-sm text-gray-500">
+                      {loginType === "admin" 
+                        ? "Contact admin to create your account" 
+                        : "Contact your administrator for staff credentials"
+                      }
+                    </p>
+                  </div>
+                </form>
+              </>
             ) : (
               <form onSubmit={handleForgotPassword} className="space-y-5">
                 <div className="space-y-2">
