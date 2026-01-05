@@ -80,59 +80,83 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // First, find the staff member by email
+      const emailLower = email.toLowerCase().trim();
+      
+      // Try to find in staff table first
       const { data: staffList, error: staffError } = await supabase
         .from("staff")
         .select("*")
-        .eq("email", email.toLowerCase().trim())
+        .eq("email", emailLower)
         .eq("is_active", true);
 
-      if (staffError) throw staffError;
-
-      if (!staffList || staffList.length === 0) {
-        toast.error("Staff account not found or inactive");
-        setLoading(false);
-        return;
+      if (staffError) {
+        console.error("Staff query error:", staffError);
       }
 
-      // Check password (plain text for now - in production should be hashed)
-      const staff = staffList.find(s => s.password_hash === password);
-      
-      if (!staff) {
-        toast.error("Invalid password");
-        setLoading(false);
-        return;
+      // Also check waiters table (uses username instead of email)
+      const { data: waiterList, error: waiterError } = await supabase
+        .from("waiters")
+        .select("*")
+        .eq("username", emailLower)
+        .eq("is_active", true);
+
+      if (waiterError) {
+        console.error("Waiter query error:", waiterError);
       }
 
-      // Now sign in as the admin (created_by) to get access to their data
-      // But store staff info in session to limit access
-      
-      // Get the admin's credentials - we need to authenticate as admin
-      // For staff login, we'll use service key or edge function
-      // For now, store staff session locally and redirect
-      
-      sessionStorage.setItem('staffSession', JSON.stringify({
-        id: staff.id,
-        email: staff.email,
-        display_name: staff.display_name,
-        allowed_modules: staff.allowed_modules,
-        show_in_bill: staff.show_in_bill,
-        created_by: staff.created_by, // The admin user ID
-      }));
+      // Check staff first
+      if (staffList && staffList.length > 0) {
+        const staff = staffList.find(s => s.password_hash === password);
+        
+        if (staff) {
+          sessionStorage.setItem('staffSession', JSON.stringify({
+            id: staff.id,
+            email: staff.email,
+            display_name: staff.display_name,
+            allowed_modules: staff.allowed_modules,
+            show_in_bill: staff.show_in_bill,
+            created_by: staff.created_by,
+            type: 'staff'
+          }));
 
-      // Sign in using admin account with staff marker
-      // This requires admin to have shared credentials or we use a different approach
-      // For simplicity, we'll redirect and check staffSession on dashboard
-      
-      toast.success(`Welcome, ${staff.display_name}!`);
-      navigate("/dashboard");
+          toast.success(`Welcome, ${staff.display_name}!`);
+          navigate("/dashboard");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Check waiters
+      if (waiterList && waiterList.length > 0) {
+        const waiter = waiterList.find(w => w.password === password);
+        
+        if (waiter) {
+          sessionStorage.setItem('staffSession', JSON.stringify({
+            id: waiter.id,
+            email: waiter.username,
+            display_name: waiter.display_name,
+            allowed_modules: ['waiter'],
+            show_in_bill: false,
+            created_by: waiter.created_by,
+            type: 'waiter'
+          }));
+
+          toast.success(`Welcome, ${waiter.display_name}!`);
+          navigate("/dashboard");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // No match found
+      toast.error("Invalid email/username or password");
+      setLoading(false);
 
     } catch (error: any) {
       console.error(error);
       toast.error("Login failed. Please try again.");
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
