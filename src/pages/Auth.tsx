@@ -80,29 +80,33 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const emailLower = email.toLowerCase().trim();
+      const inputLower = email.toLowerCase().trim();
       
-      // Try to find in staff table first
+      // Try to find in staff table first (by email)
       const { data: staffList, error: staffError } = await supabase
         .from("staff")
         .select("*")
-        .eq("email", emailLower)
+        .eq("email", inputLower)
         .eq("is_active", true);
 
       if (staffError) {
         console.error("Staff query error:", staffError);
       }
 
-      // Also check waiters table (uses username instead of email)
+      // Check waiters table by username OR by display_name
       const { data: waiterList, error: waiterError } = await supabase
         .from("waiters")
         .select("*")
-        .eq("username", emailLower)
         .eq("is_active", true);
 
       if (waiterError) {
         console.error("Waiter query error:", waiterError);
       }
+
+      // Filter waiters by username match (case insensitive)
+      const matchedWaiters = waiterList?.filter(w => 
+        w.username.toLowerCase() === inputLower
+      ) || [];
 
       // Check staff first
       if (staffList && staffList.length > 0) {
@@ -127,8 +131,8 @@ const Auth = () => {
       }
 
       // Check waiters
-      if (waiterList && waiterList.length > 0) {
-        const waiter = waiterList.find(w => w.password === password);
+      if (matchedWaiters.length > 0) {
+        const waiter = matchedWaiters.find(w => w.password === password);
         
         if (waiter) {
           sessionStorage.setItem('staffSession', JSON.stringify({
@@ -311,11 +315,13 @@ const Auth = () => {
 
                 <form onSubmit={loginType === "admin" ? handleAdminLogin : handleStaffLogin} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
+                    <Label htmlFor="email" className="text-gray-700 font-medium">
+                      {loginType === "admin" ? "Email Address" : "Email / Username"}
+                    </Label>
                     <Input
                       id="email"
-                      type="email"
-                      placeholder="your@email.com"
+                      type={loginType === "admin" ? "email" : "text"}
+                      placeholder={loginType === "admin" ? "your@email.com" : "email or username"}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
