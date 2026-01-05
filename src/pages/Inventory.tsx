@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuthContext } from "@/hooks/useAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ interface Product {
 
 const Inventory = () => {
   const navigate = useNavigate();
+  const { userId, loading: authLoading } = useAuthContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,8 +57,13 @@ const Inventory = () => {
   const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchProducts();
-    fetchCategories();
+    if (!authLoading && userId) {
+      fetchProducts();
+      fetchCategories();
+    }
+  }, [authLoading, userId]);
+
+  useEffect(() => {
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -111,8 +118,7 @@ const Inventory = () => {
   const fetchProducts = async () => {
     try {
       if (isOnline) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        if (!userId) {
           toast.error("Please sign in to view products");
           return;
         }
@@ -120,7 +126,7 @@ const Inventory = () => {
         const { data, error } = await supabase
           .from('products')
           .select('*')
-          .eq('created_by', user.id)
+          .eq('created_by', userId)
           .eq('is_deleted', false)
           .order('created_at', { ascending: false });
 
@@ -147,8 +153,7 @@ const Inventory = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!userId) throw new Error("Not authenticated");
 
       const cgst = parseFloat(formData.cgst) || 0;
       const sgst = parseFloat(formData.sgst) || 0;
@@ -193,7 +198,7 @@ const Inventory = () => {
         price_type: formData.price_type,
         unit: formData.unit,
         image_url: formData.image_url || null,
-        created_by: user.id,
+        created_by: userId,
       };
 
       if (editingProduct) {
