@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ChefHat, Clock, CheckCircle2, Truck, RefreshCw, UtensilsCrossed, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { formatIndianCurrency } from "@/lib/numberFormat";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface KitchenOrder {
   id: string;
@@ -19,16 +20,17 @@ interface KitchenOrder {
   total_amount: number;
   notes: string | null;
   created_at: string;
+  item_statuses: any[];
 }
 
 const Kitchen = () => {
   const navigate = useNavigate();
+  const { userId, loading: authLoading, user } = useAuthContext();
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const previousOrderCountRef = useRef<number>(0);
 
   // Create audio element for notification sound
   useEffect(() => {
@@ -45,7 +47,12 @@ const Kitchen = () => {
   };
 
   useEffect(() => {
-    fetchOrders();
+    if (!authLoading && userId) {
+      fetchOrders();
+    } else if (!authLoading && !user) {
+      navigate('/auth');
+      return;
+    }
     
     // Real-time subscription
     const channel = supabase
@@ -91,20 +98,15 @@ const Kitchen = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [soundEnabled]);
+  }, [authLoading, userId, user, soundEnabled]);
 
   const fetchOrders = async () => {
+    if (!userId) return;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate('/auth');
-        return;
-      }
-
       const { data, error } = await supabase
         .from('kitchen_orders')
         .select('*')
-        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

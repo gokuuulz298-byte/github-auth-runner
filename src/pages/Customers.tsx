@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 const Customers = () => {
   const navigate = useNavigate();
+  const { userId, loading: authLoading, user } = useAuthContext();
   const [customers, setCustomers] = useState<any[]>([]);
   const [loyaltyData, setLoyaltyData] = useState<Record<string, any>>({});
   const [searchTerm, setSearchTerm] = useState("");
@@ -18,22 +20,21 @@ const Customers = () => {
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", email: "" });
 
   useEffect(() => {
-    fetchCustomers();
-    fetchLoyaltyData();
-  }, []);
+    if (!authLoading && userId) {
+      fetchCustomers();
+      fetchLoyaltyData();
+    } else if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [authLoading, userId, user]);
 
   const fetchCustomers = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Please sign in to view customers");
-        return;
-      }
+    if (!userId) return;
 
+    try {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
-        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -45,14 +46,12 @@ const Customers = () => {
   };
 
   const fetchLoyaltyData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!userId) return;
 
+    try {
       const { data, error } = await supabase
         .from('loyalty_points')
-        .select('*')
-        .eq('created_by', user.id);
+        .select('*');
 
       if (error) {
         console.error("Error fetching loyalty data:", error);
@@ -70,18 +69,15 @@ const Customers = () => {
   };
 
   const handleAddCustomer = async () => {
-    if (!newCustomer.name || !newCustomer.phone) {
+    if (!newCustomer.name || !newCustomer.phone || !userId) {
       toast.error("Name and phone are required");
       return;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
       const { error } = await supabase
         .from('customers')
-        .insert([{ ...newCustomer, created_by: user.id }]);
+        .insert([{ ...newCustomer, created_by: userId }]);
 
       if (error) throw error;
 

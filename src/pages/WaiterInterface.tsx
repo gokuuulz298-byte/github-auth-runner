@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Plus, Minus, Send, UtensilsCrossed, Package, LogOut } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Plus, Minus, Send, UtensilsCrossed, Package, LogOut, ClipboardList, X, Check, Users } from "lucide-react";
 import { toast } from "sonner";
 import { formatIndianNumber, formatIndianCurrency } from "@/lib/numberFormat";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface CartItem {
   id: string;
@@ -19,12 +21,31 @@ interface CartItem {
   quantity: number;
 }
 
+interface LiveOrder {
+  id: string;
+  table_number: string | null;
+  customer_name: string | null;
+  items_data: CartItem[];
+  total_amount: number;
+  status: string;
+  waiter_id: string;
+  waiter_name: string;
+  order_type: string;
+  notes: string | null;
+  created_at: string;
+}
+
+interface RestaurantTable {
+  id: string;
+  table_number: string;
+  capacity: number;
+  status: string;
+  current_order_id: string | null;
+}
+
 const WaiterInterface = () => {
   const navigate = useNavigate();
-  
-  // Get waiter data from session storage
-  const [waiterData, setWaiterData] = useState<{ id: string; name: string; ownerId: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { userId, user, loading: authLoading, isWaiter, signOut } = useAuthContext();
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -35,72 +56,113 @@ const WaiterInterface = () => {
   const [customerName, setCustomerName] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [showLiveOrders, setShowLiveOrders] = useState(false);
+  const [showTablesView, setShowTablesView] = useState(false);
+  const [liveOrders, setLiveOrders] = useState<LiveOrder[]>([]);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<LiveOrder | null>(null);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('waiterData');
-    if (stored) {
-      const data = JSON.parse(stored);
-      setWaiterData(data);
-    } else {
+    if (!authLoading && userId) {
+      fetchCategories();
+      fetchTables();
+      fetchLiveOrders();
+    } else if (!authLoading && !user) {
       navigate('/auth');
     }
-  }, [navigate]);
-
-  // Fetch data only when waiterData is available
-  useEffect(() => {
-    if (waiterData?.ownerId) {
-      fetchCategories();
-    }
-  }, [waiterData?.ownerId]);
+  }, [authLoading, userId, user]);
 
   useEffect(() => {
-    if (selectedCategory && waiterData?.ownerId) {
+    if (selectedCategory && userId) {
       fetchProducts(selectedCategory);
     } else {
       setProducts([]);
     }
-  }, [selectedCategory, waiterData?.ownerId]);
+  }, [selectedCategory, userId]);
+
+  // Realtime subscription for live orders
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('waiter-live-orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_orders' }, () => {
+        fetchLiveOrders();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kitchen_orders' }, () => {
+        fetchLiveOrders();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   const fetchCategories = async () => {
-    if (!waiterData?.ownerId) return;
-    
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('created_by', waiterData.ownerId)
-        .order('name');
+    if (!userId) return;
 
-      if (error) throw error;
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error(error);
+      toast.error("Failed to load categories");
+    } else {
       setCategories(data || []);
       if (data && data.length > 0) {
         setSelectedCategory(data[0].name);
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load categories");
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchProducts = async (category: string) => {
-    if (!waiterData?.ownerId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('created_by', waiterData.ownerId)
-        .eq('category', category)
-        .eq('is_deleted', false)
-        .order('name');
+    if (!userId) return;
 
-      if (error) throw error;
-      setProducts(data || []);
-    } catch (error) {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category', category)
+      .eq('is_deleted', false)
+      .order('name');
+
+    if (error) {
       console.error(error);
+    } else {
+      setProducts(data || []);
+    }
+  };
+
+  const fetchTables = async () => {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('restaurant_tables')
+      .select('*')
+      .order('table_number');
+
+    if (error) {
+      console.error(error);
+    } else {
+      setTables(data || []);
+    }
+  };
+
+  const fetchLiveOrders = async () => {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('live_orders')
+      .select('*')
+      .neq('status', 'completed')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error(error);
+    } else {
+      setLiveOrders((data || []) as unknown as LiveOrder[]);
     }
   };
 
@@ -113,13 +175,12 @@ const WaiterInterface = () => {
           : item
       ));
     } else {
-      const newItem: CartItem = {
+      setCartItems([...cartItems, {
         id: product.id,
         name: product.name,
         price: Number(product.price),
         quantity: 1,
-      };
-      setCartItems([...cartItems, newItem]);
+      }]);
     }
     toast.success(`${product.name} added`);
   };
@@ -139,8 +200,8 @@ const WaiterInterface = () => {
   };
 
   const sendToKitchen = async () => {
-    if (!waiterData) return;
-    
+    if (!userId || !user) return;
+
     if (cartItems.length === 0) {
       toast.error("Add items to send to kitchen");
       return;
@@ -153,12 +214,12 @@ const WaiterInterface = () => {
 
     try {
       const orderData = {
-        created_by: waiterData.ownerId,
-        waiter_id: waiterData.id,
-        waiter_name: waiterData.name,
+        created_by: userId,
+        waiter_id: user.id,
+        waiter_name: user.email?.split('@')[0] || 'Waiter',
         order_type: isParcel ? 'takeaway' : 'dine-in',
         table_number: isParcel ? null : tableNumber,
-        items_data: cartItems as unknown as any,
+        items_data: cartItems as any,
         customer_name: customerName || null,
         status: 'active',
         total_amount: calculateTotal(),
@@ -166,9 +227,10 @@ const WaiterInterface = () => {
       };
 
       if (activeOrderId) {
+        // Add to existing order
         const { data: existingOrder } = await supabase
           .from('live_orders')
-          .select('items_data, total_amount, notes')
+          .select('items_data, total_amount')
           .eq('id', activeOrderId)
           .single();
 
@@ -187,17 +249,16 @@ const WaiterInterface = () => {
 
           const newTotal = mergedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-          const { error } = await supabase
+          await supabase
             .from('live_orders')
             .update({
-              items_data: mergedItems as unknown as any,
+              items_data: mergedItems as any,
               total_amount: newTotal,
-              notes: notes || existingOrder.notes
+              notes: notes || null
             })
             .eq('id', activeOrderId);
 
-          if (error) throw error;
-          toast.success("Items added to existing order!");
+          toast.success("Items added to order!");
         }
       } else {
         const { data, error } = await supabase
@@ -208,26 +269,34 @@ const WaiterInterface = () => {
 
         if (error) throw error;
         setActiveOrderId(data.id);
+
+        // Update table status
+        if (!isParcel && tableNumber) {
+          await supabase
+            .from('restaurant_tables')
+            .update({ status: 'occupied', current_order_id: data.id })
+            .eq('table_number', tableNumber);
+        }
+
         toast.success("Order sent to kitchen!");
       }
 
-      // Also send to kitchen_orders for kitchen display
-      const kitchenOrder = {
-        created_by: waiterData.ownerId,
+      // Send to kitchen_orders
+      await supabase.from('kitchen_orders').insert([{
+        created_by: userId,
         bill_number: `W-${Date.now().toString().slice(-6)}`,
         order_type: isParcel ? 'takeaway' : 'dine-in',
-        items_data: cartItems as unknown as any,
-        customer_name: customerName || `Table ${tableNumber}`,
-        customer_phone: null,
+        items_data: cartItems as any,
+        customer_name: customerName || (tableNumber ? `Table ${tableNumber}` : 'Takeaway'),
         status: 'pending',
         total_amount: calculateTotal(),
-        notes: notes ? `${waiterData.name}: ${notes}` : `Waiter: ${waiterData.name}`,
-      };
-
-      await supabase.from('kitchen_orders').insert([kitchenOrder]);
+        notes: notes || null,
+      }]);
 
       setCartItems([]);
       setNotes("");
+      fetchLiveOrders();
+      fetchTables();
     } catch (error) {
       console.error(error);
       toast.error("Failed to send order");
@@ -243,12 +312,59 @@ const WaiterInterface = () => {
     setIsParcel(false);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('waiterData');
-    navigate('/auth');
+  const completeOrder = async (order: LiveOrder) => {
+    try {
+      await supabase
+        .from('live_orders')
+        .update({ status: 'completed' })
+        .eq('id', order.id);
+
+      // Update table status
+      if (order.table_number) {
+        await supabase
+          .from('restaurant_tables')
+          .update({ status: 'available', current_order_id: null })
+          .eq('table_number', order.table_number);
+      }
+
+      // Store for billing
+      sessionStorage.setItem('liveOrderToBill', JSON.stringify(order));
+      toast.success("Order marked complete. Ready for billing.");
+      
+      fetchLiveOrders();
+      fetchTables();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to complete order");
+    }
   };
 
-  if (!waiterData) {
+  const selectTable = (table: RestaurantTable) => {
+    if (table.status === 'occupied' && table.current_order_id) {
+      // Load existing order
+      const existingOrder = liveOrders.find(o => o.id === table.current_order_id);
+      if (existingOrder) {
+        setSelectedOrder(existingOrder);
+      }
+    } else if (table.status === 'available') {
+      setTableNumber(table.table_number);
+      setIsParcel(false);
+      setShowTablesView(false);
+    }
+  };
+
+  const getTableStatus = (table: RestaurantTable) => {
+    const order = liveOrders.find(o => o.table_number === table.table_number && o.status !== 'completed');
+    if (order) {
+      if (order.waiter_id === user?.id) {
+        return { status: 'your-order', color: 'bg-green-500', label: 'Your Order' };
+      }
+      return { status: 'occupied', color: 'bg-red-500', label: 'Occupied' };
+    }
+    return { status: 'available', color: 'bg-gray-300', label: 'Available' };
+  };
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -263,21 +379,47 @@ const WaiterInterface = () => {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')} className="text-white hover:bg-white/20">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
               <div>
                 <h1 className="text-lg font-bold">Waiter Interface</h1>
-                <p className="text-indigo-100 text-sm">{waiterData.name}</p>
+                <p className="text-indigo-100 text-sm">{user?.email?.split('@')[0]}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowTablesView(true)}
+                className="text-white hover:bg-white/20"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Tables
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowLiveOrders(true)}
+                className="text-white hover:bg-white/20"
+              >
+                <ClipboardList className="h-4 w-4 mr-2" />
+                Orders
+                {liveOrders.filter(o => o.waiter_id === user?.id).length > 0 && (
+                  <Badge className="ml-1 bg-white text-indigo-600">
+                    {liveOrders.filter(o => o.waiter_id === user?.id).length}
+                  </Badge>
+                )}
+              </Button>
               {activeOrderId && (
                 <Badge variant="secondary" className="bg-green-500 text-white">
-                  Active Order
+                  Active
                 </Badge>
               )}
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={handleLogout}
+                onClick={signOut}
                 className="text-white hover:bg-white/20"
               >
                 <LogOut className="h-5 w-5" />
@@ -292,25 +434,17 @@ const WaiterInterface = () => {
         <div className="w-24 md:w-32 bg-muted/50 border-r flex-shrink-0 overflow-hidden flex flex-col">
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                </div>
-              ) : categories.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No categories</p>
-              ) : (
-                categories.map((cat) => (
-                  <Button
-                    key={cat.id}
-                    variant={selectedCategory === cat.name ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setSelectedCategory(cat.name)}
-                    className="w-full justify-start text-xs h-auto py-2 px-2"
-                  >
-                    <span className="truncate">{cat.name}</span>
-                  </Button>
-                ))
-              )}
+              {categories.map((cat) => (
+                <Button
+                  key={cat.id}
+                  variant={selectedCategory === cat.name ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat.name)}
+                  className="w-full justify-start text-xs h-auto py-2 px-2"
+                >
+                  <span className="truncate">{cat.name}</span>
+                </Button>
+              ))}
             </div>
           </ScrollArea>
         </div>
@@ -352,9 +486,6 @@ const WaiterInterface = () => {
                         <p className="text-primary font-bold text-sm">
                           ₹{formatIndianNumber(Number(product.price))}
                         </p>
-                        <Button size="sm" className="w-full mt-2 h-7 text-xs">
-                          <Plus className="h-3 w-3 mr-1" /> Add
-                        </Button>
                       </CardContent>
                     </Card>
                   ))}
@@ -375,26 +506,31 @@ const WaiterInterface = () => {
               {/* Order Type Toggle */}
               <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
                 <UtensilsCrossed className={`h-4 w-4 ${!isParcel ? 'text-orange-600' : 'text-muted-foreground'}`} />
-                <Switch
-                  checked={isParcel}
-                  onCheckedChange={setIsParcel}
-                />
+                <Switch checked={isParcel} onCheckedChange={setIsParcel} />
                 <Package className={`h-4 w-4 ${isParcel ? 'text-orange-600' : 'text-muted-foreground'}`} />
-                <span className="text-xs font-medium">
-                  {isParcel ? 'Takeaway' : 'Dine-in'}
-                </span>
+                <span className="text-xs font-medium">{isParcel ? 'Takeaway' : 'Dine-in'}</span>
               </div>
 
               {/* Table Number (for dine-in) */}
               {!isParcel && (
                 <div className="space-y-1">
                   <Label className="text-xs">Table Number *</Label>
-                  <Input
-                    value={tableNumber}
-                    onChange={(e) => setTableNumber(e.target.value)}
-                    placeholder="Enter table number"
-                    className="h-8 text-sm"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={tableNumber}
+                      onChange={(e) => setTableNumber(e.target.value)}
+                      placeholder="Enter table"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowTablesView(true)}
+                      className="h-8"
+                    >
+                      <Users className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -487,18 +623,124 @@ const WaiterInterface = () => {
               {activeOrderId ? 'Add to Order' : 'Send to Kitchen'}
             </Button>
             {activeOrderId && (
-              <Button
-                variant="outline"
-                onClick={clearOrder}
-                className="w-full"
-                size="sm"
-              >
+              <Button variant="outline" onClick={clearOrder} className="w-full" size="sm">
                 Start New Order
               </Button>
             )}
           </div>
         </div>
       </div>
+
+      {/* Live Orders Dialog */}
+      <Dialog open={showLiveOrders} onOpenChange={setShowLiveOrders}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Live Orders</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1">
+            <div className="space-y-3 p-1">
+              {liveOrders.filter(o => o.waiter_id === user?.id).length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No active orders</p>
+              ) : (
+                liveOrders.filter(o => o.waiter_id === user?.id).map((order) => (
+                  <Card key={order.id}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-bold">
+                            {order.table_number ? `Table ${order.table_number}` : 'Takeaway'}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{order.customer_name || 'Guest'}</p>
+                        </div>
+                        <Badge>{order.status}</Badge>
+                      </div>
+                      <div className="space-y-1 mb-3">
+                        {(order.items_data || []).map((item: CartItem, idx: number) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span>{item.quantity}x {item.name}</span>
+                            <span>₹{formatIndianNumber(item.price * item.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="font-bold text-green-600">{formatIndianCurrency(order.total_amount)}</span>
+                        <Button size="sm" onClick={() => completeOrder(order)}>
+                          <Check className="h-4 w-4 mr-1" />
+                          Complete
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tables View Dialog */}
+      <Dialog open={showTablesView} onOpenChange={setShowTablesView}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Restaurant Tables</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1">
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-1">
+              {tables.map((table) => {
+                const status = getTableStatus(table);
+                return (
+                  <Card 
+                    key={table.id} 
+                    className={`cursor-pointer hover:shadow-lg transition-shadow ${
+                      status.status === 'occupied' ? 'opacity-60' : ''
+                    }`}
+                    onClick={() => selectTable(table)}
+                  >
+                    <CardContent className="p-4 text-center">
+                      <div className={`w-full h-2 rounded mb-2 ${status.color}`} />
+                      <h3 className="font-bold text-lg">{table.table_number}</h3>
+                      <p className="text-xs text-muted-foreground">{table.capacity} seats</p>
+                      <Badge variant="outline" className="mt-2 text-xs">
+                        {status.label}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Detail Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Order - {selectedOrder?.table_number ? `Table ${selectedOrder.table_number}` : 'Takeaway'}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                {(selectedOrder.items_data || []).map((item: CartItem, idx: number) => (
+                  <div key={idx} className="flex justify-between">
+                    <span>{item.quantity}x {item.name}</span>
+                    <span>₹{formatIndianNumber(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t pt-2 flex justify-between font-bold">
+                <span>Total</span>
+                <span className="text-green-600">{formatIndianCurrency(selectedOrder.total_amount)}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Waiter: {selectedOrder.waiter_name}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

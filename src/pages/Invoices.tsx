@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import jsPDF from "jspdf";
 import { formatIndianCurrency } from "@/lib/numberFormat";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface Invoice {
   id: string;
@@ -23,28 +24,30 @@ interface Invoice {
 
 const Invoices = () => {
   const navigate = useNavigate();
+  const { userId, loading: authLoading, user } = useAuthContext();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [dateFilter, setDateFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
 
   useEffect(() => {
-    fetchInvoices();
-  }, []);
+    if (!authLoading && userId) {
+      fetchInvoices();
+      fetchCompanyProfile();
+    } else if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [authLoading, userId, user]);
 
   const fetchInvoices = async () => {
+    if (!userId) return;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Please sign in to view invoices");
-        return;
-      }
-
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
-        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -55,21 +58,14 @@ const Invoices = () => {
     }
   };
 
-  const [companyProfile, setCompanyProfile] = useState<any>(null);
-
-  useEffect(() => {
-    fetchCompanyProfile();
-  }, []);
-
   const fetchCompanyProfile = async () => {
+    if (!userId) return;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('company_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (error) throw error;

@@ -349,6 +349,7 @@ export type Database = {
           customer_name: string | null
           customer_phone: string | null
           id: string
+          item_statuses: Json | null
           items_data: Json
           notes: string | null
           order_type: string | null
@@ -363,6 +364,7 @@ export type Database = {
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
+          item_statuses?: Json | null
           items_data: Json
           notes?: string | null
           order_type?: string | null
@@ -377,6 +379,7 @@ export type Database = {
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
+          item_statuses?: Json | null
           items_data?: Json
           notes?: string | null
           order_type?: string | null
@@ -672,9 +675,43 @@ export type Database = {
         }
         Relationships: []
       }
+      restaurant_tables: {
+        Row: {
+          capacity: number | null
+          created_at: string | null
+          created_by: string
+          current_order_id: string | null
+          id: string
+          status: string | null
+          table_number: string
+          updated_at: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string | null
+          created_by: string
+          current_order_id?: string | null
+          id?: string
+          status?: string | null
+          table_number: string
+          updated_at?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string | null
+          created_by?: string
+          current_order_id?: string | null
+          id?: string
+          status?: string | null
+          table_number?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       staff: {
         Row: {
           allowed_modules: string[]
+          auth_user_id: string | null
           created_at: string | null
           created_by: string
           display_name: string
@@ -687,6 +724,7 @@ export type Database = {
         }
         Insert: {
           allowed_modules?: string[]
+          auth_user_id?: string | null
           created_at?: string | null
           created_by: string
           display_name: string
@@ -699,6 +737,7 @@ export type Database = {
         }
         Update: {
           allowed_modules?: string[]
+          auth_user_id?: string | null
           created_at?: string | null
           created_by?: string
           display_name?: string
@@ -711,8 +750,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          parent_user_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          parent_user_id?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          parent_user_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       waiters: {
         Row: {
+          auth_user_id: string | null
           created_at: string | null
           created_by: string
           display_name: string
@@ -723,6 +787,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          auth_user_id?: string | null
           created_at?: string | null
           created_by: string
           display_name: string
@@ -733,6 +798,7 @@ export type Database = {
           username: string
         }
         Update: {
+          auth_user_id?: string | null
           created_at?: string | null
           created_by?: string
           display_name?: string
@@ -749,10 +815,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_parent_user_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "staff" | "waiter"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -879,6 +952,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "staff", "waiter"],
+    },
   },
 } as const

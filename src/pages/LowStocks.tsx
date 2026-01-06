@@ -9,6 +9,7 @@ import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAllProducts } from "@/lib/indexedDB";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface Product {
   id: string;
@@ -22,13 +23,12 @@ interface Product {
 
 const LowStocks = () => {
   const navigate = useNavigate();
+  const { userId, loading: authLoading, user } = useAuthContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [threshold, setThreshold] = useState<number>(10);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    fetchProducts();
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
@@ -41,19 +41,22 @@ const LowStocks = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!authLoading && userId) {
+      fetchProducts();
+    } else if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [authLoading, userId, user, isOnline]);
+
   const fetchProducts = async () => {
+    if (!userId) return;
+    
     try {
       if (isOnline) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast.error("Please sign in to view products");
-          return;
-        }
-
         const { data, error } = await supabase
           .from('products')
           .select('*')
-          .eq('created_by', user.id)
           .eq('is_deleted', false)
           .order('stock_quantity', { ascending: true });
 
