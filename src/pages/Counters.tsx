@@ -7,9 +7,11 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 const Counters = () => {
   const navigate = useNavigate();
+  const { userId, loading: authLoading, user } = useAuthContext();
   const [counters, setCounters] = useState<any[]>([]);
   const [newCounter, setNewCounter] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -28,23 +30,20 @@ const Counters = () => {
   }, []);
 
   useEffect(() => {
-    if (isOnline) {
+    if (!authLoading && userId && isOnline) {
       fetchCounters();
+    } else if (!authLoading && !user) {
+      navigate('/auth');
     }
-  }, [isOnline]);
+  }, [authLoading, userId, user, isOnline]);
 
   const fetchCounters = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Please sign in to view counters");
-        return;
-      }
+    if (!userId) return;
 
+    try {
       const { data, error } = await supabase
         .from('counters')
         .select('*')
-        .eq('created_by', user.id)
         .order('name');
 
       if (error) throw error;
@@ -56,21 +55,15 @@ const Counters = () => {
   };
 
   const handleAddCounter = async () => {
-    if (!newCounter.trim()) {
+    if (!newCounter.trim() || !userId) {
       toast.error("Please enter a counter name");
       return;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("You must be logged in");
-        return;
-      }
-
       const { error } = await supabase
         .from('counters')
-        .insert([{ name: newCounter.trim(), created_by: user.id }]);
+        .insert([{ name: newCounter.trim(), created_by: userId }]);
 
       if (error) throw error;
 

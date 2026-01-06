@@ -7,9 +7,11 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 const Categories = () => {
   const navigate = useNavigate();
+  const { userId, loading: authLoading, user } = useAuthContext();
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategory, setNewCategory] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -28,23 +30,20 @@ const Categories = () => {
   }, []);
 
   useEffect(() => {
-    if (isOnline) {
+    if (!authLoading && userId && isOnline) {
       fetchCategories();
+    } else if (!authLoading && !user) {
+      navigate('/auth');
     }
-  }, [isOnline]);
+  }, [authLoading, userId, user, isOnline]);
 
   const fetchCategories = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Please sign in to view categories");
-        return;
-      }
+    if (!userId) return;
 
+    try {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
-        .eq('created_by', user.id)
         .order('name');
 
       if (error) throw error;
@@ -56,21 +55,15 @@ const Categories = () => {
   };
 
   const handleAddCategory = async () => {
-    if (!newCategory.trim()) {
+    if (!newCategory.trim() || !userId) {
       toast.error("Please enter a category name");
       return;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("You must be logged in");
-        return;
-      }
-
       const { error } = await supabase
         .from('categories')
-        .insert([{ name: newCategory.trim(), created_by: user.id }]);
+        .insert([{ name: newCategory.trim(), created_by: userId }]);
 
       if (error) throw error;
 

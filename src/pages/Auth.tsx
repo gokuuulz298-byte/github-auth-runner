@@ -6,9 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp, UserCog } from "lucide-react";
+import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp } from "lucide-react";
 import { Session, User } from "@supabase/supabase-js";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -19,7 +18,6 @@ const Auth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [loginType, setLoginType] = useState<"admin" | "staff">("admin");
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -27,9 +25,8 @@ const Auth = () => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Check if this is staff login (staff data in session storage)
-        const staffData = sessionStorage.getItem('staffSession');
-        if (session && !staffData) {
+        if (session) {
+          // Redirect to dashboard - role will be checked there
           navigate("/dashboard");
         }
       }
@@ -39,13 +36,6 @@ const Auth = () => {
       setSession(session);
       setUser(session?.user ?? null);
       
-      // Check if there's existing staff session
-      const staffData = sessionStorage.getItem('staffSession');
-      if (staffData) {
-        navigate("/dashboard");
-        return;
-      }
-      
       if (session) {
         navigate("/dashboard");
       }
@@ -54,15 +44,12 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Clear any existing staff session
-    sessionStorage.removeItem('staffSession');
-
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     });
 
@@ -73,94 +60,6 @@ const Auth = () => {
     }
 
     setLoading(false);
-  };
-
-  const handleStaffLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const inputLower = email.toLowerCase().trim();
-      
-      // Try to find in staff table first (by email)
-      const { data: staffList, error: staffError } = await supabase
-        .from("staff")
-        .select("*")
-        .eq("email", inputLower)
-        .eq("is_active", true);
-
-      if (staffError) {
-        console.error("Staff query error:", staffError);
-      }
-
-      // Check waiters table by username OR by display_name
-      const { data: waiterList, error: waiterError } = await supabase
-        .from("waiters")
-        .select("*")
-        .eq("is_active", true);
-
-      if (waiterError) {
-        console.error("Waiter query error:", waiterError);
-      }
-
-      // Filter waiters by username match (case insensitive)
-      const matchedWaiters = waiterList?.filter(w => 
-        w.username.toLowerCase() === inputLower
-      ) || [];
-
-      // Check staff first
-      if (staffList && staffList.length > 0) {
-        const staff = staffList.find(s => s.password_hash === password);
-        
-        if (staff) {
-          sessionStorage.setItem('staffSession', JSON.stringify({
-            id: staff.id,
-            email: staff.email,
-            display_name: staff.display_name,
-            allowed_modules: staff.allowed_modules,
-            show_in_bill: staff.show_in_bill,
-            created_by: staff.created_by,
-            type: 'staff'
-          }));
-
-          toast.success(`Welcome, ${staff.display_name}!`);
-          navigate("/dashboard");
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Check waiters
-      if (matchedWaiters.length > 0) {
-        const waiter = matchedWaiters.find(w => w.password === password);
-        
-        if (waiter) {
-          sessionStorage.setItem('staffSession', JSON.stringify({
-            id: waiter.id,
-            email: waiter.username,
-            display_name: waiter.display_name,
-            allowed_modules: ['waiter'],
-            show_in_bill: false,
-            created_by: waiter.created_by,
-            type: 'waiter'
-          }));
-
-          toast.success(`Welcome, ${waiter.display_name}!`);
-          navigate("/dashboard");
-          setLoading(false);
-          return;
-        }
-      }
-
-      // No match found
-      toast.error("Invalid email/username or password");
-      setLoading(false);
-
-    } catch (error: any) {
-      console.error(error);
-      toast.error("Login failed. Please try again.");
-      setLoading(false);
-    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -299,89 +198,69 @@ const Auth = () => {
           </CardHeader>
           <CardContent className="pt-4">
             {!showForgotPassword ? (
-              <>
-                <Tabs value={loginType} onValueChange={(v) => setLoginType(v as "admin" | "staff")} className="mb-4">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="admin" className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Admin
-                    </TabsTrigger>
-                    <TabsTrigger value="staff" className="flex items-center gap-2">
-                      <UserCog className="h-4 w-4" />
-                      Staff
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-
-                <form onSubmit={loginType === "admin" ? handleAdminLogin : handleStaffLogin} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-gray-700 font-medium">
-                      {loginType === "admin" ? "Email Address" : "Email / Username"}
-                    </Label>
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-gray-700 font-medium">
+                    Email Address
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                  <div className="relative">
                     <Input
-                      id="email"
-                      type={loginType === "admin" ? "email" : "text"}
-                      placeholder={loginType === "admin" ? "your@email.com" : "email or username"}
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
-                    </div>
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base"
-                    disabled={loading}
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+                <div className="text-center space-y-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
                   >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      `Sign In as ${loginType === "admin" ? "Admin" : "Staff"}`
-                    )}
-                  </Button>
-                  <div className="text-center space-y-3 pt-2">
-                    {loginType === "admin" && (
-                      <button
-                        type="button"
-                        onClick={() => setShowForgotPassword(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
-                      >
-                        Forgot your password?
-                      </button>
-                    )}
-                    <p className="text-sm text-gray-500">
-                      {loginType === "admin" 
-                        ? "Contact admin to create your account" 
-                        : "Contact your administrator for staff credentials"
-                      }
-                    </p>
-                  </div>
-                </form>
-              </>
+                    Forgot your password?
+                  </button>
+                  <p className="text-sm text-gray-500">
+                    Contact your administrator to create an account
+                  </p>
+                </div>
+              </form>
             ) : (
               <form onSubmit={handleForgotPassword} className="space-y-5">
                 <div className="space-y-2">
