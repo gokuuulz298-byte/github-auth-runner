@@ -4,10 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ChefHat, Clock, CheckCircle2, Truck, RefreshCw, UtensilsCrossed, Volume2, VolumeX } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, ChefHat, Clock, CheckCircle2, Truck, RefreshCw, UtensilsCrossed, Volume2, VolumeX, User } from "lucide-react";
 import { toast } from "sonner";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import { useAuthContext } from "@/hooks/useAuthContext";
+
+interface ItemStatus {
+  id: string;
+  name: string;
+  quantity: number;
+  status: 'pending' | 'preparing' | 'ready';
+}
 
 interface KitchenOrder {
   id: string;
@@ -20,7 +28,7 @@ interface KitchenOrder {
   total_amount: number;
   notes: string | null;
   created_at: string;
-  item_statuses: any[];
+  item_statuses: ItemStatus[] | null;
 }
 
 const Kitchen = () => {
@@ -30,6 +38,7 @@ const Kitchen = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<KitchenOrder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Create audio element for notification sound
@@ -110,7 +119,7 @@ const Kitchen = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders((data || []) as KitchenOrder[]);
+      setOrders((data || []) as unknown as KitchenOrder[]);
     } catch (error) {
       console.error(error);
       toast.error("Failed to fetch orders");
@@ -135,6 +144,48 @@ const Kitchen = () => {
     }
   };
 
+  const updateItemStatus = async (orderId: string, itemId: string, newStatus: 'pending' | 'preparing' | 'ready') => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const itemStatuses = order.item_statuses || order.items_data.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      status: 'pending' as const
+    }));
+
+    const updatedStatuses = itemStatuses.map((item: ItemStatus) => 
+      item.id === itemId ? { ...item, status: newStatus } : item
+    );
+
+    // Check if all items are ready
+    const allReady = updatedStatuses.every((item: ItemStatus) => item.status === 'ready');
+    const anyPreparing = updatedStatuses.some((item: ItemStatus) => item.status === 'preparing' || item.status === 'ready');
+
+    try {
+      const { error } = await supabase
+        .from('kitchen_orders')
+        .update({ 
+          item_statuses: updatedStatuses as any,
+          status: allReady ? 'ready' : anyPreparing ? 'preparing' : 'pending'
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      // Update local state
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, item_statuses: updatedStatuses });
+      }
+      
+      fetchOrders();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update item status");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-orange-500 hover:bg-orange-600';
@@ -153,6 +204,12 @@ const Kitchen = () => {
       case 'delivered': return <Truck className="h-4 w-4" />;
       default: return null;
     }
+  };
+
+  const getWaiterName = (notes: string | null) => {
+    if (!notes) return null;
+    const match = notes.match(/^Waiter:\s*([^|]+)/);
+    return match ? match[1].trim() : null;
   };
 
   const filteredOrders = filter === 'all' 
@@ -266,105 +323,260 @@ const Kitchen = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredOrders.map((order) => (
-              <Card 
-                key={order.id} 
-                className={`overflow-hidden transition-all duration-300 hover:shadow-xl ${
-                  order.status === 'pending' ? 'ring-2 ring-orange-400 animate-pulse' : ''
-                }`}
-              >
-                <CardHeader className={`py-3 ${getStatusColor(order.status)} text-white`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(order.status)}
-                      <span className="font-bold uppercase">{order.status}</span>
+            {filteredOrders.map((order) => {
+              const waiterName = getWaiterName(order.notes);
+              return (
+                <Card 
+                  key={order.id} 
+                  className={`overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer ${
+                    order.status === 'pending' ? 'ring-2 ring-orange-400 animate-pulse' : ''
+                  }`}
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  <CardHeader className={`py-3 ${getStatusColor(order.status)} text-white`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(order.status)}
+                        <span className="font-bold uppercase">{order.status}</span>
+                      </div>
+                      <Badge variant="secondary" className="bg-white/20 text-white">
+                        #{order.bill_number}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className="bg-white/20 text-white">
-                      #{order.bill_number}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4">
-                  {/* Order Type Badge */}
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge variant="outline" className="text-orange-600 border-orange-300">
-                      {order.order_type === 'takeaway' ? '🥡 TAKEAWAY' : '🍽️ DINE-IN'}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(order.created_at).toLocaleTimeString('en-IN', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    {/* Order Type Badge */}
+                    <div className="flex items-center justify-between mb-3">
+                      <Badge variant="outline" className="text-orange-600 border-orange-300">
+                        {order.order_type === 'takeaway' ? '🥡 TAKEAWAY' : '🍽️ DINE-IN'}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(order.created_at).toLocaleTimeString('en-IN', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    </div>
+
+                    {/* Waiter Info */}
+                    {waiterName && (
+                      <div className="flex items-center gap-2 mb-3 text-sm bg-indigo-50 dark:bg-indigo-950/30 p-2 rounded">
+                        <User className="h-4 w-4 text-indigo-600" />
+                        <span className="text-indigo-700 dark:text-indigo-300">Waiter: {waiterName}</span>
+                      </div>
+                    )}
+
+                    {/* Customer Info */}
+                    {(order.customer_name || order.customer_phone) && (
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 mb-3 text-sm">
+                        {order.customer_name && <p className="font-medium">{order.customer_name}</p>}
+                        {order.customer_phone && <p className="text-muted-foreground">{order.customer_phone}</p>}
+                      </div>
+                    )}
+
+                    {/* Items */}
+                    <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                      {order.items_data.map((item: any, idx: number) => {
+                        const itemStatus = order.item_statuses?.find((s: ItemStatus) => s.id === item.id);
+                        return (
+                          <div key={idx} className="flex justify-between items-center text-sm border-b pb-1">
+                            <span className="flex-1 flex items-center gap-2">
+                              <span className="font-semibold text-orange-600">{item.quantity}x</span>
+                              {item.name}
+                              {itemStatus?.status === 'ready' && (
+                                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                              )}
+                            </span>
+                          </div>
+                        );
                       })}
-                    </span>
-                  </div>
-
-                  {/* Customer Info */}
-                  {(order.customer_name || order.customer_phone) && (
-                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 mb-3 text-sm">
-                      {order.customer_name && <p className="font-medium">{order.customer_name}</p>}
-                      {order.customer_phone && <p className="text-muted-foreground">{order.customer_phone}</p>}
                     </div>
-                  )}
 
-                  {/* Items */}
-                  <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
-                    {order.items_data.map((item: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center text-sm border-b pb-1">
-                        <span className="flex-1">
-                          <span className="font-semibold text-orange-600">{item.quantity}x</span>{' '}
-                          {item.name}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                    {/* Total */}
+                    <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
+                      <span>Total</span>
+                      <span className="text-green-600">{formatIndianCurrency(order.total_amount)}</span>
+                    </div>
 
-                  {/* Total */}
-                  <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
-                    <span>Total</span>
-                    <span className="text-green-600">{formatIndianCurrency(order.total_amount)}</span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {order.status === 'pending' && (
-                      <Button 
-                        onClick={() => updateStatus(order.id, 'preparing')}
-                        className="col-span-2 bg-blue-500 hover:bg-blue-600"
-                      >
-                        <ChefHat className="h-4 w-4 mr-2" />
-                        Start Preparing
-                      </Button>
-                    )}
-                    {order.status === 'preparing' && (
-                      <Button 
-                        onClick={() => updateStatus(order.id, 'ready')}
-                        className="col-span-2 bg-green-500 hover:bg-green-600"
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Mark Ready
-                      </Button>
-                    )}
-                    {order.status === 'ready' && (
-                      <Button 
-                        onClick={() => updateStatus(order.id, 'delivered')}
-                        className="col-span-2 bg-gray-600 hover:bg-gray-700"
-                      >
-                        <Truck className="h-4 w-4 mr-2" />
-                        Mark Delivered
-                      </Button>
-                    )}
-                    {order.status === 'delivered' && (
-                      <div className="col-span-2 text-center text-sm text-muted-foreground py-2">
-                        ✓ Order Complete
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    {/* Action Buttons */}
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {order.status === 'pending' && (
+                        <Button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStatus(order.id, 'preparing');
+                          }}
+                          className="col-span-2 bg-blue-500 hover:bg-blue-600"
+                        >
+                          <ChefHat className="h-4 w-4 mr-2" />
+                          Start Preparing
+                        </Button>
+                      )}
+                      {order.status === 'preparing' && (
+                        <Button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStatus(order.id, 'ready');
+                          }}
+                          className="col-span-2 bg-green-500 hover:bg-green-600"
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Mark Ready
+                        </Button>
+                      )}
+                      {order.status === 'ready' && (
+                        <Button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStatus(order.id, 'delivered');
+                          }}
+                          className="col-span-2 bg-gray-600 hover:bg-gray-700"
+                        >
+                          <Truck className="h-4 w-4 mr-2" />
+                          Mark Delivered
+                        </Button>
+                      )}
+                      {order.status === 'delivered' && (
+                        <div className="col-span-2 text-center text-sm text-muted-foreground py-2">
+                          ✓ Order Complete
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </main>
+
+      {/* Order Detail Dialog - Item by Item Status */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Order #{selectedOrder?.bill_number}</span>
+              <Badge className={getStatusColor(selectedOrder?.status || '')}>
+                {selectedOrder?.status?.toUpperCase()}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              {/* Waiter Info */}
+              {getWaiterName(selectedOrder.notes) && (
+                <div className="flex items-center gap-2 text-sm bg-indigo-50 dark:bg-indigo-950/30 p-3 rounded-lg">
+                  <User className="h-4 w-4 text-indigo-600" />
+                  <span className="font-medium text-indigo-700 dark:text-indigo-300">
+                    Waiter: {getWaiterName(selectedOrder.notes)}
+                  </span>
+                </div>
+              )}
+
+              {/* Customer Info */}
+              {selectedOrder.customer_name && (
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                  <p className="font-medium">{selectedOrder.customer_name}</p>
+                  {selectedOrder.customer_phone && (
+                    <p className="text-sm text-muted-foreground">{selectedOrder.customer_phone}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Items with individual status */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm text-muted-foreground">Items - Click to update status</h4>
+                {selectedOrder.items_data.map((item: any, idx: number) => {
+                  const itemStatuses = selectedOrder.item_statuses || selectedOrder.items_data.map((i: any) => ({
+                    id: i.id,
+                    name: i.name,
+                    quantity: i.quantity,
+                    status: 'pending' as const
+                  }));
+                  const currentStatus = itemStatuses.find((s: ItemStatus) => s.id === item.id)?.status || 'pending';
+                  
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{item.quantity}× {item.name}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant={currentStatus === 'pending' ? 'default' : 'outline'}
+                          className={currentStatus === 'pending' ? 'bg-orange-500 hover:bg-orange-600' : ''}
+                          onClick={() => updateItemStatus(selectedOrder.id, item.id, 'pending')}
+                        >
+                          <Clock className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={currentStatus === 'preparing' ? 'default' : 'outline'}
+                          className={currentStatus === 'preparing' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+                          onClick={() => updateItemStatus(selectedOrder.id, item.id, 'preparing')}
+                        >
+                          <ChefHat className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={currentStatus === 'ready' ? 'default' : 'outline'}
+                          className={currentStatus === 'ready' ? 'bg-green-500 hover:bg-green-600' : ''}
+                          onClick={() => updateItemStatus(selectedOrder.id, item.id, 'ready')}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Total */}
+              <div className="flex justify-between items-center font-bold text-lg border-t pt-3">
+                <span>Total</span>
+                <span className="text-green-600">{formatIndianCurrency(selectedOrder.total_amount)}</span>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex gap-2">
+                {selectedOrder.status === 'pending' && (
+                  <Button 
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                    onClick={() => {
+                      updateStatus(selectedOrder.id, 'preparing');
+                      setSelectedOrder(null);
+                    }}
+                  >
+                    Start All
+                  </Button>
+                )}
+                {selectedOrder.status === 'preparing' && (
+                  <Button 
+                    className="flex-1 bg-green-500 hover:bg-green-600"
+                    onClick={() => {
+                      updateStatus(selectedOrder.id, 'ready');
+                      setSelectedOrder(null);
+                    }}
+                  >
+                    Mark All Ready
+                  </Button>
+                )}
+                {selectedOrder.status === 'ready' && (
+                  <Button 
+                    className="flex-1 bg-gray-600 hover:bg-gray-700"
+                    onClick={() => {
+                      updateStatus(selectedOrder.id, 'delivered');
+                      setSelectedOrder(null);
+                    }}
+                  >
+                    Mark Delivered
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
