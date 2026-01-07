@@ -28,8 +28,8 @@ interface LiveOrder {
   items_data: CartItem[];
   total_amount: number;
   status: string;
-  waiter_id: string;
-  waiter_name: string;
+  waiter_id: string | null;
+  waiter_name: string | null;
   order_type: string;
   notes: string | null;
   created_at: string;
