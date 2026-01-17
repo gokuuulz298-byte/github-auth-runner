@@ -46,6 +46,7 @@ interface BillingSettings {
   billingPassword?: string;
   kitchenPassword?: string;
   enableWaiters?: boolean;
+  enableBilingualBill?: boolean;
 }
 
 interface Waiter {
@@ -236,7 +237,8 @@ const Profile = () => {
       enableKitchenInterface: false,
       securityProtection: false,
       billingPassword: "",
-      kitchenPassword: ""
+      kitchenPassword: "",
+      enableBilingualBill: false
     });
 
     useEffect(() => {
@@ -258,7 +260,8 @@ const Profile = () => {
           enableKitchenInterface: profile.billing_settings.enableKitchenInterface ?? false,
           securityProtection: profile.billing_settings.securityProtection ?? false,
           billingPassword: profile.billing_settings.billingPassword || "",
-          kitchenPassword: profile.billing_settings.kitchenPassword || ""
+          kitchenPassword: profile.billing_settings.kitchenPassword || "",
+          enableBilingualBill: profile.billing_settings.enableBilingualBill ?? false
         });
       }
     }, [profile]);
@@ -508,6 +511,19 @@ const Profile = () => {
                 onCheckedChange={(v) => setSettings({ ...settings, autoPrint: v })}
               />
               <span>Auto-print on Complete Sale</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={settings.enableBilingualBill || false}
+                onCheckedChange={(v) => setSettings({ ...settings, enableBilingualBill: v })}
+              />
+              <div>
+                <span className="font-medium">Bilingual Bill (English + Tamil)</span>
+                <p className="text-xs text-muted-foreground">
+                  Show Tamil text below English on thermal bills
+                </p>
+              </div>
             </div>
 
             <div>

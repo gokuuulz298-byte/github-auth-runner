@@ -84,7 +84,8 @@ const ManualBilling = () => {
         setBillingSettings({
           ...settings.ManualBilling,
           isRestaurant: settings.isRestaurant,
-          enableKitchenInterface: settings.enableKitchenInterface
+          enableKitchenInterface: settings.enableKitchenInterface,
+          enableBilingualBill: settings.enableBilingualBill
         });
       }
     } catch (error) {
@@ -915,11 +916,28 @@ const ManualBilling = () => {
       : "GST added extra";
     doc.text(gstNote, centerX, currentY, { align: "center" });
     
+    // Bilingual support - Tamil translations
+    if (billingSettings?.enableBilingualBill) {
+      currentY += 2.5;
+      doc.setFontSize(6);
+      const tamilGstNote = billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "mrp"
+        ? "MRP உள்ளடக்கம் – வரி சேர்க்கப்பட்டது"
+        : "அடிப்படை + GST காட்டப்பட்டது";
+      doc.text(tamilGstNote, centerX, currentY, { align: "center" });
+    }
+    
     currentY += 4;
     doc.setFont(undefined, 'italic');
     doc.setFontSize(8);
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
     doc.text(thankYouNote, centerX, currentY, { align: "center" });
+    
+    // Bilingual thank you note
+    if (billingSettings?.enableBilingualBill) {
+      currentY += 2.5;
+      doc.setFontSize(6);
+      doc.text("உங்கள் வணிகத்திற்கு நன்றி!", centerX, currentY, { align: "center" });
+    }
     
     // Ensure we have enough space - add extra padding if needed
     if (currentY > requiredHeight - 5) {
@@ -1298,109 +1316,137 @@ const ManualBilling = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-5 w-5" />
+        <div className="container mx-auto px-3 py-2 flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-xl sm:text-2xl font-bold">Manual Billing</h1>
+          <h1 className="text-lg font-bold">Manual Billing</h1>
           {!isOnline && (
-            <span className="ml-auto bg-warning text-warning-foreground px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+            <span className="ml-auto bg-warning text-warning-foreground px-2 py-0.5 rounded-full text-xs">
               Offline
             </span>
           )}
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 max-w-full">
-          <div className="space-y-4">
+      <main className="container mx-auto px-2 py-3 overflow-x-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 max-w-full">
+          <div className="space-y-3">
+            {/* Counter & Customer - Compact */}
             <Card>
-              <CardHeader className="px-4 sm:px-6 py-4">
-                <CardTitle className="text-base sm:text-lg">Counter & Customer</CardTitle>
+              <CardHeader className="px-3 py-2">
+                <CardTitle className="text-sm">Counter & Customer</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 px-4 sm:px-6">
-                <div>
-                  <Label htmlFor="counter" className="text-sm">Counter</Label>
-                  <select
-                    id="counter"
-                    value={selectedCounter}
-                    onChange={(e) => setSelectedCounter(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
-                  >
-                    <option value="">Select Counter</option>
-                    {counters.map((counter) => (
-                      <option key={counter.id} value={counter.id}>
-                        {counter.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="customer-name" className="text-sm">Customer Name</Label>
-                  <Input
-                    id="customer-name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Enter customer name"
-                    className="mt-1 text-sm"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="customer-phone">Phone Number</Label>
-                  <Input
-                    id="customer-phone"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Enter phone number"
-                  />
-                  {loyaltyPoints > 0 && (
-                    <p className="text-xs text-green-600 mt-1 font-medium">
-                      Loyalty Points: {loyaltyPoints}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="gst-rate">Additional Tax % (Optional)</Label>
-                  <Input
-                    id="gst-rate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    placeholder="e.g., 5"
-                    value={additionalGstRate}
-                    onChange={(e) => setAdditionalGstRate(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Apply additional tax on bill (separate from CGST/SGST)
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="coupon">Coupon Code (Optional)</Label>
-                  <select
-                    id="coupon"
-                    value={selectedCoupon}
-                    onChange={(e) => setSelectedCoupon(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">No Coupon</option>
-                    {coupons.map((coupon) => (
-                      <option key={coupon.id} value={coupon.id}>
-                        {coupon.code} - {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `₹${coupon.discount_value}`} off
-                      </option>
-                    ))}
-                  </select>
+              <CardContent className="px-3 pb-3 pt-0">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="counter" className="text-xs">Counter</Label>
+                    <select
+                      id="counter"
+                      value={selectedCounter}
+                      onChange={(e) => setSelectedCounter(e.target.value)}
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm mt-0.5"
+                    >
+                      <option value="">Select</option>
+                      {counters.map((counter) => (
+                        <option key={counter.id} value={counter.id}>
+                          {counter.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="payment-mode" className="text-xs">Payment</Label>
+                    <select
+                      id="payment-mode"
+                      value={paymentMode}
+                      onChange={(e) => setPaymentMode(e.target.value)}
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm mt-0.5"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="upi">UPI</option>
+                      <option value="mixed">Mixed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="customer-name" className="text-xs">Name</Label>
+                    <Input
+                      id="customer-name"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Customer name"
+                      className="h-8 text-sm mt-0.5"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="customer-phone" className="text-xs">Phone</Label>
+                    <Input
+                      id="customer-phone"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Phone"
+                      className="h-8 text-sm mt-0.5"
+                    />
+                    {loyaltyPoints > 0 && (
+                      <p className="text-[10px] text-green-600 mt-0.5 font-medium">
+                        Points: {loyaltyPoints}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Options - Compact */}
             <Card>
-              <CardHeader>
-                <CardTitle>Search Products</CardTitle>
+              <CardHeader className="px-3 py-2">
+                <CardTitle className="text-sm">Options</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="px-3 pb-3 pt-0">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="gst-rate" className="text-xs">Extra Tax %</Label>
+                    <Input
+                      id="gst-rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      value={additionalGstRate}
+                      onChange={(e) => setAdditionalGstRate(e.target.value)}
+                      className="h-8 text-sm mt-0.5"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="coupon" className="text-xs">Coupon</Label>
+                    <select
+                      id="coupon"
+                      value={selectedCoupon}
+                      onChange={(e) => setSelectedCoupon(e.target.value)}
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm mt-0.5"
+                    >
+                      <option value="">None</option>
+                      {coupons.map((coupon) => (
+                        <option key={coupon.id} value={coupon.id}>
+                          {coupon.code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Search Products - Compact */}
+            <Card>
+              <CardHeader className="px-3 py-2">
+                <CardTitle className="text-sm">Search Products</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3 pt-0 space-y-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -1414,13 +1460,13 @@ const ManualBilling = () => {
                         }
                       }
                     }}
-                    placeholder="Search by name or scan barcode..."
-                    className="pl-10"
+                    placeholder="Scan barcode or search..."
+                    className="pl-8 h-8 text-sm"
                     autoFocus
                   />
                 </div>
 
-                <div className="max-h-[400px] overflow-y-auto space-y-2">
+                <div className="max-h-[280px] overflow-y-auto space-y-1">
                   {products.map((product) => {
                     const activeDiscount = productDiscounts.find(
                       discount => 
@@ -1430,96 +1476,79 @@ const ManualBilling = () => {
                     );
                     
                     return (
-                      <div key={product.id} className="p-3 bg-muted/50 rounded-lg">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-medium">{product.name}</h4>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
-                              <p className="text-sm text-muted-foreground">
-                                Price: ₹{product.price}{product.price_type === 'weight' && '/kg'}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Code: {product.barcode}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Stock: {product.stock_quantity}
-                              </p>
+                      <div key={product.id} className="p-2 bg-muted/50 rounded-lg">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm truncate">{product.name}</h4>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>₹{product.price}{product.price_type === 'weight' && '/kg'}</span>
+                              <span>Stock: {product.stock_quantity}</span>
                               {activeDiscount && (
-                                <p className="text-sm text-green-600 font-semibold">
+                                <span className="text-green-600 font-medium">
                                   {activeDiscount.discount_type === 'percentage' 
                                     ? `${activeDiscount.discount_percentage}% off` 
                                     : `₹${activeDiscount.discount_amount} off`}
-                                </p>
+                                </span>
                               )}
                             </div>
                           </div>
+                          <Button 
+                            size="sm" 
+                            className="h-7 px-2 text-xs"
+                            onClick={() => {
+                              const existingItem = cartItems.find(item => item.barcode === product.barcode);
+                              const weightValue = parseFloat(weight) || 1;
+                              const quantity = product.price_type === 'weight' ? weightValue : 1;
+                              const currentCartQuantity = existingItem ? existingItem.quantity : 0;
+                              const newTotalQuantity = currentCartQuantity + quantity;
+                              
+                              if (newTotalQuantity > product.stock_quantity) {
+                                toast.error(`Insufficient stock!`);
+                                return;
+                              }
+                              
+                              const igstInput = document.getElementById(`igst-${product.id}`) as HTMLInputElement;
+                              const igstValue = igstInput?.value || "0";
+                              handleAddToCart(
+                                product, 
+                                product.price_type === 'weight' ? weight : undefined,
+                                intraStateTrade ? igstValue : undefined
+                              );
+                            }}
+                          >
+                            Add
+                          </Button>
                         </div>
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        {product.price_type === 'weight' && (
-                          <div>
-                            <Label htmlFor={`weight-${product.id}`} className="text-xs">Weight (kg)</Label>
-                            <Input
-                              id={`weight-${product.id}`}
-                              type="text"
-                              value={weight}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                  setWeight(val);
-                                }
-                              }}
-                              onBlur={() => {
-                                const numValue = parseFloat(weight);
-                                if (!numValue || numValue < 0.001) setWeight("0.001");
-                              }}
-                              className="h-8"
-                              placeholder="0.000"
-                            />
+                        {(product.price_type === 'weight' || intraStateTrade) && (
+                          <div className="flex gap-2 mt-1.5">
+                            {product.price_type === 'weight' && (
+                              <Input
+                                type="text"
+                                value={weight}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                    setWeight(val);
+                                  }
+                                }}
+                                className="h-7 text-xs w-20"
+                                placeholder="kg"
+                              />
+                            )}
+                            {intraStateTrade && (
+                              <Input
+                                id={`igst-${product.id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                placeholder="IGST %"
+                                className="h-7 text-xs w-20"
+                                defaultValue="0"
+                              />
+                            )}
                           </div>
                         )}
-                        {intraStateTrade && (
-                          <div className={product.price_type === 'weight' ? '' : 'col-span-2'}>
-                            <Label htmlFor={`igst-${product.id}`} className="text-xs">IGST %</Label>
-                            <Input
-                              id={`igst-${product.id}`}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              placeholder="0"
-                              className="h-8"
-                              defaultValue="0"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <Button 
-                        size="sm" 
-                        className="w-full"
-                        onClick={() => {
-                          // Stock validation
-                          const existingItem = cartItems.find(item => item.barcode === product.barcode);
-                          const weightValue = parseFloat(weight) || 1;
-                          const quantity = product.price_type === 'weight' ? weightValue : 1;
-                          const currentCartQuantity = existingItem ? existingItem.quantity : 0;
-                          const newTotalQuantity = currentCartQuantity + quantity;
-                          
-                          if (newTotalQuantity > product.stock_quantity) {
-                            toast.error(`Insufficient stock! Available: ${product.stock_quantity}, In cart: ${currentCartQuantity.toFixed(3)}, Requested: ${quantity}. Cannot exceed stock limit.`);
-                            return;
-                          }
-                          
-                          const igstInput = document.getElementById(`igst-${product.id}`) as HTMLInputElement;
-                          const igstValue = igstInput?.value || "0";
-                          handleAddToCart(
-                            product, 
-                            product.price_type === 'weight' ? weight : undefined,
-                            intraStateTrade ? igstValue : undefined
-                          );
-                        }}
-                      >
-                        Add to Cart
-                      </Button>
                       </div>
                     );
                   })}
@@ -1528,55 +1557,44 @@ const ManualBilling = () => {
             </Card>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
+            {/* Invoice Settings - Compact */}
             <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div>
-                  <Label htmlFor="invoice-format">Invoice Format</Label>
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="invoice-format" className="text-xs whitespace-nowrap">Format:</Label>
                   <select
                     id="invoice-format"
                     value={invoiceFormat}
                     onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                    className="flex h-7 rounded-md border border-input bg-background px-2 text-xs flex-1"
                   >
-                    <option value="thermal">Thermal Print (80mm)</option>
-                    <option value="a4">A4 Size</option>
+                    <option value="thermal">Thermal (80mm)</option>
+                    <option value="a4">A4</option>
                   </select>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <Label htmlFor="intra-state-toggle" className="font-medium">Intra-State Trade</Label>
-                    <p className="text-xs text-muted-foreground">Enable for IGST instead of CGST+SGST</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  
+                  <div className="flex items-center gap-1.5 ml-2">
                     <input
                       id="intra-state-toggle"
                       type="checkbox"
                       checked={intraStateTrade}
                       onChange={(e) => setIntraStateTrade(e.target.checked)}
-                      className="sr-only peer"
+                      className="h-4 w-4 rounded border-gray-300"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
+                    <Label htmlFor="intra-state-toggle" className="text-xs">IGST</Label>
+                  </div>
                 </div>
                 
-                {/* Parcel Option - only show if restaurant mode enabled */}
                 {billingSettings?.isRestaurant && (
-                  <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-800">
-                    <div>
-                      <Label htmlFor="parcel-toggle" className="font-medium">Takeaway / Parcel</Label>
-                      <p className="text-xs text-muted-foreground">Generate parcel bill</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        id="parcel-toggle"
-                        type="checkbox"
-                        checked={isParcel}
-                        onChange={(e) => setIsParcel(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                    </label>
+                  <div className="flex items-center gap-2 p-1.5 bg-orange-50 dark:bg-orange-950/30 rounded border border-orange-200">
+                    <input
+                      id="parcel-toggle"
+                      type="checkbox"
+                      checked={isParcel}
+                      onChange={(e) => setIsParcel(e.target.checked)}
+                      className="h-4 w-4 rounded"
+                    />
+                    <Label htmlFor="parcel-toggle" className="text-xs font-medium">Parcel/Takeaway</Label>
                   </div>
                 )}
               </CardContent>
