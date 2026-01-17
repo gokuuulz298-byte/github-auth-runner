@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Minus, Monitor, ClipboardList } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Monitor, ClipboardList, Search, Package } from "lucide-react";
 import { toast } from "sonner";
 import ShoppingCart, { CartItem } from "@/components/ShoppingCart";
 import { Card, CardContent } from "@/components/ui/card";
@@ -132,7 +132,8 @@ const ModernBilling = () => {
         setBillingSettings({
           ...settings.ModernBilling,
           isRestaurant: settings.isRestaurant,
-          enableKitchenInterface: settings.enableKitchenInterface
+          enableKitchenInterface: settings.enableKitchenInterface,
+          enableBilingualBill: settings.enableBilingualBill
         });
       }
 
@@ -918,11 +919,26 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
     const gstNote = inclusiveBillType === "mrp" ? "MRP Inclusive – Taxes included" : "Base + GST shown";
     doc.text(gstNote, centerX, currentY, { align: "center" });
     
+    // Bilingual support - Tamil translations
+    if (billingSettings?.enableBilingualBill) {
+      currentY += 2.5;
+      doc.setFontSize(5);
+      const tamilGstNote = inclusiveBillType === "mrp" ? "MRP உள்ளடக்கம் – வரி சேர்க்கப்பட்டது" : "அடிப்படை + GST காட்டப்பட்டது";
+      doc.text(tamilGstNote, centerX, currentY, { align: "center" });
+    }
+    
     currentY += 3;
     doc.setFont(undefined, 'italic');
     doc.setFontSize(7);
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
     doc.text(thankYouNote, centerX, currentY, { align: "center" });
+    
+    // Bilingual thank you note
+    if (billingSettings?.enableBilingualBill) {
+      currentY += 2.5;
+      doc.setFontSize(6);
+      doc.text("உங்கள் வணிகத்திற்கு நன்றி!", centerX, currentY, { align: "center" });
+    }
     
     // Auto-print functionality
     if (billingSettings?.autoPrint) {
@@ -1357,35 +1373,95 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
       <OrderStatusMonitor isOpen={showOrderMonitor} onClose={() => setShowOrderMonitor(false)} />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left Sidebar - Categories */}
-        <div className="w-full md:w-16 lg:w-20 xl:w-48 border-r bg-card flex-shrink-0 overflow-x-auto md:overflow-y-auto">
-          <div className="flex md:flex-col p-1 sm:p-2 md:p-4 gap-1 sm:gap-2 md:space-y-1 md:space-y-2 overflow-x-auto md:overflow-x-visible">
-            {categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.name ? "default" : "outline"}
-                className="flex-shrink-0 md:w-full justify-center md:justify-start text-[10px] sm:text-xs md:text-sm h-auto py-2 sm:py-2 md:py-3 px-2 sm:px-3 md:px-4 whitespace-nowrap"
-                onClick={() => setSelectedCategory(category.name)}
-              >
-                <span className="truncate">{category.name}</span>
-              </Button>
-            ))}
+        {/* Left Sidebar - Categories + Search */}
+        <div className="w-full md:w-48 lg:w-56 border-r bg-card flex-shrink-0 overflow-y-auto">
+          <div className="p-3 space-y-3">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search or scan barcode..."
+                className="pl-9 h-9 text-sm"
+                onKeyDown={async (e) => {
+                  const target = e.target as HTMLInputElement;
+                  if (e.key === 'Enter' && target.value) {
+                    e.preventDefault();
+                    // Search across all products
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
+                    
+                    const { data } = await supabase
+                      .from('products')
+                      .select('*')
+                      .eq('created_by', user.id)
+                      .eq('is_deleted', false)
+                      .or(`barcode.eq.${target.value},name.ilike.%${target.value}%`)
+                      .limit(1);
+                    
+                    if (data && data.length > 0) {
+                      handleAddToCart(data[0], 1);
+                      target.value = '';
+                    } else {
+                      toast.error("Product not found");
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            {/* All Products Button */}
+            <Button
+              variant={selectedCategory === "" ? "default" : "outline"}
+              className="w-full justify-start text-sm h-9"
+              onClick={async () => {
+                setSelectedCategory("");
+                // Fetch all products
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+                const { data } = await supabase
+                  .from('products')
+                  .select('*')
+                  .eq('created_by', user.id)
+                  .eq('is_deleted', false)
+                  .order('name');
+                setProducts(data || []);
+              }}
+            >
+              <Package className="h-4 w-4 mr-2" />
+              All Products
+            </Button>
+
+            {/* Category Buttons */}
+            <div className="space-y-1">
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.name ? "default" : "ghost"}
+                  className="w-full justify-start text-sm h-8 px-3"
+                  onClick={() => setSelectedCategory(category.name)}
+                >
+                  <span className="truncate">{category.name}</span>
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Main Content - Products Grid & Cart */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 max-h-[calc(100vh-130px)]">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 max-h-[calc(100vh-130px)]">
             <div className="max-w-6xl mx-auto">
-              <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-2 sm:mb-4">{selectedCategory}</h2>
+              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">
+                {selectedCategory || "All Products"} ({products.length})
+              </h2>
               
               {products.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No products in this category
+                <p className="text-center text-muted-foreground py-8 text-sm">
+                  {selectedCategory ? "No products in this category" : "Select a category or search"}
                 </p>
               ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                   {products.map((product) => {
                     const discount = productDiscounts.find(
                       d => d.product_id === product.id && 
@@ -1399,7 +1475,8 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                     return (
                       <Card
                         key={product.id}
-                        className="hover:shadow-lg transition-shadow overflow-hidden flex flex-col"
+                        className="hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
+                        onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
                       >
                         <div className="aspect-square bg-muted relative overflow-hidden">
                           {product.image_url ? (
@@ -1409,60 +1486,72 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs sm:text-sm">
-                              No Image
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                              {product.name.substring(0, 2).toUpperCase()}
                             </div>
                           )}
                           {discountPercentage > 0 && (
-                            <div className="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-2 py-1 rounded">
-                              {discountPercentage}% OFF
+                            <div className="absolute top-1 left-1 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              {discountPercentage}%
                             </div>
                           )}
                         </div>
-                        <CardContent className="p-2 sm:p-3 space-y-1 sm:space-y-2 flex flex-col flex-1">
-                          <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 min-h-[2.5rem] sm:min-h-[2rem]">
+                        <CardContent className="p-2 space-y-1">
+                          <h3 className="font-medium text-xs line-clamp-2 min-h-[2rem]">
                             {product.name}
                           </h3>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-between">
                             {discountPercentage > 0 ? (
-                              <>
-                                <p className="text-primary font-bold text-sm sm:text-base">
+                              <div>
+                                <p className="text-primary font-bold text-sm">
                                   ₹{formatIndianNumber(Number(discountedPrice.toFixed(2)))}
                                 </p>
-                                <p className="text-xs text-muted-foreground line-through">
+                                <p className="text-[10px] text-muted-foreground line-through">
                                   ₹{formatIndianNumber(Number(originalPrice.toFixed(2)))}
                                 </p>
-                              </>
+                              </div>
                             ) : (
-                              <p className="text-primary font-bold text-sm sm:text-base">
+                              <p className="text-primary font-bold text-sm">
                                 ₹{formatIndianNumber(Number(originalPrice.toFixed(2)))}
                               </p>
                             )}
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProductQuantities({
+                                    ...productQuantities,
+                                    [product.id]: Math.max(1, (productQuantities[product.id] || 1) - 1)
+                                  });
+                                }}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <span className="text-xs w-5 text-center">{productQuantities[product.id] || 1}</span>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProductQuantities({
+                                    ...productQuantities,
+                                    [product.id]: (productQuantities[product.id] || 1) + 1
+                                  });
+                                }}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                           {product.stock_quantity !== null && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[10px] text-muted-foreground">
                               Stock: {product.stock_quantity}
                             </p>
                           )}
-                          <div className="flex items-center gap-1 sm:gap-2 mt-auto pt-2">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={productQuantities[product.id] || 1}
-                              onChange={(e) => setProductQuantities({
-                                ...productQuantities,
-                                [product.id]: parseInt(e.target.value) || 1
-                              })}
-                              className="h-7 sm:h-8 text-xs flex-1"
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
-                              className="flex-shrink-0 h-7 sm:h-9 text-xs px-2 sm:px-4"
-                            >
-                              Add
-                            </Button>
-                          </div>
                         </CardContent>
                       </Card>
                     );
