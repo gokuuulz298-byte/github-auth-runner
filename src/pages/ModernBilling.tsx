@@ -510,32 +510,49 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
   const effectiveSGST = cartItems.reduce((sum, item) => {
     const total = item.price * item.quantity;
     const sgstRate = item.sgst || 0;
-    return sum + (total - (total / (1 + (item.cgst + sgstRate) / 100))) * (sgstRate / (item.cgst + sgstRate));
+    const totalTaxRate = (item.cgst || 0) + sgstRate;
+    if (totalTaxRate === 0) return sum;
+    return sum + (total - (total / (1 + totalTaxRate / 100))) * (sgstRate / totalTaxRate);
   }, 0);
 
   const effectiveCGST = cartItems.reduce((sum, item) => {
     const total = item.price * item.quantity;
     const cgstRate = item.cgst || 0;
-    return sum + (total - (total / (1 + (cgstRate + item.sgst) / 100))) * (cgstRate / (cgstRate + item.sgst));
+    const totalTaxRate = cgstRate + (item.sgst || 0);
+    if (totalTaxRate === 0) return sum;
+    return sum + (total - (total / (1 + totalTaxRate / 100))) * (cgstRate / totalTaxRate);
   }, 0);
 
-  const productTaxAmount = effectiveSGST + effectiveCGST;
+  const effectiveTaxAmount = effectiveSGST + effectiveCGST;
+  
+  // Apply coupon discount even in MRP mode
+  const coupon = coupons.find(c => c.id === selectedCoupon);
+  let couponDiscountAmount = 0;
+  if (coupon) {
+    if (coupon.discount_type === 'percentage') {
+      couponDiscountAmount = (subtotal * Number(coupon.discount_value)) / 100;
+    } else {
+      couponDiscountAmount = Number(coupon.discount_value);
+    }
+  }
+  
+  const afterCouponDiscount = subtotal - couponDiscountAmount;
 
   return {
     subtotal,                            // MRP subtotal
-    productTaxAmount,                    // Tax for analytics
+    productTaxAmount: effectiveTaxAmount, // Tax for analytics
     productSGST: effectiveSGST,
     productCGST: effectiveCGST,
     productIGST: 0,
     subtotalWithProductTax: subtotal,    // MRP already includes GST
-    couponDiscountAmount: 0,
-    afterCouponDiscount: subtotal,
+    couponDiscountAmount,                // Now applying coupon in MRP mode
+    afterCouponDiscount,
     additionalTaxAmount: 0,
     totalSGST: effectiveSGST,
     totalCGST: effectiveCGST,
     totalIGST: 0,
-    taxAmount: productTaxAmount,
-    total: subtotal,                     // MRP total (unchanged)
+    taxAmount: effectiveTaxAmount,
+    total: afterCouponDiscount,          // MRP total minus coupon
     gstNote: "MRP Inclusive – Taxes included in price"
   };
 }
@@ -1637,9 +1654,19 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                       new Date(d.start_date) <= new Date() && 
                       new Date(d.end_date) >= new Date()
                     );
-                    const discountPercentage = discount ? Number(discount.discount_percentage) : 0;
+                    const discountPercentage = discount?.discount_type === 'percentage' ? Number(discount.discount_percentage) : 0;
+                    const discountAmount = discount?.discount_type === 'fixed' ? Number(discount.discount_amount) : 0;
                     const originalPrice = Number(product.price);
-                    const discountedPrice = originalPrice * (1 - discountPercentage / 100);
+                    let discountedPrice = originalPrice;
+                    let hasDiscount = false;
+                    
+                    if (discountPercentage > 0) {
+                      discountedPrice = originalPrice * (1 - discountPercentage / 100);
+                      hasDiscount = true;
+                    } else if (discountAmount > 0) {
+                      discountedPrice = Math.max(0, originalPrice - discountAmount);
+                      hasDiscount = true;
+                    }
                     const isInCart = cartItems.some(item => item.id === product.id);
                     const cartQty = cartItems.find(item => item.id === product.id)?.quantity || 0;
                     const isSelected = index === selectedProductIndex;
@@ -1680,9 +1707,9 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                               {product.name.substring(0, 2).toUpperCase()}
                             </div>
                           )}
-                          {discountPercentage > 0 && (
+                          {hasDiscount && (
                             <div className="absolute top-0.5 left-0.5 bg-green-600 text-white text-[8px] font-bold px-1 py-0.5 rounded">
-                              {discountPercentage}%
+                              {discountPercentage > 0 ? `${discountPercentage}%` : `₹${discountAmount}`}
                             </div>
                           )}
                           {isInCart && (
@@ -1697,12 +1724,12 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                           </h3>
                           <div className="flex items-center justify-between gap-1">
                             <div className="flex flex-col">
-                              {discountPercentage > 0 ? (
+                              {hasDiscount ? (
                                 <>
                                   <span className="text-xs text-muted-foreground line-through">
                                     ₹{formatIndianNumber(originalPrice)}
                                   </span>
-                                  <span className="text-primary font-bold text-sm">
+                                  <span className="text-green-600 font-bold text-sm">
                                     ₹{formatIndianNumber(Number(discountedPrice.toFixed(2)))}
                                   </span>
                                 </>
