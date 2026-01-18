@@ -39,9 +39,53 @@ const Customers = () => {
 
       if (error) throw error;
       setCustomers(data || []);
+      
+      // After fetching customers, calculate their spending from invoices
+      await calculateCustomerSpending(data || []);
     } catch (error) {
       console.error(error);
       toast.error("Error fetching customers");
+    }
+  };
+
+  const calculateCustomerSpending = async (customerList: any[]) => {
+    if (!userId) return;
+    
+    try {
+      // Fetch all invoices for this user
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('customer_phone, total_amount')
+        .eq('created_by', userId);
+      
+      // Calculate spending per phone
+      const spendingByPhone: Record<string, { totalSpent: number; orderCount: number }> = {};
+      invoices?.forEach(inv => {
+        if (inv.customer_phone) {
+          if (!spendingByPhone[inv.customer_phone]) {
+            spendingByPhone[inv.customer_phone] = { totalSpent: 0, orderCount: 0 };
+          }
+          spendingByPhone[inv.customer_phone].totalSpent += parseFloat(inv.total_amount?.toString() || '0');
+          spendingByPhone[inv.customer_phone].orderCount += 1;
+        }
+      });
+      
+      // Merge with loyalty data
+      const updatedLoyalty: Record<string, any> = { ...loyaltyData };
+      customerList.forEach(customer => {
+        const spending = spendingByPhone[customer.phone];
+        if (spending) {
+          updatedLoyalty[customer.phone] = {
+            ...updatedLoyalty[customer.phone],
+            total_spent: spending.totalSpent,
+            points: updatedLoyalty[customer.phone]?.points || Math.floor(spending.totalSpent / 100), // 1 point per 100 spent
+            order_count: spending.orderCount
+          };
+        }
+      });
+      setLoyaltyData(updatedLoyalty);
+    } catch (error) {
+      console.error("Error calculating spending:", error);
     }
   };
 
@@ -179,6 +223,9 @@ const Customers = () => {
                         <p className="text-xs sm:text-sm text-muted-foreground">Phone: {customer.phone}</p>
                         {customer.email && (
                           <p className="text-xs sm:text-sm text-muted-foreground truncate">Email: {customer.email}</p>
+                        )}
+                        {loyalty?.order_count > 0 && (
+                          <p className="text-xs text-muted-foreground">{loyalty.order_count} orders</p>
                         )}
                       </div>
                       <div className="text-left sm:text-right">

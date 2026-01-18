@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Plus, Receipt, Trash2, Edit2, X, Check, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, Receipt, Trash2, Edit2, X, Check, Calendar, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,9 +51,11 @@ const Expenses = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdding, setIsAdding] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   
   const [formData, setFormData] = useState({
@@ -104,7 +107,7 @@ const Expenses = () => {
       payment_mode: "cash",
       receipt_number: "",
     });
-    setIsAdding(false);
+    setAddDialogOpen(false);
     setEditingId(null);
   };
 
@@ -195,7 +198,12 @@ const Expenses = () => {
       payment_mode: expense.payment_mode || "cash",
       receipt_number: expense.receipt_number || "",
     });
-    setIsAdding(false);
+    setAddDialogOpen(true);
+  };
+
+  const openDetail = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setDetailDialogOpen(true);
   };
 
   const totalExpenses = expenses.reduce((sum, e) => sum + parseFloat(e.amount.toString()), 0);
@@ -219,12 +227,10 @@ const Expenses = () => {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="px-3 py-2 border rounded-md bg-background text-sm"
             />
-            {!isAdding && !editingId && (
-              <Button size="sm" onClick={() => setIsAdding(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Expense
-              </Button>
-            )}
+            <Button size="sm" onClick={() => { resetForm(); setAddDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Expense
+            </Button>
           </div>
         </div>
       </header>
@@ -234,7 +240,10 @@ const Expenses = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Card className="bg-gradient-to-br from-red-500/10 to-red-500/5">
             <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground">Total Expenses</p>
+              <div className="flex items-center gap-2 mb-1">
+                <Wallet className="h-4 w-4 text-red-600" />
+                <p className="text-sm text-muted-foreground">Total Expenses</p>
+              </div>
               <p className="text-2xl font-bold text-red-600">₹{totalExpenses.toFixed(2)}</p>
             </CardContent>
           </Card>
@@ -247,93 +256,6 @@ const Expenses = () => {
             </Card>
           ))}
         </div>
-
-        {/* Add/Edit Form */}
-        {(isAdding || editingId) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                {isAdding ? "Add New Expense" : "Edit Expense"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <Label>Date *</Label>
-                  <Input
-                    type="date"
-                    value={formData.expense_date}
-                    onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Category *</Label>
-                  <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EXPENSE_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Amount *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <Label>Payment Mode</Label>
-                  <Select value={formData.payment_mode} onValueChange={(v) => setFormData({ ...formData, payment_mode: v })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      <SelectItem value="upi">UPI</SelectItem>
-                      <SelectItem value="bank">Bank Transfer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Receipt Number</Label>
-                  <Input
-                    value={formData.receipt_number}
-                    onChange={(e) => setFormData({ ...formData, receipt_number: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-                <div className="sm:col-span-2 lg:col-span-1">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Optional notes"
-                    rows={2}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={() => (editingId ? handleUpdate(editingId) : handleAdd())}>
-                  <Check className="h-4 w-4 mr-1" />
-                  {editingId ? "Update" : "Add"}
-                </Button>
-                <Button variant="outline" onClick={resetForm}>
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Expenses List */}
         <Card>
@@ -356,10 +278,11 @@ const Expenses = () => {
                 {expenses.map((expense) => (
                   <div
                     key={expense.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => openDetail(expense)}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
                         <Receipt className="h-5 w-5 text-red-600" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -377,14 +300,19 @@ const Expenses = () => {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="font-bold text-red-600">₹{parseFloat(expense.amount.toString()).toFixed(2)}</span>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => startEdit(expense)}>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8" 
+                        onClick={(e) => { e.stopPropagation(); startEdit(expense); }}
+                      >
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-destructive"
-                        onClick={() => setDeleteId(expense.id)}
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(expense.id); }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -395,6 +323,145 @@ const Expenses = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Add/Edit Dialog */}
+        <Dialog open={addDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setAddDialogOpen(open); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Receipt className="h-5 w-5" />
+                {editingId ? "Edit Expense" : "Add New Expense"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Date *</Label>
+                  <Input
+                    type="date"
+                    value={formData.expense_date}
+                    onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Amount *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Category *</Label>
+                  <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXPENSE_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Payment Mode</Label>
+                  <Select value={formData.payment_mode} onValueChange={(v) => setFormData({ ...formData, payment_mode: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="upi">UPI</SelectItem>
+                      <SelectItem value="bank">Bank Transfer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Receipt Number</Label>
+                <Input
+                  value={formData.receipt_number}
+                  onChange={(e) => setFormData({ ...formData, receipt_number: e.target.value })}
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Optional notes"
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={() => (editingId ? handleUpdate(editingId) : handleAdd())} className="flex-1">
+                  <Check className="h-4 w-4 mr-1" />
+                  {editingId ? "Update" : "Add"} Expense
+                </Button>
+                <Button variant="outline" onClick={resetForm}>
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Detail Dialog */}
+        <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Expense Details</DialogTitle>
+            </DialogHeader>
+            {selectedExpense && (
+              <div className="space-y-4">
+                <div className="text-center py-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <p className="text-3xl font-bold text-red-600">₹{parseFloat(selectedExpense.amount.toString()).toFixed(2)}</p>
+                  <p className="text-muted-foreground">{selectedExpense.category}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Date</p>
+                    <p className="font-medium">{format(parseISO(selectedExpense.expense_date), "PPP")}</p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Payment Mode</p>
+                    <p className="font-medium capitalize">{selectedExpense.payment_mode}</p>
+                  </div>
+                  {selectedExpense.receipt_number && (
+                    <div className="p-3 bg-muted/50 rounded-lg col-span-2">
+                      <p className="text-xs text-muted-foreground">Receipt Number</p>
+                      <p className="font-medium">{selectedExpense.receipt_number}</p>
+                    </div>
+                  )}
+                  {selectedExpense.description && (
+                    <div className="p-3 bg-muted/50 rounded-lg col-span-2">
+                      <p className="text-xs text-muted-foreground">Description</p>
+                      <p className="font-medium">{selectedExpense.description}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => { setDetailDialogOpen(false); startEdit(selectedExpense); }}>
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button variant="destructive" className="flex-1" onClick={() => { setDetailDialogOpen(false); setDeleteId(selectedExpense.id); }}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation */}
         <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

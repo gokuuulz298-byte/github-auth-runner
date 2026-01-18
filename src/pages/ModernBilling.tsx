@@ -390,37 +390,45 @@ const ModernBilling = () => {
       new Date(d.end_date) >= new Date()
     );
 
-    const discountPercentage = discount ? Number(discount.discount_percentage) : 0;
-    const priceAfterDiscount = Number(product.price) * (1 - discountPercentage / 100);
+    const discountPercentage = discount?.discount_type === 'percentage' ? Number(discount.discount_percentage) : 0;
+    const discountAmount = discount?.discount_type === 'fixed' ? Number(discount.discount_amount) : 0;
+    const originalPrice = Number(product.price);
+    let priceAfterDiscount = originalPrice;
+    let discountInfo: string | null = null;
+    
+    if (discountPercentage > 0) {
+      priceAfterDiscount = originalPrice * (1 - discountPercentage / 100);
+      discountInfo = `${discountPercentage}% OFF`;
+    } else if (discountAmount > 0) {
+      priceAfterDiscount = Math.max(0, originalPrice - discountAmount);
+      discountInfo = `₹${discountAmount} OFF`;
+    }
     
     // Calculate GST details based on is_inclusive flag
-    //const isInclusive = product.is_inclusive !== false; // Default to true if not set
     const isInclusive = billingSettings?.mode === "inclusive";
     let gstRate = 0;
-if (product.igst > 0) {
-  gstRate = Number(product.igst);
-} else {
-  gstRate = Number(product.cgst || 0) + Number(product.sgst || 0);
-}
+    if (product.igst > 0) {
+      gstRate = Number(product.igst);
+    } else {
+      gstRate = Number(product.cgst || 0) + Number(product.sgst || 0);
+    }
 
     
     let finalPrice = priceAfterDiscount;
     let basePrice = priceAfterDiscount;
     
     if (isInclusive && gstRate > 0) {
-  if (billingSettings?.inclusiveBillType === "mrp"){
-    // Keep MRP as is, no base extraction
-    basePrice = priceAfterDiscount; 
-    finalPrice = priceAfterDiscount;
-  } else {
-    // Split GST for "Base + GST" view
-    basePrice = priceAfterDiscount / (1 + gstRate / 100);
-    finalPrice = priceAfterDiscount;
-  }
-} else if (!isInclusive && gstRate > 0) {
-  basePrice = priceAfterDiscount;
-  finalPrice = priceAfterDiscount * (1 + gstRate / 100);
-}
+      if (billingSettings?.inclusiveBillType === "mrp"){
+        basePrice = priceAfterDiscount; 
+        finalPrice = priceAfterDiscount;
+      } else {
+        basePrice = priceAfterDiscount / (1 + gstRate / 100);
+        finalPrice = priceAfterDiscount;
+      }
+    } else if (!isInclusive && gstRate > 0) {
+      basePrice = priceAfterDiscount;
+      finalPrice = priceAfterDiscount * (1 + gstRate / 100);
+    }
 
 
     const existingItem = cartItems.find(item => item.id === product.id);
@@ -436,6 +444,7 @@ if (product.igst > 0) {
         name: product.name,
         tamil_name: product.tamil_name || '',
         price: basePrice,
+        originalPrice: discountInfo ? originalPrice : undefined,
         quantity: quantity,
         tax_rate: gstRate,
         cgst: Number(product.cgst) || 0,
@@ -443,7 +452,8 @@ if (product.igst > 0) {
         igst: Number(product.igst) || 0,
         price_type: product.price_type || 'quantity',
         barcode: product.barcode || '',
-        is_inclusive: isInclusive
+        is_inclusive: isInclusive,
+        discountInfo: discountInfo
       };
       setCartItems([...cartItems, newItem]);
     }

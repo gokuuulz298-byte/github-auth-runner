@@ -552,10 +552,22 @@ const Purchases = () => {
         ) : (
           /* Kanban Board */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {STATUS_COLUMNS.map(column => (
+            {STATUS_COLUMNS.map(column => {
+              const statusBgColor = 
+                column.id === 'pending' ? 'bg-yellow-50 dark:bg-yellow-950/20' :
+                column.id === 'ordered' ? 'bg-blue-50 dark:bg-blue-950/20' :
+                column.id === 'received' ? 'bg-green-50 dark:bg-green-950/20' :
+                column.id === 'cancelled' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-muted/30';
+              
+              return (
               <div
                 key={column.id}
-                className="bg-muted/30 rounded-lg p-3"
+                className={`rounded-lg p-3 ${statusBgColor} border border-opacity-50 ${
+                  column.id === 'pending' ? 'border-yellow-200 dark:border-yellow-800' :
+                  column.id === 'ordered' ? 'border-blue-200 dark:border-blue-800' :
+                  column.id === 'received' ? 'border-green-200 dark:border-green-800' :
+                  column.id === 'cancelled' ? 'border-red-200 dark:border-red-800' : ''
+                }`}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, column.id)}
               >
@@ -573,7 +585,7 @@ const Purchases = () => {
                       key={purchase.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, purchase)}
-                      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+                      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-card"
                       onClick={() => {
                         setSelectedPurchase(purchase);
                         setDetailDialogOpen(true);
@@ -607,7 +619,7 @@ const Purchases = () => {
                   ))}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </main>
