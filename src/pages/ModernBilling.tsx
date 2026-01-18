@@ -26,6 +26,9 @@ const ModernBilling = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [products, setProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState<boolean>(false);
+  const [allProducts, setAllProducts] = useState<any[]>([]); // Cache all products
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [companyProfile, setCompanyProfile] = useState<any>(null);
@@ -46,6 +49,7 @@ const ModernBilling = () => {
   const [showOrderMonitor, setShowOrderMonitor] = useState<boolean>(false);
   const [showLiveOrders, setShowLiveOrders] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(200);
 
   // Initialize counter session
   useEffect(() => {
@@ -55,7 +59,7 @@ const ModernBilling = () => {
     }
   }, []);
 
-  // Fetch initial data
+  // Fetch initial data - load all products upfront for faster category switching
   useEffect(() => {
     fetchCategories();
     fetchCompanyProfile();
@@ -63,16 +67,39 @@ const ModernBilling = () => {
     fetchCoupons();
     fetchProductDiscounts();
     fetchActiveTemplate();
+    fetchAllProducts(); // Load all products once
   }, []);
 
-  // Fetch products when category changes
+  // Filter products when category changes (instant - no database call)
   useEffect(() => {
     if (selectedCategory) {
-      fetchProducts(selectedCategory);
+      setProducts(allProducts.filter(p => p.category === selectedCategory));
     } else {
-      setProducts([]);
+      setProducts(allProducts);
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, allProducts]);
+
+  // Search filter
+  useEffect(() => {
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const filtered = allProducts.filter(p => 
+        p.name.toLowerCase().includes(searchLower) || 
+        (p.barcode && p.barcode.toLowerCase().includes(searchLower))
+      );
+      if (selectedCategory) {
+        setProducts(filtered.filter(p => p.category === selectedCategory));
+      } else {
+        setProducts(filtered);
+      }
+    } else {
+      if (selectedCategory) {
+        setProducts(allProducts.filter(p => p.category === selectedCategory));
+      } else {
+        setProducts(allProducts);
+      }
+    }
+  }, [searchTerm, selectedCategory, allProducts]);
 
   const fetchCategories = async () => {
     try {
@@ -95,8 +122,9 @@ const ModernBilling = () => {
     }
   };
 
-  const fetchProducts = async (category: string) => {
+  const fetchAllProducts = async () => {
     try {
+      setProductsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -104,14 +132,16 @@ const ModernBilling = () => {
         .from('products')
         .select('*')
         .eq('created_by', user.id)
-        .eq('category', category)
         .eq('is_deleted', false)
         .order('name');
 
       if (error) throw error;
+      setAllProducts(data || []);
       setProducts(data || []);
     } catch (error) {
       console.error(error);
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -522,15 +552,16 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
         }
       }
 
-      // Save invoice
+      // Save invoice - ensure tax_amount is never null
+      const taxAmount = (totals.productTaxAmount || 0) + (totals.additionalTaxAmount || 0);
       const invoiceData = {
         bill_number: billNumber,
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
         items_data: JSON.parse(JSON.stringify(cartItems)),
         total_amount: totals.total,
-        tax_amount: totals.productTaxAmount + totals.additionalTaxAmount,
-        discount_amount: totals.couponDiscountAmount,
+        tax_amount: taxAmount, // Ensure this is never null
+        discount_amount: totals.couponDiscountAmount || 0,
         created_by: user.id,
         counter_id: selectedCounter,
         customer_id: null
@@ -1383,95 +1414,109 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
       <OrderStatusMonitor isOpen={showOrderMonitor} onClose={() => setShowOrderMonitor(false)} />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left Sidebar - Categories + Search */}
-        <div className="w-full md:w-48 lg:w-56 border-r bg-card flex-shrink-0 overflow-y-auto">
-          <div className="p-3 space-y-3">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search or scan barcode..."
-                className="pl-9 h-9 text-sm"
-                onKeyDown={async (e) => {
-                  const target = e.target as HTMLInputElement;
-                  if (e.key === 'Enter' && target.value) {
-                    e.preventDefault();
-                    // Search across all products
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) return;
-                    
-                    const { data } = await supabase
-                      .from('products')
-                      .select('*')
-                      .eq('created_by', user.id)
-                      .eq('is_deleted', false)
-                      .or(`barcode.eq.${target.value},name.ilike.%${target.value}%`)
-                      .limit(1);
-                    
-                    if (data && data.length > 0) {
-                      handleAddToCart(data[0], 1);
-                      target.value = '';
-                    } else {
-                      toast.error("Product not found");
+        {/* Left Sidebar - Categories + Search - Resizable */}
+        <div 
+          className="border-r bg-card flex-shrink-0 overflow-y-auto resize-x"
+          style={{ width: `${sidebarWidth}px`, minWidth: '150px', maxWidth: '350px' }}
+        >
+          <div 
+            className="h-full relative"
+            onMouseDown={(e) => {
+              // Enable resize from the right edge
+              const startX = e.clientX;
+              const startWidth = sidebarWidth;
+              const handleMouseMove = (e: MouseEvent) => {
+                const newWidth = Math.min(350, Math.max(150, startWidth + (e.clientX - startX)));
+                setSidebarWidth(newWidth);
+              };
+              const handleMouseUp = () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+          >
+            <div className="p-2 space-y-2">
+              {/* Search Bar - Now filters products as you type */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-8 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchTerm) {
+                      // On Enter, add first matched product to cart
+                      const matched = products[0];
+                      if (matched) {
+                        handleAddToCart(matched, 1);
+                        setSearchTerm('');
+                      }
                     }
-                  }
+                  }}
+                />
+              </div>
+
+              {/* All Products Button */}
+              <Button
+                variant={selectedCategory === "" && !searchTerm ? "default" : "outline"}
+                className="w-full justify-start text-xs h-7 px-2"
+                onClick={() => {
+                  setSelectedCategory("");
+                  setSearchTerm("");
                 }}
-              />
-            </div>
+              >
+                <Package className="h-3 w-3 mr-1.5" />
+                All ({allProducts.length})
+              </Button>
 
-            {/* All Products Button */}
-            <Button
-              variant={selectedCategory === "" ? "default" : "outline"}
-              className="w-full justify-start text-sm h-9"
-              onClick={async () => {
-                setSelectedCategory("");
-                // Fetch all products
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return;
-                const { data } = await supabase
-                  .from('products')
-                  .select('*')
-                  .eq('created_by', user.id)
-                  .eq('is_deleted', false)
-                  .order('name');
-                setProducts(data || []);
-              }}
-            >
-              <Package className="h-4 w-4 mr-2" />
-              All Products
-            </Button>
-
-            {/* Category Buttons */}
-            <div className="space-y-1">
-              {categories.map((category) => (
-                <Button
-                  key={category.id}
-                  variant={selectedCategory === category.name ? "default" : "ghost"}
-                  className="w-full justify-start text-sm h-8 px-3"
-                  onClick={() => setSelectedCategory(category.name)}
-                >
-                  <span className="truncate">{category.name}</span>
-                </Button>
-              ))}
+              {/* Category Buttons */}
+              <div className="space-y-0.5">
+                {categories.map((category) => {
+                  const count = allProducts.filter(p => p.category === category.name).length;
+                  return (
+                    <Button
+                      key={category.id}
+                      variant={selectedCategory === category.name ? "default" : "ghost"}
+                      className="w-full justify-between text-xs h-7 px-2"
+                      onClick={() => {
+                        setSelectedCategory(category.name);
+                        setSearchTerm("");
+                      }}
+                    >
+                      <span className="truncate">{category.name}</span>
+                      <span className="text-[10px] opacity-60">{count}</span>
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
+            {/* Resize handle */}
+            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/20 transition-colors" />
           </div>
         </div>
 
         {/* Main Content - Products Grid & Cart */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-3 max-h-[calc(100vh-130px)]">
+          <div className="flex-1 overflow-y-auto p-2 max-h-[calc(100vh-130px)]">
             <div className="max-w-6xl mx-auto">
-              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">
-                {selectedCategory || "All Products"} ({products.length})
+              <h2 className="text-xs font-semibold mb-1.5 text-muted-foreground">
+                {searchTerm ? `Search: "${searchTerm}"` : (selectedCategory || "All Products")} ({products.length})
               </h2>
               
-              {products.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8 text-sm">
-                  {selectedCategory ? "No products in this category" : "Select a category or search"}
+              {productsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : products.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8 text-xs">
+                  {searchTerm ? "No products found" : (selectedCategory ? "No products in this category" : "Select a category or search")}
                 </p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
                   {products.map((product) => {
                     const discount = productDiscounts.find(
                       d => d.product_id === product.id && 
@@ -1481,14 +1526,20 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                     const discountPercentage = discount ? Number(discount.discount_percentage) : 0;
                     const originalPrice = Number(product.price);
                     const discountedPrice = originalPrice * (1 - discountPercentage / 100);
+                    const isInCart = cartItems.some(item => item.id === product.id);
+                    const cartQty = cartItems.find(item => item.id === product.id)?.quantity || 0;
 
                     return (
                       <Card
                         key={product.id}
-                        className="hover:shadow-md transition-shadow overflow-hidden cursor-pointer"
+                        className={`hover:shadow-md transition-all overflow-hidden cursor-pointer border-2 ${
+                          isInCart 
+                            ? 'border-green-500 bg-green-50 dark:bg-green-950/30' 
+                            : 'border-transparent'
+                        }`}
                         onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
                       >
-                        <div className="aspect-square bg-muted relative overflow-hidden">
+                        <div className="aspect-[4/3] bg-muted relative overflow-hidden">
                           {product.image_url ? (
                             <img
                               src={product.image_url}
@@ -1496,72 +1547,65 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
                               {product.name.substring(0, 2).toUpperCase()}
                             </div>
                           )}
                           {discountPercentage > 0 && (
-                            <div className="absolute top-1 left-1 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            <div className="absolute top-0.5 left-0.5 bg-green-600 text-white text-[8px] font-bold px-1 py-0.5 rounded">
                               {discountPercentage}%
                             </div>
                           )}
+                          {isInCart && (
+                            <div className="absolute top-0.5 right-0.5 bg-green-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
+                              {cartQty}
+                            </div>
+                          )}
                         </div>
-                        <CardContent className="p-2 space-y-1">
-                          <h3 className="font-medium text-xs line-clamp-2 min-h-[2rem]">
+                        <CardContent className="p-1.5 space-y-0.5">
+                          <h3 className="font-medium text-[10px] line-clamp-1">
                             {product.name}
                           </h3>
                           <div className="flex items-center justify-between">
-                            {discountPercentage > 0 ? (
-                              <div>
-                                <p className="text-primary font-bold text-sm">
-                                  ₹{formatIndianNumber(Number(discountedPrice.toFixed(2)))}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground line-through">
-                                  ₹{formatIndianNumber(Number(originalPrice.toFixed(2)))}
-                                </p>
-                              </div>
-                            ) : (
-                              <p className="text-primary font-bold text-sm">
-                                ₹{formatIndianNumber(Number(originalPrice.toFixed(2)))}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-1">
+                            <p className="text-primary font-bold text-xs">
+                              ₹{formatIndianNumber(Number((discountPercentage > 0 ? discountedPrice : originalPrice).toFixed(2)))}
+                            </p>
+                            <div className="flex items-center gap-0.5">
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="h-6 w-6"
+                                className="h-5 w-5"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  const newQty = Math.max(1, (productQuantities[product.id] || 1) - 1);
                                   setProductQuantities({
                                     ...productQuantities,
-                                    [product.id]: Math.max(1, (productQuantities[product.id] || 1) - 1)
+                                    [product.id]: newQty
                                   });
                                 }}
                               >
-                                <Minus className="h-3 w-3" />
+                                <Minus className="h-2.5 w-2.5" />
                               </Button>
-                              <span className="text-xs w-5 text-center">{productQuantities[product.id] || 1}</span>
+                              <span className="text-[10px] w-4 text-center font-medium">
+                                {productQuantities[product.id] || 1}
+                              </span>
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="h-6 w-6"
+                                className="h-5 w-5"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  const newQty = (productQuantities[product.id] || 1) + 1;
                                   setProductQuantities({
                                     ...productQuantities,
-                                    [product.id]: (productQuantities[product.id] || 1) + 1
+                                    [product.id]: newQty
                                   });
                                 }}
                               >
-                                <Plus className="h-3 w-3" />
+                                <Plus className="h-2.5 w-2.5" />
                               </Button>
                             </div>
                           </div>
-                          {product.stock_quantity !== null && (
-                            <p className="text-[10px] text-muted-foreground">
-                              Stock: {product.stock_quantity}
-                            </p>
-                          )}
                         </CardContent>
                       </Card>
                     );
