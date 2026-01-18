@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Minus, Monitor, ClipboardList, Search, Package } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Monitor, ClipboardList, Search, Package, Printer } from "lucide-react";
 import { toast } from "sonner";
 import ShoppingCart, { CartItem } from "@/components/ShoppingCart";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import OrderStatusMonitor from "@/components/OrderStatusMonitor";
 import LiveOrdersPanel from "@/components/LiveOrdersPanel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { printEscPosReceipt, buildReceiptData } from "@/lib/escposPrinter";
+import LoadingButton from "@/components/LoadingButton";
 
 const ModernBilling = () => {
   const navigate = useNavigate();
@@ -43,7 +45,7 @@ const ModernBilling = () => {
   const [isParcel, setIsParcel] = useState<boolean>(false);
   const [showOrderMonitor, setShowOrderMonitor] = useState<boolean>(false);
   const [showLiveOrders, setShowLiveOrders] = useState<boolean>(false);
-
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // Initialize counter session
   useEffect(() => {
@@ -475,10 +477,14 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
       return;
     }
 
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Please sign in");
+        setIsProcessing(false);
         return;
       }
 
@@ -627,52 +633,48 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
         }
       }
 
-      // Calculate required height based on content
-      const headerHeight = 45;
-      const itemsHeight = cartItems.length * 4.5 + 15;
-      const totalsHeight = (totals.couponDiscountAmount > 0 ? 4 : 0) + (additionalGstRate ? 4 : 0) + 30;
-      const footerHeight = 15;
-      const requiredHeight = headerHeight + itemsHeight + totalsHeight + footerHeight + 10;
-      
-      // Generate PDF based on selected format
-      if (invoiceFormat === 'a4') {
-        generateA4Invoice(
-  billNumber,
-  totals.subtotal,
-  totals.productSGST,
-  totals.productCGST,
-  totals.productIGST,
-  totals.couponDiscountAmount,
-  totals.additionalSGST,
-  totals.additionalCGST,
-  totals.totalSGST,
-  totals.totalCGST,
-  totals.totalIGST,
-  totals.taxAmount,
-  totals.total,
-  billingSettings?.inclusiveBillType
-);
+      // ESC/POS printing - auto print thermal receipt
+      if (invoiceFormat === 'thermal') {
+        try {
+          const receiptData = buildReceiptData({
+            billNumber,
+            companyProfile,
+            customerName,
+            customerPhone,
+            cartItems,
+            totals: {
+              subtotal: totals.subtotal,
+              taxAmount: totals.taxAmount,
+              couponDiscountAmount: totals.couponDiscountAmount,
+              total: totals.total
+            },
+            paymentMode,
+            isParcel,
+            loyaltyPoints,
+            enableBilingual: billingSettings?.enableBilingualBill
+          });
 
-        //generateA4Invoice(billNumber, totals.subtotal, totals.productSGST, totals.productCGST, totals.productIGST, totals.couponDiscountAmount, totals.additionalSGST, totals.additionalCGST, totals.totalSGST, totals.totalCGST, totals.totalIGST, totals.taxAmount, totals.total);
-      } else {
-        //generateThermalInvoice(billNumber, totals.subtotal, totals.productTaxAmount, totals.productIGST, totals.couponDiscountAmount, totals.additionalTaxAmount, totals.taxAmount, totals.total, requiredHeight);
-        generateThermalInvoice(
-  billNumber,
-  totals.subtotal,
-  totals.productTaxAmount,
-  totals.productIGST,
-  totals.couponDiscountAmount,
-  totals.additionalTaxAmount,
-  totals.taxAmount,
-  totals.total,
-  requiredHeight,
-  billingSettings?.inclusiveBillType
-);
-
-      
+          const printResult = await printEscPosReceipt(receiptData);
+          
+          if (printResult.success) {
+            if (printResult.printed) {
+              toast.success("Receipt printed successfully!");
+            } else {
+              // Local print service not available - show commands for manual printing
+              console.log('ESC/POS commands generated:', printResult.commands);
+              toast.info("Receipt ready. Connect thermal printer service to auto-print.");
+            }
+          } else {
+            console.error('Print error:', printResult.error);
+            toast.warning("Could not generate ESC/POS receipt. Invoice saved.");
+          }
+        } catch (printError) {
+          console.error('ESC/POS print error:', printError);
+          toast.warning("ESC/POS print failed. Invoice saved to history.");
+        }
       }
 
-      toast.success("Sale completed successfully!");
+      toast.success("Sale completed! Invoice saved.");
       
       // Reset form
       setCartItems([]);
@@ -681,9 +683,11 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
       setSelectedCoupon("");
       setAdditionalGstRate("");
       setProductQuantities({});
+      setIsProcessing(false);
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "Failed to complete sale");
+      setIsProcessing(false);
     }
   };
 
@@ -1776,14 +1780,16 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                 </div>
               </div>
 
-              <Button
+              <LoadingButton
                 className="w-full h-10 sm:h-11 md:h-12 text-sm sm:text-base"
                 size="lg"
                 onClick={handleCheckout}
-                disabled={cartItems.length === 0}
+                disabled={cartItems.length === 0 || isProcessing}
+                lockDuration={2000}
               >
+                <Printer className="w-4 h-4 mr-2" />
                 Complete Sale
-              </Button>
+              </LoadingButton>
             </div>
           </div>
         </div>
