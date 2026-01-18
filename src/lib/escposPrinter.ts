@@ -29,6 +29,8 @@ interface PrintReceiptData {
   loyaltyPoints?: number;
   enableBilingual?: boolean;
   thankYouNote?: string;
+  billingMode?: 'inclusive' | 'exclusive' | 'no_tax';
+  inclusiveBillType?: 'mrp' | 'split';
 }
 
 interface PrintServiceConfig {
@@ -156,6 +158,8 @@ export function buildReceiptData(params: {
   isParcel?: boolean;
   loyaltyPoints?: number;
   enableBilingual?: boolean;
+  billingMode?: 'inclusive' | 'exclusive' | 'no_tax';
+  inclusiveBillType?: 'mrp' | 'split';
 }): PrintReceiptData {
   const {
     billNumber,
@@ -168,6 +172,8 @@ export function buildReceiptData(params: {
     isParcel,
     loyaltyPoints,
     enableBilingual,
+    billingMode,
+    inclusiveBillType,
   } = params;
 
   return {
@@ -200,6 +206,8 @@ export function buildReceiptData(params: {
     loyaltyPoints,
     enableBilingual,
     thankYouNote: companyProfile?.thank_you_note,
+    billingMode,
+    inclusiveBillType,
   };
 }
 

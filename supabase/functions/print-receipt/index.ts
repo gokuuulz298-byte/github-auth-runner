@@ -36,6 +36,8 @@ interface ReceiptData {
   loyaltyPoints?: number;
   enableBilingual?: boolean;
   thankYouNote?: string;
+  billingMode?: 'inclusive' | 'exclusive' | 'no_tax';
+  inclusiveBillType?: 'mrp' | 'split';
 }
 
 // ESC/POS Commands - using hex values directly
@@ -49,12 +51,14 @@ const CENTER = ESC + 'a\x01';  // Center align
 const LEFT = ESC + 'a\x00';  // Left align
 const BOLD_ON = ESC + 'E\x01';
 const BOLD_OFF = ESC + 'E\x00';
-const DOUBLE_HEIGHT_ON = GS + '!\x10';  // Use GS ! for size - double height
-const DOUBLE_WIDTH_HEIGHT = GS + '!\x11';  // Double width + height
-const NORMAL_SIZE = GS + '!\x00';  // Normal size
+const DOUBLE_HEIGHT_ON = ESC + '!' + '\x10';  // Double height using ESC !
+const DOUBLE_WIDTH_HEIGHT = ESC + '!' + '\x30';  // Double width + height
+const NORMAL_SIZE = ESC + '!' + '\x00';  // Normal size
+const SMALL_SIZE = ESC + '!' + '\x00';  // Normal/small size
 const CUT_PAPER = GS + 'V\x00';  // Full cut
 
 const LINE_WIDTH = 32; // 58mm printer = 32 chars
+const HALF_LINE_WIDTH = 16; // For double-height text
 
 // Tamil Unicode translations for common terms
 const TAMIL_TRANSLATIONS: { [key: string]: string } = {
@@ -151,8 +155,32 @@ function padLeft(str: string, len: number): string {
   return ' '.repeat(len - str.length) + str;
 }
 
+function centerText(str: string, width: number): string {
+  if (str.length >= width) return str.substring(0, width);
+  const padding = Math.floor((width - str.length) / 2);
+  return ' '.repeat(padding) + str + ' '.repeat(width - str.length - padding);
+}
+
 function formatCurrency(num: number): string {
   return num.toFixed(2);
+}
+
+// Wrap text to fit within a specified width
+function wrapText(text: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxWidth) {
+      lines.push(remaining);
+      break;
+    }
+    // Try to break at a space
+    let breakPoint = remaining.lastIndexOf(' ', maxWidth);
+    if (breakPoint <= 0) breakPoint = maxWidth;
+    lines.push(remaining.substring(0, breakPoint).trim());
+    remaining = remaining.substring(breakPoint).trim();
+  }
+  return lines;
 }
 
 function generateReceiptCommands(data: ReceiptData): string {
@@ -174,10 +202,22 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += LF;
   }
   
-  // Company Header - English (centered, bold, double height)
-  receipt += CENTER + BOLD_ON + DOUBLE_HEIGHT_ON;
-  receipt += data.companyName.toUpperCase() + LF;
-  receipt += NORMAL_SIZE + BOLD_OFF;
+  // Company Header - centered, bold, double height
+  // Check if name is too long for double-height (16 chars max)
+  receipt += CENTER + BOLD_ON;
+  const companyName = data.companyName.toUpperCase();
+  if (companyName.length <= HALF_LINE_WIDTH) {
+    receipt += DOUBLE_HEIGHT_ON;
+    receipt += companyName + LF;
+    receipt += NORMAL_SIZE;
+  } else {
+    // Use normal size for long names, wrap if needed
+    const nameLines = wrapText(companyName, LINE_WIDTH);
+    for (const line of nameLines) {
+      receipt += line + LF;
+    }
+  }
+  receipt += BOLD_OFF;
   
   // Tamil company name on separate line (if bilingual)
   if (data.enableBilingual && data.companyNameTamil) {
@@ -185,18 +225,25 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += '(' + data.companyNameTamil + ')' + LF;
   }
   
-  // Address section - left aligned for better readability
+  // Address section - centered
   receipt += CENTER;
   
-  // Address - each part on separate line
+  // Address - wrap and center each line
   if (data.address) {
-    receipt += data.address + LF;
+    const addressLines = wrapText(data.address, LINE_WIDTH);
+    for (const line of addressLines) {
+      receipt += line + LF;
+    }
   }
   
   // City, State - Pincode
   const location = [data.city, data.state].filter(Boolean).join(', ');
   if (location || data.pincode) {
-    receipt += [location, data.pincode].filter(Boolean).join(' - ') + LF;
+    const locationStr = [location, data.pincode].filter(Boolean).join(' - ');
+    const locLines = wrapText(locationStr, LINE_WIDTH);
+    for (const line of locLines) {
+      receipt += line + LF;
+    }
   }
   
   if (data.phone) {
@@ -253,7 +300,7 @@ function generateReceiptCommands(data: ReceiptData): string {
   // Items header
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   receipt += BOLD_ON;
-  // Header for item columns - Qty(4) Rate(8) Amt(8) = 20 chars, right-aligned on 32-char line
+  // Header for item columns
   receipt += padRight('Item', 12) + padLeft('Qty', 4) + padLeft('Rate', 8) + padLeft('Amt', 8) + LF;
   receipt += BOLD_OFF;
   receipt += '-'.repeat(LINE_WIDTH) + LF;
@@ -272,15 +319,9 @@ function generateReceiptCommands(data: ReceiptData): string {
     const itemName = item.name;
     
     // Line 1: English item name (wrap if longer than LINE_WIDTH)
-    if (itemName.length <= LINE_WIDTH) {
-      receipt += itemName + LF;
-    } else {
-      // Wrap long item names
-      let remaining = itemName;
-      while (remaining.length > 0) {
-        receipt += remaining.substring(0, LINE_WIDTH) + LF;
-        remaining = remaining.substring(LINE_WIDTH);
-      }
+    const nameLines = wrapText(itemName, LINE_WIDTH);
+    for (const line of nameLines) {
+      receipt += line + LF;
     }
     
     // Line 2: Tamil name in brackets (if bilingual)
@@ -288,15 +329,9 @@ function generateReceiptCommands(data: ReceiptData): string {
       const tamilName = item.nameTamil || getProductTamilName(item.name);
       if (tamilName) {
         const tamilLine = '(' + tamilName + ')';
-        if (tamilLine.length <= LINE_WIDTH) {
-          receipt += tamilLine + LF;
-        } else {
-          // Wrap long Tamil names
-          let remaining = tamilLine;
-          while (remaining.length > 0) {
-            receipt += remaining.substring(0, LINE_WIDTH) + LF;
-            remaining = remaining.substring(LINE_WIDTH);
-          }
+        const tamilLines = wrapText(tamilLine, LINE_WIDTH);
+        for (const line of tamilLines) {
+          receipt += line + LF;
         }
       }
     }
@@ -317,7 +352,12 @@ function generateReceiptCommands(data: ReceiptData): string {
   const subtotalVal = formatCurrency(data.subtotal);
   receipt += subtotalLabel + ' '.repeat(LINE_WIDTH - subtotalLabel.length - subtotalVal.length) + subtotalVal + LF;
   
-  if (data.taxAmount > 0) {
+  // Show tax based on billing mode
+  // Only show tax for exclusive or inclusive+split modes
+  const showTax = data.billingMode !== 'no_tax' && 
+    !(data.billingMode === 'inclusive' && data.inclusiveBillType === 'mrp');
+  
+  if (showTax && data.taxAmount > 0) {
     const taxLabel = 'Tax:';
     const taxVal = formatCurrency(data.taxAmount);
     receipt += taxLabel + ' '.repeat(LINE_WIDTH - taxLabel.length - taxVal.length) + taxVal + LF;
@@ -332,16 +372,18 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Grand total (bold, double height)
-  // Note: Double height halves the effective line width to ~16 chars
+  // Double height halves the effective line width to ~16 chars
   receipt += BOLD_ON + DOUBLE_HEIGHT_ON;
   const totalLabel = 'TOTAL:';
   const totalVal = 'Rs.' + formatCurrency(data.total);
-  // For double-height, we have ~16 char width, so calculate spacing
-  const totalSpacing = Math.max(1, 16 - totalLabel.length - totalVal.length);
+  // For double-height, we have ~16 char width
+  const totalSpacing = Math.max(1, HALF_LINE_WIDTH - totalLabel.length - totalVal.length);
   receipt += totalLabel + ' '.repeat(totalSpacing) + totalVal + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
   
+  // Tamil translation for TOTAL on separate line (centered, normal size)
   if (data.enableBilingual) {
+    receipt += CENTER;
     receipt += '(' + TAMIL_TRANSLATIONS['TOTAL'] + ')' + LF;
   }
   
@@ -350,9 +392,15 @@ function generateReceiptCommands(data: ReceiptData): string {
   // Thank you note (centered)
   receipt += CENTER + BOLD_ON;
   const thankYou = data.thankYouNote || 'Thank you for your business!';
-  receipt += thankYou + LF;
+  const thankYouLines = wrapText(thankYou, LINE_WIDTH);
+  for (const line of thankYouLines) {
+    receipt += line + LF;
+  }
   receipt += BOLD_OFF;
+  
+  // Tamil translation for Thank You on separate line (centered, normal size)
   if (data.enableBilingual) {
+    receipt += CENTER;
     receipt += '(' + TAMIL_TRANSLATIONS['Thank You!'] + ')' + LF;
   }
   

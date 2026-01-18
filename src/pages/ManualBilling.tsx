@@ -660,7 +660,9 @@ const ManualBilling = () => {
             paymentMode,
             isParcel,
             loyaltyPoints,
-            enableBilingual: billingSettings?.enableBilingualBill
+            enableBilingual: billingSettings?.enableBilingualBill,
+            billingMode: billingSettings?.mode || 'inclusive',
+            inclusiveBillType: billingSettings?.inclusiveBillType || 'split'
           });
 
           const printResult = await printEscPosReceipt(receiptData);
@@ -1390,23 +1392,23 @@ const ManualBilling = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 py-3 overflow-x-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 max-w-full">
-          <div className="space-y-3">
+      <main className="container mx-auto px-2 py-2 overflow-x-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 max-w-full">
+          <div className="space-y-2">
             {/* Counter & Customer - Compact */}
-            <Card>
-              <CardHeader className="px-3 py-2">
-                <CardTitle className="text-sm">Counter & Customer</CardTitle>
+            <Card className="shadow-sm">
+              <CardHeader className="px-2 py-1.5">
+                <CardTitle className="text-xs">Counter & Customer</CardTitle>
               </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0">
-                <div className="grid grid-cols-2 gap-2">
+              <CardContent className="px-2 pb-2 pt-0">
+                <div className="grid grid-cols-4 gap-1.5">
                   <div>
-                    <Label htmlFor="counter" className="text-xs">Counter</Label>
+                    <Label htmlFor="counter" className="text-[10px]">Counter</Label>
                     <select
                       id="counter"
                       value={selectedCounter}
                       onChange={(e) => setSelectedCounter(e.target.value)}
-                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm mt-0.5"
+                      className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 py-0.5 text-xs mt-0.5"
                     >
                       <option value="">Select</option>
                       {counters.map((counter) => (
@@ -1417,12 +1419,12 @@ const ManualBilling = () => {
                     </select>
                   </div>
                   <div>
-                    <Label htmlFor="payment-mode" className="text-xs">Payment</Label>
+                    <Label htmlFor="payment-mode" className="text-[10px]">Payment</Label>
                     <select
                       id="payment-mode"
                       value={paymentMode}
                       onChange={(e) => setPaymentMode(e.target.value)}
-                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm mt-0.5"
+                      className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 py-0.5 text-xs mt-0.5"
                     >
                       <option value="cash">Cash</option>
                       <option value="card">Card</option>
@@ -1431,27 +1433,27 @@ const ManualBilling = () => {
                     </select>
                   </div>
                   <div>
-                    <Label htmlFor="customer-name" className="text-xs">Name</Label>
+                    <Label htmlFor="customer-name" className="text-[10px]">Name</Label>
                     <Input
                       id="customer-name"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Customer name"
-                      className="h-8 text-sm mt-0.5"
+                      placeholder="Name"
+                      className="h-7 text-xs mt-0.5"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="customer-phone" className="text-xs">Phone</Label>
+                    <Label htmlFor="customer-phone" className="text-[10px]">Phone</Label>
                     <Input
                       id="customer-phone"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="Phone"
-                      className="h-8 text-sm mt-0.5"
+                      className="h-7 text-xs mt-0.5"
                     />
                     {loyaltyPoints > 0 && (
-                      <p className="text-[10px] text-green-600 mt-0.5 font-medium">
-                        Points: {loyaltyPoints}
+                      <p className="text-[9px] text-green-600 font-medium">
+                        Pts: {loyaltyPoints}
                       </p>
                     )}
                   </div>
@@ -1459,15 +1461,12 @@ const ManualBilling = () => {
               </CardContent>
             </Card>
 
-            {/* Options - Compact */}
-            <Card>
-              <CardHeader className="px-3 py-2">
-                <CardTitle className="text-sm">Options</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="gst-rate" className="text-xs">Extra Tax %</Label>
+            {/* Options - Ultra Compact */}
+            <Card className="shadow-sm">
+              <CardContent className="p-2">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label htmlFor="gst-rate" className="text-[10px]">Tax %</Label>
                     <Input
                       id="gst-rate"
                       type="number"
@@ -1477,16 +1476,16 @@ const ManualBilling = () => {
                       placeholder="0"
                       value={additionalGstRate}
                       onChange={(e) => setAdditionalGstRate(e.target.value)}
-                      className="h-8 text-sm mt-0.5"
+                      className="h-7 text-xs"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="coupon" className="text-xs">Coupon</Label>
+                  <div className="flex-1">
+                    <Label htmlFor="coupon" className="text-[10px]">Coupon</Label>
                     <select
                       id="coupon"
                       value={selectedCoupon}
                       onChange={(e) => setSelectedCoupon(e.target.value)}
-                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm mt-0.5"
+                      className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 text-xs"
                     >
                       <option value="">None</option>
                       {coupons.map((coupon) => (
@@ -1496,25 +1495,48 @@ const ManualBilling = () => {
                       ))}
                     </select>
                   </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      id="igst-toggle"
+                      type="checkbox"
+                      checked={intraStateTrade}
+                      onChange={(e) => setIntraStateTrade(e.target.checked)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <Label htmlFor="igst-toggle" className="text-[10px]">IGST</Label>
+                  </div>
+                  {billingSettings?.isRestaurant && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        id="parcel-toggle"
+                        type="checkbox"
+                        checked={isParcel}
+                        onChange={(e) => setIsParcel(e.target.checked)}
+                        className="h-3.5 w-3.5"
+                      />
+                      <Label htmlFor="parcel-toggle" className="text-[10px]">Parcel</Label>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Search Products - Compact */}
-            <Card>
-              <CardHeader className="px-3 py-2">
-                <CardTitle className="text-sm">Search Products</CardTitle>
+            {/* Search Products - Ultra Compact */}
+            <Card className="shadow-sm">
+              <CardHeader className="px-2 py-1.5">
+                <CardTitle className="text-xs">Products</CardTitle>
               </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0 space-y-2">
+              <CardContent className="px-2 pb-2 pt-0 space-y-1.5">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={async (e) => {
                       if (e.key === 'Enter' && searchTerm) {
                         e.preventDefault();
-                        const product = products.find(p => p.barcode === searchTerm);
+                        // Auto-add product when barcode scanned or enter pressed
+                        const product = products.find(p => p.barcode === searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()));
                         if (product) {
                           handleAddToCart(product);
                           setSearchTerm("");
@@ -1522,12 +1544,12 @@ const ManualBilling = () => {
                       }
                     }}
                     placeholder="Scan barcode or search..."
-                    className="pl-8 h-8 text-sm"
+                    className="pl-7 h-7 text-xs"
                     autoFocus
                   />
                 </div>
 
-                <div className="max-h-[280px] overflow-y-auto space-y-1">
+                <div className="max-h-[200px] overflow-y-auto space-y-0.5">
                   {products.map((product) => {
                     const activeDiscount = productDiscounts.find(
                       discount => 
@@ -1537,79 +1559,52 @@ const ManualBilling = () => {
                     );
                     
                     return (
-                      <div key={product.id} className="p-2 bg-muted/50 rounded-lg">
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm truncate">{product.name}</h4>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span>₹{product.price}{product.price_type === 'weight' && '/kg'}</span>
-                              <span>Stock: {product.stock_quantity}</span>
-                              {activeDiscount && (
-                                <span className="text-green-600 font-medium">
-                                  {activeDiscount.discount_type === 'percentage' 
-                                    ? `${activeDiscount.discount_percentage}% off` 
-                                    : `₹${activeDiscount.discount_amount} off`}
-                                </span>
-                              )}
-                            </div>
+                      <div key={product.id} className="p-1.5 bg-muted/50 rounded flex justify-between items-center gap-1.5">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-xs truncate">{product.name}</h4>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span className="font-semibold text-primary">₹{product.price}</span>
+                            <span>Stk:{product.stock_quantity}</span>
+                            {activeDiscount && (
+                              <span className="text-green-600 font-medium">
+                                {activeDiscount.discount_percentage}%
+                              </span>
+                            )}
                           </div>
-                          <Button 
-                            size="sm" 
-                            className="h-7 px-2 text-xs"
-                            onClick={() => {
-                              const existingItem = cartItems.find(item => item.barcode === product.barcode);
-                              const weightValue = parseFloat(weight) || 1;
-                              const quantity = product.price_type === 'weight' ? weightValue : 1;
-                              const currentCartQuantity = existingItem ? existingItem.quantity : 0;
-                              const newTotalQuantity = currentCartQuantity + quantity;
-                              
-                              if (newTotalQuantity > product.stock_quantity) {
-                                toast.error(`Insufficient stock!`);
-                                return;
-                              }
-                              
-                              const igstInput = document.getElementById(`igst-${product.id}`) as HTMLInputElement;
-                              const igstValue = igstInput?.value || "0";
-                              handleAddToCart(
-                                product, 
-                                product.price_type === 'weight' ? weight : undefined,
-                                intraStateTrade ? igstValue : undefined
-                              );
-                            }}
-                          >
-                            Add
-                          </Button>
                         </div>
-                        {(product.price_type === 'weight' || intraStateTrade) && (
-                          <div className="flex gap-2 mt-1.5">
-                            {product.price_type === 'weight' && (
-                              <Input
-                                type="text"
-                                value={weight}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                    setWeight(val);
-                                  }
-                                }}
-                                className="h-7 text-xs w-20"
-                                placeholder="kg"
-                              />
-                            )}
-                            {intraStateTrade && (
-                              <Input
-                                id={`igst-${product.id}`}
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                placeholder="IGST %"
-                                className="h-7 text-xs w-20"
-                                defaultValue="0"
-                              />
-                            )}
-                          </div>
+                        {product.price_type === 'weight' && (
+                          <Input
+                            type="text"
+                            value={weight}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                setWeight(val);
+                              }
+                            }}
+                            className="h-6 text-[10px] w-14"
+                            placeholder="kg"
+                          />
                         )}
+                        <Button 
+                          size="sm" 
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => {
+                            const existingItem = cartItems.find(item => item.barcode === product.barcode);
+                            const weightValue = parseFloat(weight) || 1;
+                            const quantity = product.price_type === 'weight' ? weightValue : 1;
+                            const currentCartQuantity = existingItem ? existingItem.quantity : 0;
+                            const newTotalQuantity = currentCartQuantity + quantity;
+                            
+                            if (newTotalQuantity > product.stock_quantity) {
+                              toast.error(`Insufficient stock!`);
+                              return;
+                            }
+                            handleAddToCart(product);
+                          }}
+                        >
+                          +
+                        </Button>
                       </div>
                     );
                   })}
@@ -1618,46 +1613,20 @@ const ManualBilling = () => {
             </Card>
           </div>
 
-          <div className="space-y-3">
-            {/* Invoice Settings - Compact */}
-            <Card>
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="invoice-format" className="text-xs whitespace-nowrap">Format:</Label>
-                  <select
-                    id="invoice-format"
-                    value={invoiceFormat}
-                    onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
-                    className="flex h-7 rounded-md border border-input bg-background px-2 text-xs flex-1"
-                  >
-                    <option value="thermal">Thermal (80mm)</option>
-                    <option value="a4">A4</option>
-                  </select>
-                  
-                  <div className="flex items-center gap-1.5 ml-2">
-                    <input
-                      id="intra-state-toggle"
-                      type="checkbox"
-                      checked={intraStateTrade}
-                      onChange={(e) => setIntraStateTrade(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <Label htmlFor="intra-state-toggle" className="text-xs">IGST</Label>
-                  </div>
-                </div>
-                
-                {billingSettings?.isRestaurant && (
-                  <div className="flex items-center gap-2 p-1.5 bg-orange-50 dark:bg-orange-950/30 rounded border border-orange-200">
-                    <input
-                      id="parcel-toggle"
-                      type="checkbox"
-                      checked={isParcel}
-                      onChange={(e) => setIsParcel(e.target.checked)}
-                      className="h-4 w-4 rounded"
-                    />
-                    <Label htmlFor="parcel-toggle" className="text-xs font-medium">Parcel/Takeaway</Label>
-                  </div>
-                )}
+          <div className="space-y-2">
+            {/* Invoice Settings - Ultra Compact */}
+            <Card className="shadow-sm">
+              <CardContent className="p-2 flex items-center gap-2">
+                <Label htmlFor="invoice-format" className="text-[10px] whitespace-nowrap">Format:</Label>
+                <select
+                  id="invoice-format"
+                  value={invoiceFormat}
+                  onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
+                  className="flex h-6 rounded-md border border-input bg-background px-1.5 text-[10px] flex-1"
+                >
+                  <option value="thermal">Thermal</option>
+                  <option value="a4">A4</option>
+                </select>
               </CardContent>
             </Card>
 

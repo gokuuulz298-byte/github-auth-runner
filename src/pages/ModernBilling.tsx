@@ -771,7 +771,9 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
             paymentMode,
             isParcel,
             loyaltyPoints,
-            enableBilingual: billingSettings?.enableBilingualBill
+            enableBilingual: billingSettings?.enableBilingualBill,
+            billingMode: billingSettings?.mode || 'inclusive',
+            inclusiveBillType: billingSettings?.inclusiveBillType || 'split'
           });
 
           const printResult = await printEscPosReceipt(receiptData);
@@ -1618,7 +1620,7 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                   {searchTerm ? "No products found" : (selectedCategory ? "No products in this category" : "Select a category or search")}
                 </p>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                   {products.map((product, index) => {
                     const discount = productDiscounts.find(
                       d => d.product_id === product.id && 
@@ -1656,7 +1658,7 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                           }
                         }}
                       >
-                        <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+                        <div className="aspect-square bg-muted relative overflow-hidden">
                           {product.image_url ? (
                             <img
                               src={product.image_url}
@@ -1679,19 +1681,19 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                             </div>
                           )}
                         </div>
-                        <CardContent className="p-1.5 space-y-0.5">
-                          <h3 className="font-medium text-[10px] line-clamp-1">
+                        <CardContent className="p-2 space-y-1">
+                          <h3 className="font-medium text-xs line-clamp-2 min-h-[2rem]">
                             {product.name}
                           </h3>
-                          <div className="flex items-center justify-between">
-                            <p className="text-primary font-bold text-xs">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="text-primary font-bold text-sm">
                               ₹{formatIndianNumber(Number((discountPercentage > 0 ? discountedPrice : originalPrice).toFixed(2)))}
                             </p>
-                            <div className="flex items-center gap-0.5">
+                            <div className="flex items-center gap-1">
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="h-5 w-5"
+                                className="h-6 w-6"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isInCart) {
@@ -1704,15 +1706,15 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                                   }
                                 }}
                               >
-                                <Minus className="h-2.5 w-2.5" />
+                                <Minus className="h-3 w-3" />
                               </Button>
-                              <span className="text-[10px] w-4 text-center font-medium">
+                              <span className="text-xs w-5 text-center font-medium">
                                 {displayQty}
                               </span>
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="h-5 w-5"
+                                className="h-6 w-6"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isInCart) {
@@ -1725,7 +1727,7 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                                   }
                                 }}
                               >
-                                <Plus className="h-2.5 w-2.5" />
+                                <Plus className="h-3 w-3" />
                               </Button>
                             </div>
                           </div>
