@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Search, Printer } from "lucide-react";
 import { toast } from "sonner";
 import ShoppingCart, { CartItem } from "@/components/ShoppingCart";
 import { getProductByBarcode, saveInvoiceToIndexedDB } from "@/lib/indexedDB";
@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatIndianNumber } from "@/lib/numberFormat";
 import { setCounterSession, getCounterSession } from "@/lib/counterSession";
+import { printEscPosReceipt, buildReceiptData } from "@/lib/escposPrinter";
+import LoadingButton from "@/components/LoadingButton";
 
 const ManualBilling = () => {
   const navigate = useNavigate();
@@ -537,16 +539,9 @@ const ManualBilling = () => {
     const additionalTaxLines = (showTax && additionalGstAmount > 0 && !intraStateTrade) ? 8 : 0;
     const totalsHeight = 8 + taxLines + (couponDiscount > 0 ? 4 : 0) + additionalTaxLines + 12;
     const footerHeight = 20;
-    const requiredHeight = Math.ceil(headerHeight + itemsHeight + totalsHeight + footerHeight + 15); // Added extra 15mm safety margin
+    const requiredHeight = Math.ceil(headerHeight + itemsHeight + totalsHeight + footerHeight + 15);
     
-    // Generate PDF based on selected format
-    if (invoiceFormat === 'a4') {
-      generateA4Invoice(billNumber, subtotal, productSGST, productCGST, productIGST, couponDiscount, additionalSGST, additionalCGST, totalSGST, totalCGST, totalIGST, taxAmount, total, billingSettings?.inclusiveBillType);
-    } else {
-      generateThermalInvoice(billNumber, subtotal, productSGST, productCGST, productIGST, couponDiscount, additionalSGST, additionalCGST, additionalGstAmount, taxAmount, total, requiredHeight, billingSettings?.inclusiveBillType);
-    }
-
-    // Save customer and invoice, and reduce stock
+    // Save customer and invoice FIRST (don't download PDF)
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -644,7 +639,47 @@ const ManualBilling = () => {
         });
       }
 
-      toast.success("Invoice generated successfully!");
+      // ESC/POS printing - auto print thermal receipt
+      if (invoiceFormat === 'thermal') {
+        try {
+          const receiptData = buildReceiptData({
+            billNumber,
+            companyProfile,
+            customerName,
+            customerPhone,
+            cartItems,
+            totals: {
+              subtotal,
+              taxAmount,
+              couponDiscountAmount: couponDiscount,
+              total
+            },
+            paymentMode,
+            isParcel,
+            loyaltyPoints,
+            enableBilingual: billingSettings?.enableBilingualBill
+          });
+
+          const printResult = await printEscPosReceipt(receiptData);
+          
+          if (printResult.success) {
+            if (printResult.printed) {
+              toast.success("Receipt printed successfully!");
+            } else {
+              console.log('ESC/POS commands generated:', printResult.commands);
+              toast.info("Receipt ready. Connect thermal printer service to auto-print.");
+            }
+          } else {
+            console.error('Print error:', printResult.error);
+            toast.warning("Could not generate ESC/POS receipt. Invoice saved.");
+          }
+        } catch (printError) {
+          console.error('ESC/POS print error:', printError);
+          toast.warning("ESC/POS print failed. Invoice saved to history.");
+        }
+      }
+
+      toast.success("Sale completed! Invoice saved.");
       setCartItems([]);
       setCustomerName("");
       setCustomerPhone("");
