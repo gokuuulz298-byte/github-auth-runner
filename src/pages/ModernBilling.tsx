@@ -50,6 +50,92 @@ const ModernBilling = () => {
   const [showLiveOrders, setShowLiveOrders] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1);
+
+  // Keyboard navigation handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedProductIndex(prev => {
+            const cols = window.innerWidth >= 1280 ? 6 : window.innerWidth >= 1024 ? 5 : window.innerWidth >= 640 ? 4 : 3;
+            const newIndex = prev - cols;
+            return newIndex >= 0 ? newIndex : prev;
+          });
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedProductIndex(prev => {
+            const cols = window.innerWidth >= 1280 ? 6 : window.innerWidth >= 1024 ? 5 : window.innerWidth >= 640 ? 4 : 3;
+            const newIndex = prev + cols;
+            return newIndex < products.length ? newIndex : prev;
+          });
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          setSelectedProductIndex(prev => (prev > 0 ? prev - 1 : 0));
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          setSelectedProductIndex(prev => (prev < products.length - 1 ? prev + 1 : prev));
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedProductIndex >= 0 && selectedProductIndex < products.length) {
+            const product = products[selectedProductIndex];
+            const isInCart = cartItems.some(item => item.id === product.id);
+            if (isInCart) {
+              const cartQty = cartItems.find(item => item.id === product.id)?.quantity || 0;
+              handleUpdateQuantity(product.id, cartQty + 1);
+            } else {
+              handleAddToCart(product, productQuantities[product.id] || 1);
+            }
+          }
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          if (selectedProductIndex >= 0 && selectedProductIndex < products.length) {
+            const product = products[selectedProductIndex];
+            const isInCart = cartItems.some(item => item.id === product.id);
+            if (isInCart) {
+              const cartQty = cartItems.find(item => item.id === product.id)?.quantity || 0;
+              handleUpdateQuantity(product.id, cartQty + 1);
+            } else {
+              const newQty = (productQuantities[product.id] || 1) + 1;
+              setProductQuantities({ ...productQuantities, [product.id]: newQty });
+            }
+          }
+          break;
+        case '-':
+          e.preventDefault();
+          if (selectedProductIndex >= 0 && selectedProductIndex < products.length) {
+            const product = products[selectedProductIndex];
+            const isInCart = cartItems.some(item => item.id === product.id);
+            if (isInCart) {
+              const cartQty = cartItems.find(item => item.id === product.id)?.quantity || 0;
+              handleUpdateQuantity(product.id, cartQty - 1);
+            } else {
+              const newQty = Math.max(1, (productQuantities[product.id] || 1) - 1);
+              setProductQuantities({ ...productQuantities, [product.id]: newQty });
+            }
+          }
+          break;
+        case 'Escape':
+          setSelectedProductIndex(-1);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [products, selectedProductIndex, cartItems, productQuantities]);
 
   // Initialize counter session
   useEffect(() => {
@@ -1517,7 +1603,7 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                 </p>
               ) : (
                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
-                  {products.map((product) => {
+                  {products.map((product, index) => {
                     const discount = productDiscounts.find(
                       d => d.product_id === product.id && 
                       new Date(d.start_date) <= new Date() && 
@@ -1528,6 +1614,10 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                     const discountedPrice = originalPrice * (1 - discountPercentage / 100);
                     const isInCart = cartItems.some(item => item.id === product.id);
                     const cartQty = cartItems.find(item => item.id === product.id)?.quantity || 0;
+                    const isSelected = index === selectedProductIndex;
+
+                    // Show cart quantity if in cart, otherwise show productQuantities selector
+                    const displayQty = isInCart ? cartQty : (productQuantities[product.id] || 1);
 
                     return (
                       <Card
@@ -1535,9 +1625,20 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                         className={`hover:shadow-md transition-all overflow-hidden cursor-pointer border-2 ${
                           isInCart 
                             ? 'border-green-500 bg-green-50 dark:bg-green-950/30' 
+                            : isSelected
+                            ? 'border-primary ring-2 ring-primary/50'
                             : 'border-transparent'
                         }`}
-                        onClick={() => handleAddToCart(product, productQuantities[product.id] || 1)}
+                        onClick={() => {
+                          setSelectedProductIndex(index);
+                          if (isInCart) {
+                            // If already in cart, increment cart quantity
+                            handleUpdateQuantity(product.id, cartQty + 1);
+                          } else {
+                            // If not in cart, add with selected quantity
+                            handleAddToCart(product, productQuantities[product.id] || 1);
+                          }
+                        }}
                       >
                         <div className="aspect-[4/3] bg-muted relative overflow-hidden">
                           {product.image_url ? (
@@ -1577,17 +1678,20 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                                 className="h-5 w-5"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const newQty = Math.max(1, (productQuantities[product.id] || 1) - 1);
-                                  setProductQuantities({
-                                    ...productQuantities,
-                                    [product.id]: newQty
-                                  });
+                                  if (isInCart) {
+                                    // Decrease cart quantity
+                                    handleUpdateQuantity(product.id, cartQty - 1);
+                                  } else {
+                                    // Decrease selector quantity
+                                    const newQty = Math.max(1, (productQuantities[product.id] || 1) - 1);
+                                    setProductQuantities({ ...productQuantities, [product.id]: newQty });
+                                  }
                                 }}
                               >
                                 <Minus className="h-2.5 w-2.5" />
                               </Button>
                               <span className="text-[10px] w-4 text-center font-medium">
-                                {productQuantities[product.id] || 1}
+                                {displayQty}
                               </span>
                               <Button
                                 size="icon"
@@ -1595,11 +1699,14 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                                 className="h-5 w-5"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const newQty = (productQuantities[product.id] || 1) + 1;
-                                  setProductQuantities({
-                                    ...productQuantities,
-                                    [product.id]: newQty
-                                  });
+                                  if (isInCart) {
+                                    // Increase cart quantity
+                                    handleUpdateQuantity(product.id, cartQty + 1);
+                                  } else {
+                                    // Increase selector quantity
+                                    const newQty = (productQuantities[product.id] || 1) + 1;
+                                    setProductQuantities({ ...productQuantities, [product.id]: newQty });
+                                  }
                                 }}
                               >
                                 <Plus className="h-2.5 w-2.5" />

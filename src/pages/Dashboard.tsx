@@ -3,13 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode, ChefHat, ClipboardList, UserCog, Receipt, UtensilsCrossed } from "lucide-react";
+import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode, ChefHat, ClipboardList, UserCog, Receipt, UtensilsCrossed, Bell, X } from "lucide-react";
 import GuidelinesDialog from "@/components/GuidelinesDialog";
 import LiveOrdersPanel from "@/components/LiveOrdersPanel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface LowStockProduct {
+  id: string;
+  name: string;
+  stock_quantity: number;
+  low_stock_threshold: number;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -18,6 +26,8 @@ const Dashboard = () => {
   const [companyName, setCompanyName] = useState<string>("");
   const [billingSettings, setBillingSettings] = useState<any>(null);
   const [staffModules, setStaffModules] = useState<string[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
+  const [showLowStockPanel, setShowLowStockPanel] = useState(false);
 
   const allMenuItems = [
     // Primary billing modules
@@ -91,11 +101,33 @@ const Dashboard = () => {
 
     if (userId) {
       fetchCompanyProfile();
+      fetchLowStockProducts();
       if (isStaff) {
         fetchStaffModules();
       }
     }
   }, [authLoading, user, userId, isStaff]);
+
+  const fetchLowStockProducts = async () => {
+    if (!userId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, stock_quantity, low_stock_threshold')
+        .eq('is_deleted', false);
+
+      if (error) throw error;
+      
+      // Filter products where stock is below or equal to threshold
+      const lowStock = (data || []).filter(p => 
+        p.stock_quantity <= (p.low_stock_threshold || 10)
+      );
+      setLowStockProducts(lowStock);
+    } catch (error) {
+      console.error("Error fetching low stock products:", error);
+    }
+  };
 
   const fetchStaffModules = async () => {
     if (!user?.id) return;
@@ -174,6 +206,63 @@ const Dashboard = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Low Stock Alert Button */}
+            {isAdmin && lowStockProducts.length > 0 && (
+              <Sheet open={showLowStockPanel} onOpenChange={setShowLowStockPanel}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="relative" title="Low Stock Alerts">
+                    <Bell className="h-5 w-5" />
+                    <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      {lowStockProducts.length > 99 ? '99+' : lowStockProducts.length}
+                    </span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-[350px] sm:w-[400px]">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
+                      <h3 className="text-lg font-semibold">Low Stock Alerts</h3>
+                    </div>
+                  </div>
+                  <ScrollArea className="h-[calc(100vh-120px)]">
+                    <div className="space-y-2 pr-4">
+                      {lowStockProducts.map((product) => (
+                        <Card key={product.id} className="border-l-4 border-l-destructive">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm">{product.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Threshold: {product.low_stock_threshold || 10}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className={`font-bold text-lg ${product.stock_quantity <= 0 ? 'text-destructive' : 'text-warning'}`}>
+                                  {product.stock_quantity}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">in stock</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  <div className="mt-4">
+                    <Button 
+                      className="w-full" 
+                      onClick={() => {
+                        setShowLowStockPanel(false);
+                        navigate('/low-stocks');
+                      }}
+                    >
+                      View All Low Stock Items
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            )}
+
             {/* Live Orders Button - Only show if restaurant mode */}
             {billingSettings?.isRestaurant && isAdmin && (
               <Sheet>

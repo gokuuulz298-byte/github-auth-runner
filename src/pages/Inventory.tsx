@@ -39,6 +39,7 @@ const Inventory = () => {
   const [formData, setFormData] = useState({
     barcode: "",
     name: "",
+    tamil_name: "",
     price: "",
     buying_price: "",
     stock_quantity: "",
@@ -53,6 +54,7 @@ const Inventory = () => {
     unit: "piece",
     image_url: "",
   });
+  const [isTranslating, setIsTranslating] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
@@ -187,6 +189,7 @@ const Inventory = () => {
       const productData = {
         barcode: formData.barcode,
         name: formData.name,
+        tamil_name: formData.tamil_name || null,
         price: parseFloat(formData.price),
         buying_price: parseFloat(formData.buying_price) || 0,
         stock_quantity: parseFloat(formData.stock_quantity),
@@ -248,6 +251,7 @@ const Inventory = () => {
     setFormData({
       barcode: product.barcode,
       name: product.name,
+      tamil_name: (product as any).tamil_name || "",
       price: product.price.toString(),
       buying_price: (product as any).buying_price?.toString() || "0",
       stock_quantity: product.stock_quantity.toString(),
@@ -301,6 +305,7 @@ const Inventory = () => {
     setFormData({
       barcode: "",
       name: "",
+      tamil_name: "",
       price: "",
       buying_price: "",
       stock_quantity: "",
@@ -317,6 +322,36 @@ const Inventory = () => {
     });
     setEditingProduct(null);
     setSelectedBarcode("");
+  };
+
+  // Auto-translate product name to Tamil using Google Translate API
+  const translateToTamil = async () => {
+    if (!formData.name.trim()) {
+      toast.error("Please enter product name first");
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      // Using free Google Translate API endpoint
+      const response = await fetch(
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ta&dt=t&q=${encodeURIComponent(formData.name)}`
+      );
+      const data = await response.json();
+      
+      if (data && data[0] && data[0][0] && data[0][0][0]) {
+        const tamilName = data[0][0][0];
+        setFormData({ ...formData, tamil_name: tamilName });
+        toast.success("Translated to Tamil successfully!");
+      } else {
+        toast.error("Translation failed. Please enter manually.");
+      }
+    } catch (error) {
+      console.error("Translation error:", error);
+      toast.error("Translation failed. Please enter manually.");
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   const fetchHsnGst = async (hsnCode: string) => {
@@ -421,6 +456,31 @@ const Inventory = () => {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="tamil_name">Tamil Name (தமிழ் பெயர்)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="tamil_name"
+                      value={formData.tamil_name}
+                      onChange={(e) => setFormData({ ...formData, tamil_name: e.target.value })}
+                      placeholder="தமிழில் பெயர் உள்ளிடவும்"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={translateToTamil}
+                      disabled={isTranslating || !formData.name.trim()}
+                      className="whitespace-nowrap"
+                    >
+                      {isTranslating ? "Translating..." : "Auto Translate"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    For bilingual bills - enter Tamil name or use Auto Translate
+                  </p>
                 </div>
 
                 <div>

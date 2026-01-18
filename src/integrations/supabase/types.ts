@@ -551,6 +551,7 @@ export type Database = {
           product_tax: number | null
           sgst: number | null
           stock_quantity: number | null
+          tamil_name: string | null
           tax_rate: number | null
           unit: string | null
           updated_at: string | null
@@ -574,6 +575,7 @@ export type Database = {
           product_tax?: number | null
           sgst?: number | null
           stock_quantity?: number | null
+          tamil_name?: string | null
           tax_rate?: number | null
           unit?: string | null
           updated_at?: string | null
@@ -597,6 +599,7 @@ export type Database = {
           product_tax?: number | null
           sgst?: number | null
           stock_quantity?: number | null
+          tamil_name?: string | null
           tax_rate?: number | null
           unit?: string | null
           updated_at?: string | null
