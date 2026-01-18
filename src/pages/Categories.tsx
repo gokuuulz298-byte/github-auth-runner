@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const Categories = () => {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ const Categories = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategory, setNewCategory] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -40,6 +44,7 @@ const Categories = () => {
   const fetchCategories = async () => {
     if (!userId) return;
 
+    setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -51,6 +56,8 @@ const Categories = () => {
     } catch (error: any) {
       console.error(error);
       toast.error(`Failed to fetch categories: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -60,6 +67,7 @@ const Categories = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const { error } = await supabase
         .from('categories')
@@ -73,10 +81,13 @@ const Categories = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to add category");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDeleteCategory = async (id: string) => {
+    setDeletingId(id);
     try {
       const { error } = await supabase
         .from('categories')
@@ -90,8 +101,18 @@ const Categories = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete category");
+    } finally {
+      setDeletingId(null);
     }
   };
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading categories..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -127,9 +148,13 @@ const Categories = () => {
                     onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
                     className="text-sm sm:text-base"
                   />
-                  <Button onClick={handleAddCategory} className="shrink-0">
+                  <Button 
+                    onClick={handleAddCategory} 
+                    className="shrink-0"
+                    disabled={isSubmitting}
+                  >
                     <Plus className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Add</span>
+                    <span className="hidden sm:inline">{isSubmitting ? 'Adding...' : 'Add'}</span>
                   </Button>
                 </div>
               </div>
@@ -157,8 +182,9 @@ const Categories = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDeleteCategory(category.id)}
+                        disabled={deletingId === category.id}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className={`h-4 w-4 text-destructive ${deletingId === category.id ? 'animate-pulse' : ''}`} />
                       </Button>
                     </div>
                   ))

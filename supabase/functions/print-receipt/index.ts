@@ -85,9 +85,44 @@ const TAMIL_TRANSLATIONS: { [key: string]: string } = {
   'CARD': 'அட்டை',
 };
 
-// Common product name translations to Tamil Unicode
-const PRODUCT_TAMIL_MAP: { [key: string]: string } = {
-  // Biscuits and snacks
+// Transliteration map for English to Tamil phonetic conversion
+const TRANSLITERATION_MAP: { [key: string]: string } = {
+  // Consonants with vowels
+  'ka': 'கா', 'ki': 'கி', 'ku': 'கு', 'ke': 'கெ', 'ko': 'கோ',
+  'ga': 'கா', 'gi': 'கி', 'gu': 'கு', 'ge': 'கெ', 'go': 'கோ',
+  'cha': 'சா', 'chi': 'சி', 'chu': 'சு', 'che': 'செ', 'cho': 'சோ',
+  'ja': 'ஜா', 'ji': 'ஜி', 'ju': 'ஜு', 'je': 'ஜெ', 'jo': 'ஜோ',
+  'ta': 'டா', 'ti': 'டி', 'tu': 'டு', 'te': 'டெ', 'to': 'டோ',
+  'tha': 'தா', 'thi': 'தி', 'thu': 'து', 'the': 'தெ', 'tho': 'தோ',
+  'da': 'டா', 'di': 'டி', 'du': 'டு', 'de': 'டெ', 'do': 'டோ',
+  'dha': 'தா', 'dhi': 'தி', 'dhu': 'து', 'dhe': 'தெ', 'dho': 'தோ',
+  'na': 'நா', 'ni': 'நி', 'nu': 'நு', 'ne': 'நெ', 'no': 'நோ',
+  'pa': 'பா', 'pi': 'பி', 'pu': 'பு', 'pe': 'பெ', 'po': 'போ',
+  'ba': 'பா', 'bi': 'பி', 'bu': 'பு', 'be': 'பெ', 'bo': 'போ',
+  'ma': 'மா', 'mi': 'மி', 'mu': 'மு', 'me': 'மெ', 'mo': 'மோ',
+  'ya': 'யா', 'yi': 'யி', 'yu': 'யு', 'ye': 'யெ', 'yo': 'யோ',
+  'ra': 'ரா', 'ri': 'ரி', 'ru': 'ரு', 're': 'ரெ', 'ro': 'ரோ',
+  'la': 'லா', 'li': 'லி', 'lu': 'லு', 'le': 'லெ', 'lo': 'லோ',
+  'va': 'வா', 'vi': 'வி', 'vu': 'வு', 've': 'வெ', 'vo': 'வோ',
+  'wa': 'வா', 'wi': 'வி', 'wu': 'வு', 'we': 'வெ', 'wo': 'வோ',
+  'sa': 'சா', 'si': 'சி', 'su': 'சு', 'se': 'செ', 'so': 'சோ',
+  'sha': 'ஷா', 'shi': 'ஷி', 'shu': 'ஷு', 'she': 'ஷெ', 'sho': 'ஷோ',
+  'ha': 'ஹா', 'hi': 'ஹி', 'hu': 'ஹு', 'he': 'ஹெ', 'ho': 'ஹோ',
+  'fa': 'ஃபா', 'fi': 'ஃபி', 'fu': 'ஃபு', 'fe': 'ஃபெ', 'fo': 'ஃபோ',
+  // Single consonants with implicit 'a'
+  'k': 'க்', 'g': 'க்', 'ch': 'ச்', 'j': 'ஜ்', 't': 'ட்', 'd': 'ட்',
+  'n': 'ந்', 'p': 'ப்', 'b': 'ப்', 'm': 'ம்', 'y': 'ய்', 'r': 'ர்',
+  'l': 'ல்', 'v': 'வ்', 'w': 'வ்', 's': 'ஸ்', 'h': 'ஹ்', 'f': 'ஃப்',
+  // Vowels
+  'a': 'அ', 'aa': 'ஆ', 'i': 'இ', 'ii': 'ஈ', 'u': 'உ', 'uu': 'ஊ',
+  'e': 'எ', 'ee': 'ஏ', 'ai': 'ஐ', 'o': 'ஒ', 'oo': 'ஓ', 'au': 'ஔ',
+  // Common patterns
+  'is': 'இஸ்', 'er': 'ர்', 'es': 'ஸ்', 'ks': 'க்ஸ்',
+};
+
+// Common product name transliterations (phonetic Tamil - NOT translations)
+const PRODUCT_TRANSLITERATION_MAP: { [key: string]: string } = {
+  // Biscuits - TRANSLITERATION (how it sounds in Tamil)
   'lotus biscoff': 'லோட்டஸ் பிஸ்காஃப்',
   'biscoff': 'பிஸ்காஃப்',
   'milk bikis': 'மில்க் பிகிஸ்',
@@ -96,53 +131,185 @@ const PRODUCT_TAMIL_MAP: { [key: string]: string } = {
   'bourbon': 'போர்பன்',
   'marie': 'மேரி',
   'parle-g': 'பார்லே-ஜி',
+  'parle g': 'பார்லே ஜி',
   'parle': 'பார்லே',
   'oreo': 'ஓரியோ',
-  'hide & seek': 'ஹைட் & சீக்',
+  'hide & seek': 'ஹைட் அண்ட் சீக்',
+  'hide and seek': 'ஹைட் அண்ட் சீக்',
+  'britannia': 'பிரிட்டானியா',
+  'sunfeast': 'சன்ஃபீஸ்ட்',
+  'mcvities': 'மெக்விட்டீஸ்',
+  'digestive': 'டைஜெஸ்டிவ்',
+  'cream': 'க்ரீம்',
+  'biscuit': 'பிஸ்கட்',
+  'biscuits': 'பிஸ்கட்ஸ்',
+  'cookies': 'குக்கீஸ்',
+  'cookie': 'குக்கீ',
   
-  // Food items
-  'rice': 'அரிசி', 'biryani': 'பிரியாணி', 'chicken': 'கோழி', 'mutton': 'ஆட்டிறைச்சி',
-  'fish': 'மீன்', 'egg': 'முட்டை', 'dosa': 'தோசை', 'idli': 'இட்லி',
-  'vada': 'வடை', 'sambar': 'சாம்பார்', 'rasam': 'ரசம்', 'curd': 'தயிர்',
-  'chutney': 'சட்னி', 'parotta': 'பரோட்டா', 'chapati': 'சப்பாத்தி', 'naan': 'நான்',
-  'roti': 'ரொட்டி', 'puri': 'பூரி', 'paneer': 'பன்னீர்', 'dal': 'பருப்பு',
-  'curry': 'கறி', 'gravy': 'குழம்பு', 'fry': 'வறுவல்', 'masala': 'மசாலா',
-  'tea': 'தேநீர்', 'coffee': 'காபி', 'milk': 'பால்', 'juice': 'சாறு',
-  'water': 'தண்ணீர்', 'butter': 'வெண்ணெய்', 'ghee': 'நெய்', 'oil': 'எண்ணெய்',
-  'salt': 'உப்பு', 'sugar': 'சர்க்கரை', 'pepper': 'மிளகு', 'chilli': 'மிளகாய்',
-  'meal': 'உணவு', 'meals': 'உணவு', 'lunch': 'மதிய உணவு', 'dinner': 'இரவு உணவு',
-  'breakfast': 'காலை உணவு', 'snacks': 'சிற்றுண்டி', 'sweet': 'இனிப்பு',
-  'payasam': 'பாயசம்', 'halwa': 'அல்வா', 'laddu': 'லட்டு', 'jalebi': 'ஜிலேபி',
-  'samosa': 'சமோசா', 'pakoda': 'பக்கோடா', 'bajji': 'பஜ்ஜி', 'vadai': 'வடை',
-  'pongal': 'பொங்கல்', 'upma': 'உப்புமா', 'kesari': 'கேசரி', 'haleem': 'ஹலீம்',
+  // Chocolates - TRANSLITERATION
+  'ferrero rocher': 'ஃபெரேரோ ரோஷர்',
+  'fer roch': 'ஃபெர் ரோச்',
+  'kitkat': 'கிட்கேட்',
+  'kit kat': 'கிட் கேட்',
+  'dairy milk': 'டேரி மில்க்',
+  'cadbury': 'கேட்பரி',
+  'snickers': 'ஸ்னிக்கர்ஸ்',
+  'mars': 'மார்ஸ்',
+  'twix': 'ட்விக்ஸ்',
+  'bounty': 'பவுண்டி',
+  'galaxy': 'கேலக்ஸி',
+  'nestle': 'நெஸ்லே',
+  'milkybar': 'மில்கிபார்',
+  'munch': 'மஞ்ச்',
+  'perk': 'பெர்க்',
+  '5star': 'ஃபைவ் ஸ்டார்',
+  'five star': 'ஃபைவ் ஸ்டார்',
+  'gems': 'ஜெம்ஸ்',
+  'eclairs': 'எக்லேர்ஸ்',
+  'chocolate': 'சாக்லேட்',
+  
+  // Drinks - TRANSLITERATION
+  'coca cola': 'கோகா கோலா',
+  'coke': 'கோக்',
+  'pepsi': 'பெப்சி',
+  'sprite': 'ஸ்ப்ரைட்',
+  'fanta': 'ஃபேண்டா',
+  'limca': 'லிம்கா',
+  'thumbs up': 'தம்ஸ் அப்',
+  'maaza': 'மாசா',
+  'frooti': 'ஃப்ரூட்டி',
+  'slice': 'ஸ்லைஸ்',
+  'mountain dew': 'மவுண்டன் டியூ',
+  'redbull': 'ரெட்புல்',
+  'red bull': 'ரெட் புல்',
+  'monster': 'மான்ஸ்டர்',
+  
+  // Common food items - TRANSLITERATION (phonetic, not meaning)
+  'rice': 'ரைஸ்',
+  'biryani': 'பிரியாணி',
+  'chicken': 'சிக்கன்',
+  'mutton': 'மட்டன்',
+  'fish': 'ஃபிஷ்',
+  'egg': 'எக்',
+  'dosa': 'தோசை',
+  'idli': 'இட்லி',
+  'vada': 'வடை',
+  'sambar': 'சாம்பார்',
+  'rasam': 'ரசம்',
+  'curd': 'கர்ட்',
+  'chutney': 'சட்னி',
+  'parotta': 'பரோட்டா',
+  'chapati': 'சப்பாத்தி',
+  'naan': 'நான்',
+  'roti': 'ரோட்டி',
+  'puri': 'பூரி',
+  'paneer': 'பன்னீர்',
+  'dal': 'தால்',
+  'curry': 'கறி',
+  'gravy': 'கிரேவி',
+  'fry': 'ஃப்ரை',
+  'masala': 'மசாலா',
+  'tea': 'டீ',
+  'coffee': 'காஃபி',
+  'milk': 'மில்க்',
+  'juice': 'ஜூஸ்',
+  'water': 'வாட்டர்',
+  'butter': 'பட்டர்',
+  'ghee': 'கீ',
+  'oil': 'ஆயில்',
+  'salt': 'சால்ட்',
+  'sugar': 'சுகர்',
+  'pepper': 'பெப்பர்',
+  'chilli': 'சில்லி',
+  'meal': 'மீல்',
+  'meals': 'மீல்ஸ்',
+  'lunch': 'லன்ச்',
+  'dinner': 'டின்னர்',
+  'breakfast': 'பிரேக்ஃபாஸ்ட்',
+  'snacks': 'ஸ்நாக்ஸ்',
+  'sweet': 'ஸ்வீட்',
+  'payasam': 'பாயசம்',
+  'halwa': 'அல்வா',
+  'laddu': 'லட்டு',
+  'jalebi': 'ஜிலேபி',
+  'samosa': 'சமோசா',
+  'pakoda': 'பக்கோடா',
+  'bajji': 'பஜ்ஜி',
+  'pongal': 'பொங்கல்',
+  'upma': 'உப்புமா',
+  'kesari': 'கேசரி',
+  
   // Dairy
-  'aavin': 'ஆவின்', 'premium': 'பிரீமியம்',
-  // Vegetables
-  'tomato': 'தக்காளி', 'onion': 'வெங்காயம்', 'potato': 'உருளைக்கிழங்கு',
-  'carrot': 'கேரட்', 'beans': 'பீன்ஸ்', 'cabbage': 'முட்டைக்கோஸ்',
-  'brinjal': 'கத்திரிக்காய்', 'ladies finger': 'வெண்டைக்காய்', 'drumstick': 'முருங்கைக்காய்',
-  // Fruits
-  'banana': 'வாழைப்பழம்', 'apple': 'ஆப்பிள்', 'mango': 'மாம்பழம்', 'grape': 'திராட்சை',
-  'orange': 'ஆரஞ்சு', 'coconut': 'தேங்காய்', 'lemon': 'எலுமிச்சை',
+  'aavin': 'ஆவின்',
+  'premium': 'பிரீமியம்',
+  'amul': 'அமுல்',
+  
+  // Common brands/products
+  'lays': 'லேஸ்',
+  'kurkure': 'குர்குரே',
+  'haldirams': 'ஹல்தீராம்ஸ்',
+  'maggi': 'மேகி',
+  'noodles': 'நூடுல்ஸ்',
+  'pasta': 'பாஸ்தா',
+  'bread': 'பிரெட்',
+  'cake': 'கேக்',
+  'chips': 'சிப்ஸ்',
 };
 
-// Function to get Tamil translation for product name
+// Function to get Tamil transliteration for product name
 function getProductTamilName(englishName: string): string {
-  const lowerName = englishName.toLowerCase();
+  const lowerName = englishName.toLowerCase().trim();
   
-  // Check for exact match
-  if (PRODUCT_TAMIL_MAP[lowerName]) {
-    return PRODUCT_TAMIL_MAP[lowerName];
+  // Check for exact match in transliteration map
+  if (PRODUCT_TRANSLITERATION_MAP[lowerName]) {
+    return PRODUCT_TRANSLITERATION_MAP[lowerName];
   }
   
-  // Check for partial matches
-  for (const [eng, tamil] of Object.entries(PRODUCT_TAMIL_MAP)) {
-    if (lowerName.includes(eng)) {
-      return tamil;
+  // Try to find partial matches and build transliteration
+  let result = lowerName;
+  const words = lowerName.split(/\s+/);
+  const transliteratedWords: string[] = [];
+  
+  for (const word of words) {
+    if (PRODUCT_TRANSLITERATION_MAP[word]) {
+      transliteratedWords.push(PRODUCT_TRANSLITERATION_MAP[word]);
+    } else {
+      // Try basic transliteration for unknown words
+      transliteratedWords.push(basicTransliterate(word));
     }
   }
   
-  return ''; // Return empty if no translation found
+  return transliteratedWords.join(' ');
+}
+
+// Basic character-by-character transliteration
+function basicTransliterate(word: string): string {
+  let result = '';
+  let i = 0;
+  const lower = word.toLowerCase();
+  
+  while (i < lower.length) {
+    let matched = false;
+    
+    // Try to match longer patterns first (3 chars, 2 chars, 1 char)
+    for (let len = 3; len >= 1; len--) {
+      const substr = lower.substring(i, i + len);
+      if (TRANSLITERATION_MAP[substr]) {
+        result += TRANSLITERATION_MAP[substr];
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    
+    if (!matched) {
+      // Keep the character as-is if no mapping found
+      result += lower[i];
+      i++;
+    }
+  }
+  
+  return result;
 }
 
 function padRight(str: string, len: number): string {
@@ -163,6 +330,13 @@ function centerText(str: string, width: number): string {
 
 function formatCurrency(num: number): string {
   return num.toFixed(2);
+}
+
+// Round to nearest rupee (standard Indian rounding)
+function roundToNearestRupee(amount: number): { roundedTotal: number; roundOff: number } {
+  const roundedTotal = Math.round(amount);
+  const roundOff = roundedTotal - amount;
+  return { roundedTotal, roundOff };
 }
 
 // Wrap text to fit within a specified width
@@ -202,20 +376,13 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += LF;
   }
   
-  // Company Header - centered, bold, double height
-  // Check if name is too long for double-height (16 chars max)
+  // Company Header - centered, bold
+  // Use normal size for company name to prevent cutoff
   receipt += CENTER + BOLD_ON;
   const companyName = data.companyName.toUpperCase();
-  if (companyName.length <= HALF_LINE_WIDTH) {
-    receipt += DOUBLE_HEIGHT_ON;
-    receipt += companyName + LF;
-    receipt += NORMAL_SIZE;
-  } else {
-    // Use normal size for long names, wrap if needed
-    const nameLines = wrapText(companyName, LINE_WIDTH);
-    for (const line of nameLines) {
-      receipt += line + LF;
-    }
+  const nameLines = wrapText(companyName, LINE_WIDTH);
+  for (const line of nameLines) {
+    receipt += line + LF;
   }
   receipt += BOLD_OFF;
   
@@ -306,10 +473,6 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Items - PROFESSIONAL MULTI-LINE LAYOUT
-  // Rule: Numbers NEVER share a line with variable-length text
-  // Line 1: English item name (wrapped if needed)
-  // Line 2: Tamil name in brackets (if bilingual)
-  // Line 3: Qty / Rate / Amt → numbers only, right-aligned
   for (const item of data.items) {
     const qtyStr = item.price_type === 'weight' ? item.quantity.toFixed(2) : item.quantity.toString();
     const rateStr = formatCurrency(item.price);
@@ -324,7 +487,7 @@ function generateReceiptCommands(data: ReceiptData): string {
       receipt += line + LF;
     }
     
-    // Line 2: Tamil name in brackets (if bilingual)
+    // Line 2: Tamil name in brackets (if bilingual) - using TRANSLITERATION
     if (data.enableBilingual) {
       const tamilName = item.nameTamil || getProductTamilName(item.name);
       if (tamilName) {
@@ -337,7 +500,6 @@ function generateReceiptCommands(data: ReceiptData): string {
     }
     
     // Line 3: Numbers ONLY - Qty, Rate, Amt right-aligned
-    // Format: spaces(12) + Qty(4) + Rate(8) + Amt(8) = 32 chars
     const numericLine = ' '.repeat(12) + padLeft(qtyStr, 4) + padLeft(rateStr, 8) + padLeft(amtStr, 8);
     receipt += numericLine + LF;
     
@@ -353,7 +515,6 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += subtotalLabel + ' '.repeat(LINE_WIDTH - subtotalLabel.length - subtotalVal.length) + subtotalVal + LF;
   
   // Show tax based on billing mode
-  // Only show tax for exclusive or inclusive+split modes
   const showTax = data.billingMode !== 'no_tax' && 
     !(data.billingMode === 'inclusive' && data.inclusiveBillType === 'mrp');
   
@@ -375,23 +536,31 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += discLabel + ' '.repeat(LINE_WIDTH - discLabel.length - discVal.length) + discVal + LF;
   }
   
+  // Calculate round-off
+  const { roundedTotal, roundOff } = roundToNearestRupee(data.total);
+  
+  // Show round-off if it's not zero
+  if (Math.abs(roundOff) >= 0.01) {
+    const roundLabel = 'Round Off:';
+    const roundVal = (roundOff >= 0 ? '+' : '') + formatCurrency(roundOff);
+    receipt += roundLabel + ' '.repeat(LINE_WIDTH - roundLabel.length - roundVal.length) + roundVal + LF;
+  }
+  
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Grand total (bold, double height)
-  // IMPORTANT: Must send NORMAL_SIZE after double height to prevent char consumption
-  receipt += LEFT + BOLD_ON + DOUBLE_HEIGHT_ON;
-  const totalLabel = 'TOTAL: ';
-  const totalVal = 'Rs.' + formatCurrency(data.total);
-  // For double-height, effective width is ~16 chars
-  const totalSpacing = Math.max(1, HALF_LINE_WIDTH - totalLabel.length - totalVal.length);
-  receipt += totalLabel + ' '.repeat(totalSpacing) + totalVal + LF;
-  receipt += NORMAL_SIZE + BOLD_OFF;
+  // Grand total (bold, normal size to prevent cutoff)
+  receipt += LEFT + BOLD_ON;
+  const totalLabel = 'TOTAL:';
+  const totalVal = 'Rs.' + roundedTotal.toFixed(2);
+  receipt += totalLabel + ' '.repeat(Math.max(1, LINE_WIDTH - totalLabel.length - totalVal.length)) + totalVal + LF;
+  receipt += BOLD_OFF;
   
-  // Tamil translation for TOTAL on a SEPARATE line (centered, normal size)
+  // Tamil translation for TOTAL on a SEPARATE line with spacing
   if (data.enableBilingual) {
-    receipt += LF;  // Extra line break to prevent collision
+    receipt += LF;  // Extra line break
     receipt += CENTER;
     receipt += '(' + TAMIL_TRANSLATIONS['TOTAL'] + ')' + LF;
+    receipt += LF;  // Extra line break after Tamil
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
@@ -405,11 +574,12 @@ function generateReceiptCommands(data: ReceiptData): string {
   }
   receipt += BOLD_OFF;
   
-  // Tamil translation for Thank You on SEPARATE line (centered, normal size)
+  // Tamil translation for Thank You on SEPARATE line with spacing
   if (data.enableBilingual) {
-    receipt += LF;  // Extra line break to prevent collision
+    receipt += LF;  // Extra line break
     receipt += CENTER;
     receipt += '(' + TAMIL_TRANSLATIONS['Thank You!'] + ')' + LF;
+    receipt += LF;  // Extra line break after Tamil
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;

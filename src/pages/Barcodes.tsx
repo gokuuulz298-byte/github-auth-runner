@@ -9,6 +9,7 @@ import { ArrowLeft, Printer, Search } from "lucide-react";
 import { toast } from "sonner";
 import JsBarcode from "jsbarcode";
 import QRCode from "qrcode";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Product {
   id: string;
@@ -24,6 +25,7 @@ const Barcodes = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [codeType, setCodeType] = useState<"barcode" | "qrcode">("barcode");
+  const [isLoading, setIsLoading] = useState(true);
   const barcodeRef = useRef<HTMLCanvasElement>(null);
   const qrcodeRef = useRef<HTMLCanvasElement>(null);
 
@@ -38,6 +40,7 @@ const Barcodes = () => {
   }, [selectedProduct, codeType]);
 
   const fetchProducts = async () => {
+    setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -57,8 +60,18 @@ const Barcodes = () => {
     } catch (error) {
       console.error(error);
       toast.error("Error fetching products");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading products..." />
+      </div>
+    );
+  }
 
   const generateCode = () => {
     if (!selectedProduct) return;

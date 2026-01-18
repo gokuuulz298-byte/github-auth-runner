@@ -301,9 +301,25 @@ const ShoppingCart = ({
                 </>
               )}
               <Separator />
+              {/* Round Off */}
+              {(() => {
+                const roundedTotal = Math.round(total);
+                const roundOff = roundedTotal - total;
+                if (Math.abs(roundOff) >= 0.01) {
+                  return (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Round Off</span>
+                      <span className={roundOff >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {roundOff >= 0 ? '+' : ''}{formatIndianCurrency(Math.abs(roundOff))}
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span className="text-primary">{formatIndianCurrency(total)}</span>
+                <span className="text-primary">{formatIndianCurrency(Math.round(total))}</span>
               </div>
             </div>
 
