@@ -55,31 +55,31 @@ const NORMAL_SIZE = ESC + '!' + '\x00';
 const CUT_PAPER = GS + 'V' + '\x00';  // Full cut
 const FEED_LINES = (n: number) => ESC + 'd' + String.fromCharCode(n);
 
-// Tamil transliterations for common terms
+// Tamil Unicode translations for common terms
 const TAMIL_TRANSLATIONS: { [key: string]: string } = {
-  'TAX INVOICE': 'VARI RASEETHU',
-  'TAKEAWAY': 'EDUTHUSELLA',
-  'Bill No': 'Raseethu Elakam',
-  'Date': 'Theathi',
-  'Time': 'Neram',
-  'Customer': 'Vaadikkaiyalar',
-  'Phone': 'Thogaipesi',
-  'Points': 'Pulli',
-  'Item': 'Porul',
-  'Qty': 'Alavu',
-  'Rate': 'Vilai',
-  'Amt': 'Thogai',
-  'Subtotal': 'Upa Moththam',
-  'SGST': 'SGST',
-  'CGST': 'CGST',
-  'IGST': 'IGST',
-  'Discount': 'Thalvu',
-  'TOTAL': 'MOTHTHAM',
-  'Thank you for your business!': 'Ungal Vanigathirkku Nandri!',
-  'Payment': 'Seluthi',
-  'CASH': 'ROKKA PANAM',
-  'UPI': 'UPI',
-  'CARD': 'ATTAI',
+  'TAX INVOICE': 'வரி இரசீது',
+  'TAKEAWAY': 'எடுத்துச்செல்ல',
+  'Bill No': 'ரசீது எண்',
+  'Date': 'தேதி',
+  'Time': 'நேரம்',
+  'Customer': 'வாடிக்கையாளர்',
+  'Phone': 'தொலைபேசி',
+  'Points': 'புள்ளிகள்',
+  'Item': 'பொருள்',
+  'Qty': 'அளவு',
+  'Rate': 'விலை',
+  'Amt': 'தொகை',
+  'Subtotal': 'உப மொத்தம்',
+  'SGST': 'எஸ்ஜிஎஸ்டி',
+  'CGST': 'சிஜிஎஸ்டி',
+  'IGST': 'ஐஜிஎஸ்டி',
+  'Discount': 'தள்ளுபடி',
+  'TOTAL': 'மொத்தம்',
+  'Thank you for your business!': 'உங்கள் வணிகத்திற்கு நன்றி!',
+  'Payment': 'செலுத்தி',
+  'CASH': 'ரொக்கம்',
+  'UPI': 'யூபிஐ',
+  'CARD': 'அட்டை',
 };
 
 function padRight(str: string, len: number): string {
@@ -109,7 +109,7 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += '*** TAKEAWAY ***' + LF;
     if (data.enableBilingual) {
       receipt += NORMAL_SIZE;
-      receipt += '(EDUTHUSELLA)' + LF;
+      receipt += '(' + TAMIL_TRANSLATIONS['TAKEAWAY'] + ')' + LF;
     }
     receipt += NORMAL_SIZE + BOLD_OFF;
     receipt += LF;
@@ -151,7 +151,7 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += CENTER + BOLD_ON;
   receipt += 'TAX INVOICE' + LF;
   if (data.enableBilingual) {
-    receipt += BOLD_OFF + '(VARI RASEETHU)' + LF;
+    receipt += BOLD_OFF + '(' + TAMIL_TRANSLATIONS['TAX INVOICE'] + ')' + LF;
     receipt += BOLD_ON;
   }
   receipt += BOLD_OFF + LEFT;
@@ -227,7 +227,7 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += padRight('TOTAL:', 14) + padLeft('Rs.' + formatCurrency(data.total), 18) + LF;
   if (data.enableBilingual) {
     receipt += NORMAL_SIZE;
-    receipt += padRight('(MOTHTHAM)', 14) + LF;
+    receipt += padRight('(' + TAMIL_TRANSLATIONS['TOTAL'] + ')', 14) + LF;
   }
   receipt += NORMAL_SIZE + BOLD_OFF;
   
@@ -238,7 +238,7 @@ function generateReceiptCommands(data: ReceiptData): string {
   const thankYou = data.thankYouNote || 'Thank you for your business!';
   receipt += thankYou + LF;
   if (data.enableBilingual) {
-    receipt += '(Ungal Vanigathirkku Nandri!)' + LF;
+    receipt += '(' + TAMIL_TRANSLATIONS['Thank you for your business!'] + ')' + LF;
   }
   
   // Feed and cut
