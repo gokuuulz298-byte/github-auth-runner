@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Minus, Monitor, ClipboardList, Search, Package, Printer } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Monitor, ClipboardList, Search, Package, Printer, Keyboard } from "lucide-react";
 import { toast } from "sonner";
 import ShoppingCart, { CartItem } from "@/components/ShoppingCart";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,9 +53,12 @@ const ModernBilling = () => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
   const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1);
+  const [keyboardNavEnabled, setKeyboardNavEnabled] = useState<boolean>(false);
 
-  // Keyboard navigation handler
+  // Keyboard navigation handler - only active when toggle is enabled
   useEffect(() => {
+    if (!keyboardNavEnabled) return;
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -137,7 +140,7 @@ const ModernBilling = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [products, selectedProductIndex, cartItems, productQuantities]);
+  }, [keyboardNavEnabled, products, selectedProductIndex, cartItems, productQuantities]);
 
   // Initialize counter session
   useEffect(() => {
@@ -1529,6 +1532,16 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
               }}
             />
             <PrinterStatusIndicator />
+            {/* Keyboard Navigation Toggle */}
+            <Button
+              variant={keyboardNavEnabled ? "default" : "outline"}
+              size="icon"
+              onClick={() => setKeyboardNavEnabled(!keyboardNavEnabled)}
+              title={keyboardNavEnabled ? "Keyboard Navigation ON (Arrow keys, Enter, +/-)" : "Enable Keyboard Navigation"}
+              className={keyboardNavEnabled ? "bg-green-600 hover:bg-green-700" : ""}
+            >
+              <Keyboard className="h-4 w-4" />
+            </Button>
             <select
               value={invoiceFormat}
               onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
@@ -1540,6 +1553,17 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
           </div>
         </div>
       </header>
+      
+      {/* Keyboard Navigation Help */}
+      {keyboardNavEnabled && (
+        <div className="bg-green-50 dark:bg-green-950/30 border-b border-green-200 dark:border-green-800 px-4 py-2 text-xs text-green-700 dark:text-green-400 flex items-center gap-4">
+          <span className="font-medium">⌨️ Keyboard Mode:</span>
+          <span>↑↓←→ Navigate</span>
+          <span>Enter Add to cart</span>
+          <span>+/- Adjust quantity</span>
+          <span>Esc Clear selection</span>
+        </div>
+      )}
 
       {/* Order Status Monitor */}
       <OrderStatusMonitor isOpen={showOrderMonitor} onClose={() => setShowOrderMonitor(false)} />

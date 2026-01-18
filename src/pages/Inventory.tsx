@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { saveProductsToIndexedDB, getAllProducts, deleteProductFromIndexedDB } from "@/lib/indexedDB";
+import BulkProductImport from "@/components/BulkProductImport";
 
 interface Product {
   id: string;
@@ -324,8 +325,8 @@ const Inventory = () => {
     setSelectedBarcode("");
   };
 
-  // Auto-translate product name to Tamil using Google Translate API
-  const translateToTamil = async () => {
+  // Transliterate product name to Tamil phonetically (NOT translate)
+  const transliterateToTamil = async () => {
     if (!formData.name.trim()) {
       toast.error("Please enter product name first");
       return;
@@ -333,22 +334,83 @@ const Inventory = () => {
 
     setIsTranslating(true);
     try {
-      // Using free Google Translate API endpoint
-      const response = await fetch(
-        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ta&dt=t&q=${encodeURIComponent(formData.name)}`
-      );
-      const data = await response.json();
+      // Phonetic transliteration map for common sounds
+      const transliterationRules: { [key: string]: string } = {
+        // Double vowels first
+        'aa': 'ஆ', 'ee': 'ஈ', 'ii': 'ஈ', 'oo': 'ஊ', 'uu': 'ஊ', 'ai': 'ஐ', 'au': 'ஔ',
+        // Consonant + vowel combinations
+        'ka': 'கா', 'ki': 'கி', 'ku': 'கு', 'ke': 'கே', 'ko': 'கோ',
+        'ga': 'கா', 'gi': 'கி', 'gu': 'கு', 'ge': 'கே', 'go': 'கோ',
+        'cha': 'சா', 'chi': 'சி', 'chu': 'சு', 'che': 'சே', 'cho': 'சோ',
+        'ja': 'ஜா', 'ji': 'ஜி', 'ju': 'ஜு', 'je': 'ஜே', 'jo': 'ஜோ',
+        'ta': 'டா', 'ti': 'டி', 'tu': 'டு', 'te': 'டே', 'to': 'டோ',
+        'tha': 'தா', 'thi': 'தி', 'thu': 'து', 'the': 'தே', 'tho': 'தோ',
+        'da': 'டா', 'di': 'டி', 'du': 'டு', 'de': 'டே', 'do': 'டோ',
+        'na': 'நா', 'ni': 'நி', 'nu': 'நு', 'ne': 'நே', 'no': 'நோ',
+        'pa': 'பா', 'pi': 'பி', 'pu': 'பு', 'pe': 'பே', 'po': 'போ',
+        'ba': 'பா', 'bi': 'பி', 'bu': 'பு', 'be': 'பே', 'bo': 'போ',
+        'ma': 'மா', 'mi': 'மி', 'mu': 'மு', 'me': 'மே', 'mo': 'மோ',
+        'ya': 'யா', 'yi': 'யி', 'yu': 'யு', 'ye': 'யே', 'yo': 'யோ',
+        'ra': 'ரா', 'ri': 'ரி', 'ru': 'ரு', 're': 'ரே', 'ro': 'ரோ',
+        'la': 'லா', 'li': 'லி', 'lu': 'லு', 'le': 'லே', 'lo': 'லோ',
+        'va': 'வா', 'vi': 'வி', 'vu': 'வு', 've': 'வே', 'vo': 'வோ',
+        'sa': 'சா', 'si': 'சி', 'su': 'சு', 'se': 'சே', 'so': 'சோ',
+        'sha': 'ஷா', 'shi': 'ஷி', 'shu': 'ஷு', 'she': 'ஷே', 'sho': 'ஷோ',
+        'ha': 'ஹா', 'hi': 'ஹி', 'hu': 'ஹு', 'he': 'ஹே', 'ho': 'ஹோ',
+        'fa': 'ஃபா', 'fi': 'ஃபி', 'fu': 'ஃபு', 'fe': 'ஃபே', 'fo': 'ஃபோ',
+        // Single consonants
+        'k': 'க்', 'g': 'க்', 'c': 'ச்', 'j': 'ஜ்', 't': 'ட்', 'd': 'ட்',
+        'n': 'ந்', 'p': 'ப்', 'b': 'ப்', 'm': 'ம்', 'y': 'ய்', 'r': 'ர்',
+        'l': 'ல்', 'v': 'வ்', 'w': 'வ்', 's': 'ஸ்', 'h': 'ஹ்', 'f': 'ஃப்',
+        // Vowels
+        'a': 'அ', 'i': 'இ', 'u': 'உ', 'e': 'எ', 'o': 'ஒ',
+        // Common words transliterated (phonetic - how they sound)
+        'milk': 'மில்க்', 'nice': 'நைஸ்', 'aavin': 'ஆவின்', 'amul': 'அமுல்',
+        'biscuit': 'பிஸ்கட்', 'bread': 'பிரெட்', 'butter': 'பட்டர்',
+        'chocolate': 'சாக்லேட்', 'coffee': 'காஃபி', 'tea': 'டீ',
+        'rice': 'ரைஸ்', 'sugar': 'சுகர்', 'salt': 'சால்ட்',
+      };
       
-      if (data && data[0] && data[0][0] && data[0][0][0]) {
-        const tamilName = data[0][0][0];
-        setFormData({ ...formData, tamil_name: tamilName });
-        toast.success("Translated to Tamil successfully!");
-      } else {
-        toast.error("Translation failed. Please enter manually.");
+      // Process each word in the name
+      const words = formData.name.toLowerCase().split(/\s+/);
+      const transliteratedWords: string[] = [];
+      
+      for (const word of words) {
+        // Check if word exists in map
+        if (transliterationRules[word]) {
+          transliteratedWords.push(transliterationRules[word]);
+          continue;
+        }
+        
+        // Character-by-character transliteration
+        let result = '';
+        let i = 0;
+        while (i < word.length) {
+          let matched = false;
+          // Try 3, 2, 1 character matches
+          for (let len = 3; len >= 1; len--) {
+            const substr = word.substring(i, i + len);
+            if (transliterationRules[substr]) {
+              result += transliterationRules[substr];
+              i += len;
+              matched = true;
+              break;
+            }
+          }
+          if (!matched) {
+            result += word[i];
+            i++;
+          }
+        }
+        transliteratedWords.push(result);
       }
+      
+      const tamilName = transliteratedWords.join(' ');
+      setFormData({ ...formData, tamil_name: tamilName });
+      toast.success("Transliterated to Tamil successfully!");
     } catch (error) {
-      console.error("Translation error:", error);
-      toast.error("Translation failed. Please enter manually.");
+      console.error("Transliteration error:", error);
+      toast.error("Transliteration failed. Please enter manually.");
     } finally {
       setIsTranslating(false);
     }
@@ -418,6 +480,7 @@ const Inventory = () => {
               className="pl-10"
             />
           </div>
+          <BulkProductImport onImportComplete={fetchProducts} />
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             setDialogOpen(open);
             if (!open) resetForm();
@@ -471,15 +534,15 @@ const Inventory = () => {
                     <Button
                       type="button"
                       variant="secondary"
-                      onClick={translateToTamil}
+                      onClick={transliterateToTamil}
                       disabled={isTranslating || !formData.name.trim()}
                       className="whitespace-nowrap"
                     >
-                      {isTranslating ? "Translating..." : "Auto Translate"}
+                      {isTranslating ? "Converting..." : "Auto Transliterate"}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    For bilingual bills - enter Tamil name or use Auto Translate
+                    For bilingual bills - enter Tamil name or use Auto Transliterate (phonetic: milk = மில்க்)
                   </p>
                 </div>
 
@@ -771,8 +834,8 @@ const Inventory = () => {
                     <TableHead>Category</TableHead>
                     <TableHead>Selling Price (MRP)</TableHead>
                     <TableHead>Buying Price</TableHead>
-                    <TableHead>Base Price</TableHead>
                     <TableHead>Profit</TableHead>
+                    <TableHead>Margin %</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Tax Rate</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -790,24 +853,36 @@ const Inventory = () => {
                       </TableCell>
                       <TableCell>₹{((product as any).buying_price || 0).toFixed(2)}</TableCell>
                       <TableCell>
-                        {/* Base Price = MRP / (1 + Tax%) */}
-                        {(() => {
-                          const taxRate = product.tax_rate || 0;
-                          const basePrice = product.price / (1 + taxRate / 100);
-                          return `₹${basePrice.toFixed(2)}`;
-                        })()}
-                      </TableCell>
-                      <TableCell>
-                        {/* Profit = Base Price - Buying Price */}
+                        {/* Profit = Base Price - Buying Price (for inclusive GST) */}
                         {(() => {
                           const taxRate = product.tax_rate || 0;
                           const buyingPrice = (product as any).buying_price || 0;
-                          const basePrice = product.price / (1 + taxRate / 100);
+                          // Base price = MRP / (1 + Tax%) - for tax-inclusive pricing
+                          const basePrice = taxRate > 0 ? product.price / (1 + taxRate / 100) : product.price;
                           const profit = basePrice - buyingPrice;
                           const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
                           return (
                             <span className={profitColor}>
                               ₹{profit.toFixed(2)}
+                            </span>
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        {/* Profit Margin % = (Profit / Buying Price) × 100 */}
+                        {(() => {
+                          const taxRate = product.tax_rate || 0;
+                          const buyingPrice = (product as any).buying_price || 0;
+                          const basePrice = taxRate > 0 ? product.price / (1 + taxRate / 100) : product.price;
+                          const profit = basePrice - buyingPrice;
+                          
+                          if (buyingPrice <= 0) return <span className="text-muted-foreground">-</span>;
+                          
+                          const margin = (profit / buyingPrice) * 100;
+                          const marginColor = margin >= 20 ? 'text-green-600' : margin >= 0 ? 'text-amber-600' : 'text-red-600';
+                          return (
+                            <span className={marginColor}>
+                              {margin.toFixed(1)}%
                             </span>
                           );
                         })()}

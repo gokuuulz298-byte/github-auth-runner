@@ -481,38 +481,47 @@ function generateReceiptCommands(data: ReceiptData): string {
     
     const itemName = item.name;
     
-    // Line 1: English item name (wrap if longer than LINE_WIDTH)
-    const nameLines = wrapText(itemName, LINE_WIDTH);
-    for (const line of nameLines) {
-      receipt += line + LF;
-    }
+    // Check if product name is short enough to fit on same line with numbers
+    const maxNameWidth = 12; // Space for name before Qty/Rate/Amt columns
+    const isShortName = itemName.length <= maxNameWidth;
     
-    // Line 2: Tamil name in brackets (if bilingual) - using TRANSLITERATION
-    if (data.enableBilingual) {
-      const tamilName = item.nameTamil || getProductTamilName(item.name);
-      if (tamilName) {
-        const tamilLine = '(' + tamilName + ')';
-        const tamilLines = wrapText(tamilLine, LINE_WIDTH);
-        for (const line of tamilLines) {
-          receipt += line + LF;
+    if (isShortName && !data.enableBilingual) {
+      // Short name: single line with name + qty/rate/amt
+      const formattedLine = padRight(itemName, 12) + padLeft(qtyStr, 4) + padLeft(rateStr, 8) + padLeft(amtStr, 8);
+      receipt += formattedLine + LF;
+    } else {
+      // Long name or bilingual: multi-line format
+      // Line 1: English item name (wrap if longer than LINE_WIDTH)
+      const nameLines = wrapText(itemName, LINE_WIDTH);
+      for (const line of nameLines) {
+        receipt += line + LF;
+      }
+      
+      // Line 2: Tamil name in brackets (if bilingual) - using TRANSLITERATION
+      if (data.enableBilingual) {
+        const tamilName = item.nameTamil || getProductTamilName(item.name);
+        if (tamilName) {
+          const tamilLine = '(' + tamilName + ')';
+          const tamilLines = wrapText(tamilLine, LINE_WIDTH);
+          for (const line of tamilLines) {
+            receipt += line + LF;
+          }
         }
       }
+      
+      // Line 3: Numbers ONLY - Qty, Rate, Amt right-aligned
+      const numericLine = ' '.repeat(12) + padLeft(qtyStr, 4) + padLeft(rateStr, 8) + padLeft(amtStr, 8);
+      receipt += numericLine + LF;
     }
-    
-    // Line 3: Numbers ONLY - Qty, Rate, Amt right-aligned
-    const numericLine = ' '.repeat(12) + padLeft(qtyStr, 4) + padLeft(rateStr, 8) + padLeft(amtStr, 8);
-    receipt += numericLine + LF;
-    
-    // Empty line between items for readability
-    receipt += LF;
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Totals section - right aligned values
-  const subtotalLabel = 'Subtotal:';
+  // Totals section - use predefined Tamil text in compact format
+  // Subtotal with inline Tamil
+  const subtotalLabel = data.enableBilingual ? 'Subtotal/உபமொத்தம்:' : 'Subtotal:';
   const subtotalVal = formatCurrency(data.subtotal);
-  receipt += subtotalLabel + ' '.repeat(LINE_WIDTH - subtotalLabel.length - subtotalVal.length) + subtotalVal + LF;
+  receipt += padRight(subtotalLabel, LINE_WIDTH - subtotalVal.length) + subtotalVal + LF;
   
   // Show tax based on billing mode
   const showTax = data.billingMode !== 'no_tax' && 
@@ -531,9 +540,9 @@ function generateReceiptCommands(data: ReceiptData): string {
   }
   
   if (data.discount && data.discount > 0) {
-    const discLabel = 'Discount:';
+    const discLabel = data.enableBilingual ? 'Discount/தள்ளுபடி:' : 'Discount:';
     const discVal = '-' + formatCurrency(data.discount);
-    receipt += discLabel + ' '.repeat(LINE_WIDTH - discLabel.length - discVal.length) + discVal + LF;
+    receipt += padRight(discLabel, LINE_WIDTH - discVal.length) + discVal + LF;
   }
   
   // Calculate round-off
@@ -548,39 +557,27 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Grand total (bold, normal size to prevent cutoff)
+  // Grand total (bold, normal size to prevent cutoff) with inline Tamil
   receipt += LEFT + BOLD_ON;
-  const totalLabel = 'TOTAL:';
+  const totalLabel = data.enableBilingual ? 'TOTAL/மொத்தம்:' : 'TOTAL:';
   const totalVal = 'Rs.' + roundedTotal.toFixed(2);
-  receipt += totalLabel + ' '.repeat(Math.max(1, LINE_WIDTH - totalLabel.length - totalVal.length)) + totalVal + LF;
+  receipt += padRight(totalLabel, LINE_WIDTH - totalVal.length) + totalVal + LF;
   receipt += BOLD_OFF;
-  
-  // Tamil translation for TOTAL on a SEPARATE line with spacing
-  if (data.enableBilingual) {
-    receipt += LF;  // Extra line break
-    receipt += CENTER;
-    receipt += '(' + TAMIL_TRANSLATIONS['TOTAL'] + ')' + LF;
-    receipt += LF;  // Extra line break after Tamil
-  }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Thank you note (centered)
+  // Thank you note (centered) with inline Tamil
   receipt += CENTER + BOLD_ON;
   const thankYou = data.thankYouNote || 'Thank you for your business!';
   const thankYouLines = wrapText(thankYou, LINE_WIDTH);
   for (const line of thankYouLines) {
     receipt += line + LF;
   }
-  receipt += BOLD_OFF;
-  
-  // Tamil translation for Thank You on SEPARATE line with spacing
+  // Inline Tamil thank you - நன்றி!
   if (data.enableBilingual) {
-    receipt += LF;  // Extra line break
-    receipt += CENTER;
-    receipt += '(' + TAMIL_TRANSLATIONS['Thank You!'] + ')' + LF;
-    receipt += LF;  // Extra line break after Tamil
+    receipt += '(நன்றி!)' + LF;
   }
+  receipt += BOLD_OFF;
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
