@@ -724,9 +724,10 @@ const AdvancedReports = () => {
 
         {/* Charts Section */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="profit">Profit Analysis</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
             {isRestaurant && <TabsTrigger value="restaurant">Restaurant</TabsTrigger>}
@@ -891,6 +892,142 @@ const AdvancedReports = () => {
                     {topProducts.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">No product data available</p>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Profit Analysis Tab - NEW */}
+          <TabsContent value="profit" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Profit KPI Cards */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    Profit Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/30 dark:to-emerald-900/30 p-4 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Total Profit</p>
+                      <p className="text-2xl font-bold text-green-600">₹{metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/30 dark:to-indigo-900/30 p-4 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Profit Margin</p>
+                      <p className="text-2xl font-bold text-blue-600">{metrics.profitMargin.toFixed(1)}%</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-950/30 dark:to-violet-900/30 p-4 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Avg Profit/Order</p>
+                      <p className="text-2xl font-bold text-purple-600">₹{metrics.totalOrders > 0 ? (metrics.totalProfit / metrics.totalOrders).toFixed(0) : 0}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950/30 dark:to-orange-900/30 p-4 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Revenue to Profit Ratio</p>
+                      <p className="text-2xl font-bold text-amber-600">{metrics.totalRevenue > 0 ? (metrics.totalRevenue / metrics.totalProfit).toFixed(1) : 0}:1</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top Profitable Products */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="h-5 w-5 text-amber-500" />
+                    Top Profitable Products
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {topProducts
+                      .sort((a, b) => b.profit - a.profit)
+                      .slice(0, 10)
+                      .map((product, index) => {
+                        const profitMargin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
+                        return (
+                          <div key={product.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
+                                index < 3 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {index + 1}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm">{product.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {product.quantity.toFixed(0)} units sold
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-green-600 text-sm">₹{product.profit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                              <p className="text-xs text-blue-600">{profitMargin.toFixed(1)}% margin</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {topProducts.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No profit data available</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Profit vs Revenue Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profit vs Revenue Trend</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <AreaChart data={revenueTrend}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Area type="monotone" dataKey="revenue" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Revenue (₹)" />
+                      <Area type="monotone" dataKey="profit" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Profit (₹)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Product Profit Breakdown Table */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Product-wise Profit Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2 font-semibold">Product</th>
+                          <th className="text-right p-2 font-semibold">Qty Sold</th>
+                          <th className="text-right p-2 font-semibold">Revenue</th>
+                          <th className="text-right p-2 font-semibold">Profit</th>
+                          <th className="text-right p-2 font-semibold">Margin %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topProducts.map((product) => {
+                          const margin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
+                          const marginColor = margin >= 20 ? 'text-green-600' : margin >= 10 ? 'text-amber-600' : 'text-red-600';
+                          return (
+                            <tr key={product.id} className="border-b hover:bg-muted/50">
+                              <td className="p-2 font-medium">{product.name}</td>
+                              <td className="p-2 text-right">{product.quantity.toFixed(2)}</td>
+                              <td className="p-2 text-right">₹{product.revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                              <td className="p-2 text-right text-green-600 font-medium">₹{product.profit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                              <td className={`p-2 text-right font-bold ${marginColor}`}>{margin.toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
