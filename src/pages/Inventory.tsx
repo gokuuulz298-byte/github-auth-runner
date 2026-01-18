@@ -42,6 +42,7 @@ const Inventory = () => {
     price: "",
     buying_price: "",
     stock_quantity: "",
+    low_stock_threshold: "10",
     hsn_code: "",
     product_tax: "",
     cgst: "",
@@ -189,6 +190,7 @@ const Inventory = () => {
         price: parseFloat(formData.price),
         buying_price: parseFloat(formData.buying_price) || 0,
         stock_quantity: parseFloat(formData.stock_quantity),
+        low_stock_threshold: parseInt(formData.low_stock_threshold) || 10,
         hsn_code: formData.hsn_code || null,
         product_tax: totalTax,
         cgst: cgst,
@@ -249,6 +251,7 @@ const Inventory = () => {
       price: product.price.toString(),
       buying_price: (product as any).buying_price?.toString() || "0",
       stock_quantity: product.stock_quantity.toString(),
+      low_stock_threshold: (product as any).low_stock_threshold?.toString() || "10",
       hsn_code: (product as any).hsn_code || "",
       product_tax: (product as any).product_tax?.toString() || "0",
       cgst: (product as any).cgst?.toString() || "0",
@@ -301,6 +304,7 @@ const Inventory = () => {
       price: "",
       buying_price: "",
       stock_quantity: "",
+      low_stock_threshold: "10",
       hsn_code: "",
       product_tax: "",
       cgst: "",
@@ -521,27 +525,38 @@ const Inventory = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="unit">Unit</Label>
-                    <Select
-                      value={formData.unit}
-                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
-                    >
-                      <SelectTrigger id="unit">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="piece">Piece</SelectItem>
-                        <SelectItem value="kg">Kilogram (kg)</SelectItem>
-                        <SelectItem value="litre">Litre</SelectItem>
-                        <SelectItem value="gram">Gram (g)</SelectItem>
-                        <SelectItem value="ml">Millilitre (ml)</SelectItem>
-                        <SelectItem value="meter">Meter (m)</SelectItem>
-                        <SelectItem value="box">Box</SelectItem>
-                        <SelectItem value="packet">Packet</SelectItem>
-                        <SelectItem value="dozen">Dozen</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="low_stock">Low Stock Alert Threshold</Label>
+                    <Input
+                      id="low_stock"
+                      type="number"
+                      value={formData.low_stock_threshold}
+                      onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
+                      placeholder="10"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Alert when stock falls below</p>
                   </div>
+                </div>
+                <div>
+                  <Label htmlFor="unit">Unit</Label>
+                  <Select
+                    value={formData.unit}
+                    onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                  >
+                    <SelectTrigger id="unit">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="piece">Piece</SelectItem>
+                      <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                      <SelectItem value="litre">Litre</SelectItem>
+                      <SelectItem value="gram">Gram (g)</SelectItem>
+                      <SelectItem value="ml">Millilitre (ml)</SelectItem>
+                      <SelectItem value="meter">Meter (m)</SelectItem>
+                      <SelectItem value="box">Box</SelectItem>
+                      <SelectItem value="packet">Packet</SelectItem>
+                      <SelectItem value="dozen">Dozen</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>

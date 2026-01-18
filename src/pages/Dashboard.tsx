@@ -36,6 +36,7 @@ const Dashboard = () => {
     { icon: QrCode, label: "Barcodes", path: "/barcodes", id: "barcodes", color: "from-cyan-500 to-blue-500" },
     { icon: FileText, label: "Templates", path: "/templates", id: "templates", color: "from-indigo-500 to-blue-500" },
     { icon: Package, label: "Purchases", path: "/purchases", id: "purchases", color: "from-emerald-500 to-teal-500" },
+    { icon: Users, label: "Suppliers", path: "/suppliers", id: "suppliers", color: "from-violet-500 to-indigo-500" },
     { icon: Receipt, label: "Expenses", path: "/expenses", id: "expenses", color: "from-red-500 to-rose-500" },
     { icon: UtensilsCrossed, label: "Tables", path: "/restaurant-tables", id: "restaurant-tables", color: "from-amber-500 to-orange-500" },
     { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", id: "kitchen", color: "from-orange-500 to-red-500" },
@@ -44,6 +45,11 @@ const Dashboard = () => {
 
   // Filter menu items based on role and permissions
   const getFilteredMenuItems = () => {
+    // Wait for role to be loaded
+    if (authLoading || !role) {
+      return null; // Return null while loading
+    }
+    
     if (isAdmin) {
       // Admin sees all except waiter interface in grid (they can access via button)
       // Only show restaurant items if restaurant mode is enabled
@@ -209,7 +215,11 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {menuItems.length === 0 ? (
+        {menuItems === null ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        ) : menuItems.length === 0 ? (
           <div className="text-center py-12">
             <UserCog className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-medium text-muted-foreground">No modules assigned</h3>

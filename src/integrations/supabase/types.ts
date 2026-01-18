@@ -544,6 +544,7 @@ export type Database = {
           image_url: string | null
           is_deleted: boolean | null
           is_inclusive: boolean | null
+          low_stock_threshold: number | null
           name: string
           price: number
           price_type: string | null
@@ -566,6 +567,7 @@ export type Database = {
           image_url?: string | null
           is_deleted?: boolean | null
           is_inclusive?: boolean | null
+          low_stock_threshold?: number | null
           name: string
           price: number
           price_type?: string | null
@@ -588,6 +590,7 @@ export type Database = {
           image_url?: string | null
           is_deleted?: boolean | null
           is_inclusive?: boolean | null
+          low_stock_threshold?: number | null
           name?: string
           price?: number
           price_type?: string | null
@@ -746,6 +749,48 @@ export type Database = {
           is_active?: boolean | null
           password_hash?: string
           show_in_bill?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          created_by: string
+          email: string | null
+          gst_number: string | null
+          id: string
+          mapped_products: string[] | null
+          name: string
+          notes: string | null
+          phone: string
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          created_by: string
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          mapped_products?: string[] | null
+          name: string
+          notes?: string | null
+          phone: string
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          created_by?: string
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          mapped_products?: string[] | null
+          name?: string
+          notes?: string | null
+          phone?: string
           updated_at?: string | null
         }
         Relationships: []
