@@ -173,7 +173,7 @@ export function buildReceiptData(params: {
   return {
     billNumber,
     companyName: companyProfile?.company_name || "STORE",
-    companyNameTamil: companyProfile?.company_name ? transliterate(companyProfile.company_name) : undefined,
+    companyNameTamil: companyProfile?.company_name_tamil || undefined,
     address: companyProfile?.address,
     city: companyProfile?.city,
     state: companyProfile?.state,

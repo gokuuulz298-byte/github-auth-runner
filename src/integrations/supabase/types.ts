@@ -77,6 +77,7 @@ export type Database = {
           billing_settings: Json | null
           city: string | null
           company_name: string
+          company_name_tamil: string | null
           created_at: string | null
           email: string | null
           gstin: string | null
@@ -93,6 +94,7 @@ export type Database = {
           billing_settings?: Json | null
           city?: string | null
           company_name: string
+          company_name_tamil?: string | null
           created_at?: string | null
           email?: string | null
           gstin?: string | null
@@ -109,6 +111,7 @@ export type Database = {
           billing_settings?: Json | null
           city?: string | null
           company_name?: string
+          company_name_tamil?: string | null
           created_at?: string | null
           email?: string | null
           gstin?: string | null

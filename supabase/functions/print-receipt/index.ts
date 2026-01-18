@@ -47,7 +47,6 @@ const LF = '\n';
 const INIT = ESC + '@';  // Initialize printer
 const CENTER = ESC + 'a' + '\x01';  // Center align
 const LEFT = ESC + 'a' + '\x00';  // Left align
-const RIGHT = ESC + 'a' + '\x02';  // Right align
 const BOLD_ON = ESC + 'E' + '\x01';
 const BOLD_OFF = ESC + 'E' + '\x00';
 const DOUBLE_HEIGHT = ESC + '!' + '\x10';
@@ -55,13 +54,16 @@ const NORMAL_SIZE = ESC + '!' + '\x00';
 const CUT_PAPER = GS + 'V' + '\x00';  // Full cut
 const FEED_LINES = (n: number) => ESC + 'd' + String.fromCharCode(n);
 
+const LINE_WIDTH = 32; // 58mm printer = 32 chars
+
 // Tamil Unicode translations for common terms
 const TAMIL_TRANSLATIONS: { [key: string]: string } = {
   'TAX INVOICE': 'வரி இரசீது',
   'TAKEAWAY': 'எடுத்துச்செல்ல',
-  'Bill No': 'ரசீது எண்',
+  'Bill': 'ரசீது',
   'Date': 'தேதி',
   'Time': 'நேரம்',
+  'Mode': 'முறை',
   'Customer': 'வாடிக்கையாளர்',
   'Phone': 'தொலைபேசி',
   'Points': 'புள்ளிகள்',
@@ -70,20 +72,30 @@ const TAMIL_TRANSLATIONS: { [key: string]: string } = {
   'Rate': 'விலை',
   'Amt': 'தொகை',
   'Subtotal': 'உப மொத்தம்',
-  'SGST': 'எஸ்ஜிஎஸ்டி',
-  'CGST': 'சிஜிஎஸ்டி',
-  'IGST': 'ஐஜிஎஸ்டி',
+  'Tax': 'வரி',
   'Discount': 'தள்ளுபடி',
   'TOTAL': 'மொத்தம்',
-  'Thank you for your business!': 'உங்கள் வணிகத்திற்கு நன்றி!',
-  'Payment': 'செலுத்தி',
+  'Thank You!': 'நன்றி!',
   'CASH': 'ரொக்கம்',
   'UPI': 'யூபிஐ',
   'CARD': 'அட்டை',
 };
 
-// Common product name translations to Tamil
+// Common product name translations to Tamil Unicode
 const PRODUCT_TAMIL_MAP: { [key: string]: string } = {
+  // Biscuits and snacks
+  'lotus biscoff': 'லோட்டஸ் பிஸ்காஃப்',
+  'biscoff': 'பிஸ்காஃப்',
+  'milk bikis': 'மில்க் பிகிஸ்',
+  'bikis': 'பிகிஸ்',
+  'good day': 'குட் டே',
+  'bourbon': 'போர்பன்',
+  'marie': 'மேரி',
+  'parle-g': 'பார்லே-ஜி',
+  'parle': 'பார்லே',
+  'oreo': 'ஓரியோ',
+  'hide & seek': 'ஹைட் & சீக்',
+  
   // Food items
   'rice': 'அரிசி', 'biryani': 'பிரியாணி', 'chicken': 'கோழி', 'mutton': 'ஆட்டிறைச்சி',
   'fish': 'மீன்', 'egg': 'முட்டை', 'dosa': 'தோசை', 'idli': 'இட்லி',
@@ -141,8 +153,13 @@ function formatCurrency(num: number): string {
   return num.toFixed(2);
 }
 
+function centerText(text: string, width: number): string {
+  if (text.length >= width) return text.substring(0, width);
+  const padding = Math.floor((width - text.length) / 2);
+  return ' '.repeat(padding) + text;
+}
+
 function generateReceiptCommands(data: ReceiptData): string {
-  const LINE_WIDTH = 32; // 58mm printer = 32 chars
   let receipt = '';
   
   // Initialize printer
@@ -160,25 +177,26 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += LF;
   }
   
-  // Company Header
+  // Company Header - English
   receipt += CENTER + BOLD_ON + DOUBLE_HEIGHT;
-  receipt += data.companyName + LF;
+  receipt += data.companyName.toUpperCase() + LF;
+  receipt += NORMAL_SIZE + BOLD_OFF;
   
-  // Tamil company name
+  // Tamil company name on separate line (if bilingual)
   if (data.enableBilingual && data.companyNameTamil) {
-    receipt += NORMAL_SIZE;
+    receipt += CENTER;
     receipt += '(' + data.companyNameTamil + ')' + LF;
   }
   
-  receipt += NORMAL_SIZE + BOLD_OFF;
+  receipt += CENTER;
   
   if (data.address) {
     receipt += data.address + LF;
   }
   
-  const location = [data.city, data.state, data.pincode].filter(Boolean).join(', ');
-  if (location) {
-    receipt += location + LF;
+  const location = [data.city, data.state].filter(Boolean).join(', ');
+  if (location || data.pincode) {
+    receipt += [location, data.pincode].filter(Boolean).join(' - ') + LF;
   }
   
   if (data.phone) {
@@ -197,20 +215,26 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += 'TAX INVOICE' + LF;
   if (data.enableBilingual) {
     receipt += BOLD_OFF + '(' + TAMIL_TRANSLATIONS['TAX INVOICE'] + ')' + LF;
-    receipt += BOLD_ON;
   }
-  receipt += BOLD_OFF + LEFT;
+  receipt += BOLD_OFF;
   
-  // Bill details
+  receipt += '-'.repeat(LINE_WIDTH) + LF;
+  
+  // Bill details - formatted layout
+  receipt += LEFT;
   const now = new Date();
-  receipt += `Bill: ${data.billNumber}` + LF;
-  receipt += `Date: ${now.toLocaleDateString()}  Time: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` + LF;
-  receipt += `Payment: ${data.paymentMode.toUpperCase()}` + LF;
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-GB'); // DD/MM/YYYY
+  
+  receipt += `Bill: ${data.billNumber}     Mode: ${data.paymentMode.toUpperCase()}` + LF;
+  receipt += `Date: ${dateStr}    Time: ${timeStr}` + LF;
   
   // Customer details
-  if (data.customerName) {
+  if (data.customerName || data.customerPhone) {
     receipt += '-'.repeat(LINE_WIDTH) + LF;
-    receipt += `Customer: ${data.customerName}` + LF;
+    if (data.customerName) {
+      receipt += `Customer: ${data.customerName}` + LF;
+    }
     if (data.customerPhone) {
       receipt += `Phone: ${data.customerPhone}` + LF;
     }
@@ -222,72 +246,78 @@ function generateReceiptCommands(data: ReceiptData): string {
   // Items header
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   receipt += BOLD_ON;
-  receipt += padRight('Item', 14) + padLeft('Qty', 5) + padLeft('Rate', 6) + padLeft('Amt', 7) + LF;
+  // Column headers: Item(20) Qty(4) Rate(4) Amt(4) = 32
+  receipt += padRight('Item', 17) + padLeft('Qty', 5) + padLeft('Rate', 5) + padLeft('Amt', 5) + LF;
   receipt += BOLD_OFF;
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Items
+  // Items - English on first line, Tamil below
   for (const item of data.items) {
+    const qtyLabel = item.price_type === 'weight' ? item.quantity.toFixed(2) : item.quantity.toString();
+    const amount = item.price * item.quantity;
+    
+    // Item name - if longer than 17 chars, wrap to next line
     let itemName = item.name;
-    if (itemName.length > 14) {
-      // First line with values
-      receipt += padRight(itemName.substring(0, 14), 14);
-      const qtyLabel = item.price_type === 'weight' ? item.quantity.toFixed(2) : item.quantity.toString();
+    if (itemName.length <= 17) {
+      // Single line with values
+      receipt += padRight(itemName, 17);
       receipt += padLeft(qtyLabel, 5);
-      receipt += padLeft(formatCurrency(item.price), 6);
-      receipt += padLeft(formatCurrency(item.price * item.quantity), 7) + LF;
-      // Second line with remaining name
-      receipt += itemName.substring(14) + LF;
+      receipt += padLeft(formatCurrency(item.price), 5);
+      receipt += padLeft(formatCurrency(amount), 5) + LF;
     } else {
-      receipt += padRight(itemName, 14);
-      const qtyLabel = item.price_type === 'weight' ? item.quantity.toFixed(2) : item.quantity.toString();
+      // First line: Item name only
+      receipt += itemName + LF;
+      // Second line: Values aligned to right
+      receipt += padRight('', 17);
       receipt += padLeft(qtyLabel, 5);
-      receipt += padLeft(formatCurrency(item.price), 6);
-      receipt += padLeft(formatCurrency(item.price * item.quantity), 7) + LF;
+      receipt += padLeft(formatCurrency(item.price), 5);
+      receipt += padLeft(formatCurrency(amount), 5) + LF;
     }
     
-    // Tamil name - use provided nameTamil or auto-translate
+    // Tamil name on separate line (if bilingual)
     if (data.enableBilingual) {
       const tamilName = item.nameTamil || getProductTamilName(item.name);
       if (tamilName) {
-        receipt += '  (' + tamilName + ')' + LF;
+        receipt += '(' + tamilName + ')' + LF;
       }
     }
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Totals
-  receipt += padRight('Subtotal:', 18) + padLeft(formatCurrency(data.subtotal), 14) + LF;
+  // Totals - right aligned values
+  receipt += padRight('Subtotal:', 20) + padLeft(formatCurrency(data.subtotal), 12) + LF;
   
   if (data.taxAmount > 0) {
-    receipt += padRight('Tax:', 18) + padLeft(formatCurrency(data.taxAmount), 14) + LF;
+    receipt += padRight('Tax:', 20) + padLeft(formatCurrency(data.taxAmount), 12) + LF;
   }
   
   if (data.discount && data.discount > 0) {
-    receipt += padRight('Discount:', 18) + padLeft('-' + formatCurrency(data.discount), 14) + LF;
+    receipt += padRight('Discount:', 20) + padLeft('-' + formatCurrency(data.discount), 12) + LF;
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Grand total
   receipt += BOLD_ON + DOUBLE_HEIGHT;
-  receipt += padRight('TOTAL:', 14) + padLeft('Rs.' + formatCurrency(data.total), 18) + LF;
-  if (data.enableBilingual) {
-    receipt += NORMAL_SIZE;
-    receipt += padRight('(' + TAMIL_TRANSLATIONS['TOTAL'] + ')', 14) + LF;
-  }
+  receipt += padRight('TOTAL:', 12) + padLeft('Rs.' + formatCurrency(data.total), 20) + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
+  
+  if (data.enableBilingual) {
+    receipt += padRight('(' + TAMIL_TRANSLATIONS['TOTAL'] + ')', 12) + LF;
+  }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Thank you note
   receipt += CENTER;
-  const thankYou = data.thankYouNote || 'Thank you for your business!';
+  const thankYou = data.thankYouNote || 'Thank You!';
   receipt += thankYou + LF;
   if (data.enableBilingual) {
-    receipt += '(' + TAMIL_TRANSLATIONS['Thank you for your business!'] + ')' + LF;
+    receipt += '(' + TAMIL_TRANSLATIONS['Thank You!'] + ')' + LF;
   }
+  
+  receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Feed and cut
   receipt += FEED_LINES(4);
@@ -309,6 +339,11 @@ serve(async (req) => {
     
     // Generate ESC/POS commands
     const escposCommands = generateReceiptCommands(receiptData);
+    
+    // Log preview for debugging
+    console.log('================ BILL PREVIEW ================');
+    console.log(escposCommands.replace(/[\x1B\x1D]./g, '')); // Strip control chars for preview
+    console.log('============== END BILL PREVIEW ==============');
     
     // Convert to base64 for transmission
     const encoder = new TextEncoder();
