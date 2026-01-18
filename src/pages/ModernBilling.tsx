@@ -1696,9 +1696,22 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                             {product.name}
                           </h3>
                           <div className="flex items-center justify-between gap-1">
-                            <p className="text-primary font-bold text-sm">
-                              ₹{formatIndianNumber(Number((discountPercentage > 0 ? discountedPrice : originalPrice).toFixed(2)))}
-                            </p>
+                            <div className="flex flex-col">
+                              {discountPercentage > 0 ? (
+                                <>
+                                  <span className="text-xs text-muted-foreground line-through">
+                                    ₹{formatIndianNumber(originalPrice)}
+                                  </span>
+                                  <span className="text-primary font-bold text-sm">
+                                    ₹{formatIndianNumber(Number(discountedPrice.toFixed(2)))}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-primary font-bold text-sm">
+                                  ₹{formatIndianNumber(originalPrice)}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1">
                               <Button
                                 size="icon"
@@ -1917,7 +1930,9 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                 <Label htmlFor="coupon" className="text-xs sm:text-sm">Apply Coupon</Label>
                 <select
                   id="coupon"
-                  className="w-full rounded-md border border-input bg-background px-2 sm:px-3 py-2 h-9 sm:h-10 text-xs sm:text-sm"
+                  className={`w-full rounded-md border bg-background px-2 sm:px-3 py-2 h-9 sm:h-10 text-xs sm:text-sm transition-colors ${
+                    selectedCoupon ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-input'
+                  }`}
                   value={selectedCoupon}
                   onChange={(e) => setSelectedCoupon(e.target.value)}
                 >
@@ -1928,10 +1943,13 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                     </option>
                   ))}
                 </select>
-                {totals.couponDiscountAmount > 0 && (
-                  <p className="text-xs text-green-600">
-                    Discount: -₹{formatIndianNumber(Number(totals.couponDiscountAmount.toFixed(2)))}
-                  </p>
+                {selectedCoupon && (
+                  <div className="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-md p-2 mt-1">
+                    <p className="text-xs font-medium text-green-700 dark:text-green-400 flex items-center justify-between">
+                      <span>🎉 Coupon Applied!</span>
+                      <span className="text-green-600">-₹{formatIndianNumber(Number(totals.couponDiscountAmount.toFixed(2)))}</span>
+                    </p>
+                  </div>
                 )}
               </div>
 

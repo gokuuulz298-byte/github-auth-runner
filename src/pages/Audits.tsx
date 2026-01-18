@@ -9,6 +9,7 @@ import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface AuditEntry {
   id: string;
@@ -437,7 +438,7 @@ const Audits = () => {
           <CardContent>
             {loading ? (
               <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                <LoadingSpinner size="lg" text="Loading audit trail..." />
               </div>
             ) : filteredAudits.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
