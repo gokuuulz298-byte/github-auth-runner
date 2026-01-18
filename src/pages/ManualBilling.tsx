@@ -14,6 +14,34 @@ import { formatIndianNumber } from "@/lib/numberFormat";
 import { setCounterSession, getCounterSession } from "@/lib/counterSession";
 import { printEscPosReceipt, buildReceiptData } from "@/lib/escposPrinter";
 import LoadingButton from "@/components/LoadingButton";
+import PrinterStatusIndicator from "@/components/PrinterStatusIndicator";
+
+// Tamil transliteration map for common product names (romanized Tamil)
+const TAMIL_TRANSLITERATION: { [key: string]: string } = {
+  'rice': 'Arisi', 'biryani': 'Biriyani', 'chicken': 'Kozhi', 'mutton': 'Aattu Iraichi',
+  'fish': 'Meen', 'egg': 'Muttai', 'dosa': 'Dosai', 'idli': 'Idli',
+  'vada': 'Vadai', 'sambar': 'Sambar', 'rasam': 'Rasam', 'curd': 'Thayir',
+  'tea': 'Theneer', 'coffee': 'Kaapi', 'milk': 'Paal', 'juice': 'Saaru',
+  'water': 'Thanneer', 'butter': 'Vennai', 'ghee': 'Nei', 'oil': 'Ennai',
+  'meal': 'Saapadu', 'meals': 'Saapadu', 'sweet': 'Inippu', 'parotta': 'Parotta',
+  'chapati': 'Chapathi', 'naan': 'Naan', 'paneer': 'Paneer', 'curry': 'Kari',
+  'masala': 'Masala', 'fry': 'Varuval', 'gravy': 'Kulambu', 'dal': 'Paruppu',
+  'tomato': 'Thakkali', 'onion': 'Vengayam', 'potato': 'Urulaikizhangu',
+  'banana': 'Vazhaipazham', 'apple': 'Apple', 'mango': 'Maambazham',
+  'coconut': 'Thengai', 'lemon': 'Elumichai', 'premium': 'Premium',
+};
+
+// Get Tamil transliteration for product name
+const getTamilName = (englishName: string, tamilName?: string): string => {
+  if (tamilName) return tamilName;
+  const lowerName = englishName.toLowerCase();
+  for (const [eng, tamil] of Object.entries(TAMIL_TRANSLITERATION)) {
+    if (lowerName.includes(eng)) {
+      return tamil;
+    }
+  }
+  return '';
+};
 
 const ManualBilling = () => {
   const navigate = useNavigate();
@@ -724,6 +752,17 @@ const ManualBilling = () => {
       doc.setFont(undefined, 'bold');
       doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
       
+      // Tamil company name (transliteration)
+      if (billingSettings?.enableBilingualBill) {
+        currentY += 3;
+        doc.setFontSize(7);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(80, 80, 80);
+        const tamilCompanyName = companyProfile.company_name_tamil || `(${companyProfile.company_name})`;
+        doc.text(tamilCompanyName, centerX, currentY, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      }
+      
       doc.setFontSize(8);
       doc.setFont(undefined, 'normal');
       currentY += 5;
@@ -872,6 +911,19 @@ const ManualBilling = () => {
 
         currentY += index === 0 ? 4.2 : 3.5;
       });
+      
+      // Add Tamil name if bilingual is enabled
+      if (billingSettings?.enableBilingualBill) {
+        const tamilName = getTamilName(item.name, (item as any).tamil_name);
+        if (tamilName) {
+          doc.setFontSize(5);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`(${tamilName})`, leftMargin + 2, currentY);
+          doc.setTextColor(0, 0, 0);
+          doc.setFontSize(6.5);
+          currentY += 2.5;
+        }
+      }
 
       currentY += 0.5; // Small gap between products
     });
@@ -1360,11 +1412,14 @@ const ManualBilling = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-lg font-bold">Manual Billing</h1>
-          {!isOnline && (
-            <span className="ml-auto bg-warning text-warning-foreground px-2 py-0.5 rounded-full text-xs">
-              Offline
-            </span>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            <PrinterStatusIndicator />
+            {!isOnline && (
+              <span className="bg-warning text-warning-foreground px-2 py-0.5 rounded-full text-xs">
+                Offline
+              </span>
+            )}
+          </div>
         </div>
       </header>
 

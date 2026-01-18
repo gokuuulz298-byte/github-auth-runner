@@ -19,6 +19,34 @@ import LiveOrdersPanel from "@/components/LiveOrdersPanel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { printEscPosReceipt, buildReceiptData } from "@/lib/escposPrinter";
 import LoadingButton from "@/components/LoadingButton";
+import PrinterStatusIndicator from "@/components/PrinterStatusIndicator";
+
+// Tamil transliteration map for common product names (romanized Tamil)
+const TAMIL_TRANSLITERATION: { [key: string]: string } = {
+  'rice': 'Arisi', 'biryani': 'Biriyani', 'chicken': 'Kozhi', 'mutton': 'Aattu Iraichi',
+  'fish': 'Meen', 'egg': 'Muttai', 'dosa': 'Dosai', 'idli': 'Idli',
+  'vada': 'Vadai', 'sambar': 'Sambar', 'rasam': 'Rasam', 'curd': 'Thayir',
+  'tea': 'Theneer', 'coffee': 'Kaapi', 'milk': 'Paal', 'juice': 'Saaru',
+  'water': 'Thanneer', 'butter': 'Vennai', 'ghee': 'Nei', 'oil': 'Ennai',
+  'meal': 'Saapadu', 'meals': 'Saapadu', 'sweet': 'Inippu', 'parotta': 'Parotta',
+  'chapati': 'Chapathi', 'naan': 'Naan', 'paneer': 'Paneer', 'curry': 'Kari',
+  'masala': 'Masala', 'fry': 'Varuval', 'gravy': 'Kulambu', 'dal': 'Paruppu',
+  'tomato': 'Thakkali', 'onion': 'Vengayam', 'potato': 'Urulaikizhangu',
+  'banana': 'Vazhaipazham', 'apple': 'Apple', 'mango': 'Maambazham',
+  'coconut': 'Thengai', 'lemon': 'Elumichai', 'premium': 'Premium',
+};
+
+// Get Tamil transliteration for product name
+const getTamilName = (englishName: string, tamilName?: string): string => {
+  if (tamilName) return tamilName;
+  const lowerName = englishName.toLowerCase();
+  for (const [eng, tamil] of Object.entries(TAMIL_TRANSLITERATION)) {
+    if (lowerName.includes(eng)) {
+      return tamil;
+    }
+  }
+  return '';
+};
 
 const ModernBilling = () => {
   const navigate = useNavigate();
@@ -850,6 +878,18 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
       doc.setFont(undefined, 'bold');
       doc.text(companyProfile.company_name, centerX, currentY, { align: "center" });
       
+      // Tamil company name (transliteration)
+      if (billingSettings?.enableBilingualBill) {
+        currentY += 3;
+        doc.setFontSize(7);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(80, 80, 80);
+        // Use company_name_tamil if exists, otherwise romanized
+        const tamilCompanyName = companyProfile.company_name_tamil || `(${companyProfile.company_name})`;
+        doc.text(tamilCompanyName, centerX, currentY, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      }
+      
       doc.setFontSize(7);
       doc.setFont(undefined, 'normal');
       currentY += 4;
@@ -958,7 +998,7 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
         currentY += 3;
         // Print remaining name on second line
         doc.text(itemName.substring(maxNameLen), colItem, currentY);
-        currentY += 3.5;
+        currentY += 3;
       } else {
         doc.text(itemName, colItem, currentY);
         doc.text(qtyLabel, colQty, currentY);
@@ -967,8 +1007,23 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
           doc.text(`${(item.tax_rate || 0).toFixed(0)}%`, colTax, currentY);
         }
         doc.text(formatIndianNumber(amount), colAmt, currentY, { align: "right" });
-        currentY += 3.5;
+        currentY += 3;
       }
+      
+      // Add Tamil name if bilingual is enabled
+      if (billingSettings?.enableBilingualBill) {
+        const tamilName = getTamilName(item.name, (item as any).tamil_name);
+        if (tamilName) {
+          doc.setFontSize(5);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`(${tamilName})`, colItem + 2, currentY);
+          doc.setTextColor(0, 0, 0);
+          doc.setFontSize(6);
+          currentY += 2.5;
+        }
+      }
+      
+      currentY += 0.5;
     });
     
     doc.line(leftMargin, currentY, rightMargin, currentY);
@@ -1484,6 +1539,7 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                 </SheetContent>
               </Sheet>
             )}
+            <PrinterStatusIndicator />
             <select
               value={invoiceFormat}
               onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
