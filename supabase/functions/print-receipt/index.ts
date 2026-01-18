@@ -253,12 +253,16 @@ function generateReceiptCommands(data: ReceiptData): string {
   // Items header
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   receipt += BOLD_ON;
-  // Column layout: Item(12) Qty(5) Rate(7) Amt(8) = 32 with proper spacing
-  receipt += padRight('Item', 12) + padLeft('Qty', 5) + padLeft('Rate', 7) + padLeft('Amt', 8) + LF;
+  // Header for item columns - Qty(4) Rate(8) Amt(8) = 20 chars, right-aligned on 32-char line
+  receipt += padRight('Item', 12) + padLeft('Qty', 4) + padLeft('Rate', 8) + padLeft('Amt', 8) + LF;
   receipt += BOLD_OFF;
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Items - English on first line, Tamil below (if bilingual)
+  // Items - PROFESSIONAL MULTI-LINE LAYOUT
+  // Rule: Numbers NEVER share a line with variable-length text
+  // Line 1: English item name (wrapped if needed)
+  // Line 2: Tamil name in brackets (if bilingual)
+  // Line 3: Qty / Rate / Amt → numbers only, right-aligned
   for (const item of data.items) {
     const qtyStr = item.price_type === 'weight' ? item.quantity.toFixed(2) : item.quantity.toString();
     const rateStr = formatCurrency(item.price);
@@ -267,26 +271,43 @@ function generateReceiptCommands(data: ReceiptData): string {
     
     const itemName = item.name;
     
-    // Max item name length for single line with values
-    const maxNameLen = 12;
-    
-    // If item name fits in column, print all on one line
-    if (itemName.length <= maxNameLen) {
-      receipt += padRight(itemName, 12) + padLeft(qtyStr, 5) + padLeft(rateStr, 7) + padLeft(amtStr, 8) + LF;
-    } else {
-      // Item name on first line
+    // Line 1: English item name (wrap if longer than LINE_WIDTH)
+    if (itemName.length <= LINE_WIDTH) {
       receipt += itemName + LF;
-      // Values on second line, right-aligned
-      receipt += ' '.repeat(12) + padLeft(qtyStr, 5) + padLeft(rateStr, 7) + padLeft(amtStr, 8) + LF;
+    } else {
+      // Wrap long item names
+      let remaining = itemName;
+      while (remaining.length > 0) {
+        receipt += remaining.substring(0, LINE_WIDTH) + LF;
+        remaining = remaining.substring(LINE_WIDTH);
+      }
     }
     
-    // Tamil name on separate line (if bilingual and has Tamil name)
+    // Line 2: Tamil name in brackets (if bilingual)
     if (data.enableBilingual) {
       const tamilName = item.nameTamil || getProductTamilName(item.name);
       if (tamilName) {
-        receipt += '(' + tamilName + ')' + LF;
+        const tamilLine = '(' + tamilName + ')';
+        if (tamilLine.length <= LINE_WIDTH) {
+          receipt += tamilLine + LF;
+        } else {
+          // Wrap long Tamil names
+          let remaining = tamilLine;
+          while (remaining.length > 0) {
+            receipt += remaining.substring(0, LINE_WIDTH) + LF;
+            remaining = remaining.substring(LINE_WIDTH);
+          }
+        }
       }
     }
+    
+    // Line 3: Numbers ONLY - Qty, Rate, Amt right-aligned
+    // Format: spaces(12) + Qty(4) + Rate(8) + Amt(8) = 32 chars
+    const numericLine = ' '.repeat(12) + padLeft(qtyStr, 4) + padLeft(rateStr, 8) + padLeft(amtStr, 8);
+    receipt += numericLine + LF;
+    
+    // Empty line between items for readability
+    receipt += LF;
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
@@ -310,11 +331,14 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Grand total (bold, double height) - FIX: add text AFTER size command
+  // Grand total (bold, double height)
+  // Note: Double height halves the effective line width to ~16 chars
   receipt += BOLD_ON + DOUBLE_HEIGHT_ON;
   const totalLabel = 'TOTAL:';
   const totalVal = 'Rs.' + formatCurrency(data.total);
-  receipt += totalLabel + ' '.repeat(Math.max(1, 16 - totalLabel.length - totalVal.length + 16)) + totalVal + LF;
+  // For double-height, we have ~16 char width, so calculate spacing
+  const totalSpacing = Math.max(1, 16 - totalLabel.length - totalVal.length);
+  receipt += totalLabel + ' '.repeat(totalSpacing) + totalVal + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
   
   if (data.enableBilingual) {
