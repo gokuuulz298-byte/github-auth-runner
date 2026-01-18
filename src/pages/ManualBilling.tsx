@@ -566,8 +566,8 @@ const ManualBilling = () => {
         await supabase.from('invoices').insert([{
           bill_number: billNumber,
           total_amount: total,
-          tax_amount: taxAmount,
-          discount_amount: couponDiscount,
+          tax_amount: taxAmount || 0, // Ensure never null
+          discount_amount: couponDiscount || 0,
           items_data: cartItems as any,
           created_by: user.id,
           customer_id: customerId,

@@ -20,27 +20,34 @@ const Dashboard = () => {
   const [staffModules, setStaffModules] = useState<string[]>([]);
 
   const allMenuItems = [
-    { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", id: "manual-billing", color: "from-purple-500 to-pink-500" },
-    { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", id: "modern-billing", color: "from-blue-500 to-indigo-500" },
-    { icon: Package, label: "Inventory", path: "/inventory", id: "inventory", color: "from-green-500 to-emerald-500" },
-    { icon: AlertTriangle, label: "Low Stocks", path: "/low-stocks", id: "low-stocks", color: "from-yellow-500 to-orange-500" },
-    { icon: FileText, label: "Invoices", path: "/invoices", id: "invoices", color: "from-orange-500 to-amber-500" },
-    { icon: Users, label: "Customers", path: "/customers", id: "customers", color: "from-indigo-500 to-purple-500" },
-    { icon: BarChart3, label: "Analytics", path: "/analytics", id: "analytics", color: "from-red-500 to-pink-500" },
-    { icon: BarChart4, label: "Advanced Reports", path: "/advanced-reports", id: "advanced-reports", color: "from-red-600 to-orange-600" },
-    { icon: Building2, label: "Profile", path: "/profile", id: "profile", color: "from-blue-500 to-cyan-500" },
-    { icon: FolderOpen, label: "Categories", path: "/categories", id: "categories", color: "from-teal-500 to-cyan-500" },
-    { icon: LayoutGrid, label: "Counters", path: "/counters", id: "counters", color: "from-violet-500 to-purple-500" },
-    { icon: Tag, label: "Coupons", path: "/coupons", id: "coupons", color: "from-pink-500 to-rose-500" },
-    { icon: Percent, label: "Limited Discounts", path: "/limited-discounts", id: "discounts", color: "from-amber-500 to-yellow-500" },
-    { icon: QrCode, label: "Barcodes", path: "/barcodes", id: "barcodes", color: "from-cyan-500 to-blue-500" },
-    { icon: FileText, label: "Templates", path: "/templates", id: "templates", color: "from-indigo-500 to-blue-500" },
-    { icon: Package, label: "Purchases", path: "/purchases", id: "purchases", color: "from-emerald-500 to-teal-500" },
-    { icon: Users, label: "Suppliers", path: "/suppliers", id: "suppliers", color: "from-violet-500 to-indigo-500" },
-    { icon: Receipt, label: "Expenses", path: "/expenses", id: "expenses", color: "from-red-500 to-rose-500" },
-    { icon: UtensilsCrossed, label: "Tables", path: "/restaurant-tables", id: "restaurant-tables", color: "from-amber-500 to-orange-500" },
-    { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", id: "kitchen", color: "from-orange-500 to-red-500" },
-    { icon: UserCog, label: "Waiter Interface", path: "/waiter", id: "waiter", color: "from-teal-500 to-green-500" },
+    // Primary billing modules
+    { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", id: "modern-billing", color: "from-blue-500 to-indigo-500", description: "Visual product grid with categories" },
+    { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", id: "manual-billing", color: "from-purple-500 to-pink-500", description: "Create bills by searching products" },
+    // Inventory & Stock
+    { icon: Package, label: "Inventory", path: "/inventory", id: "inventory", color: "from-green-500 to-emerald-500", description: "Manage your product catalog" },
+    { icon: AlertTriangle, label: "Low Stocks", path: "/low-stocks", id: "low-stocks", color: "from-yellow-500 to-orange-500", description: "Monitor products with low inventory" },
+    // Sales & Reports
+    { icon: FileText, label: "Invoices", path: "/invoices", id: "invoices", color: "from-orange-500 to-amber-500", description: "View billing history" },
+    { icon: BarChart3, label: "Analytics", path: "/analytics", id: "analytics", color: "from-red-500 to-pink-500", description: "View sales and profit reports" },
+    { icon: BarChart4, label: "Advanced Reports", path: "/advanced-reports", id: "advanced-reports", color: "from-red-600 to-orange-600", description: "Detailed monthly, category-wise reports" },
+    // Customer Management
+    { icon: Users, label: "Customers", path: "/customers", id: "customers", color: "from-indigo-500 to-purple-500", description: "Manage customer information" },
+    // Purchase & Supplier Management
+    { icon: Package, label: "Purchases", path: "/purchases", id: "purchases", color: "from-emerald-500 to-teal-500", description: "Track purchase orders and stock inflow" },
+    { icon: Users, label: "Suppliers", path: "/suppliers", id: "suppliers", color: "from-violet-500 to-indigo-500", description: "Manage vendor contacts and products" },
+    { icon: Receipt, label: "Expenses", path: "/expenses", id: "expenses", color: "from-red-500 to-rose-500", description: "Track business expenses and payments" },
+    // Settings & Configuration
+    { icon: Building2, label: "Profile", path: "/profile", id: "profile", color: "from-blue-500 to-cyan-500", description: "Manage company profile and details" },
+    { icon: FolderOpen, label: "Categories", path: "/categories", id: "categories", color: "from-teal-500 to-cyan-500", description: "Add and manage product categories" },
+    { icon: LayoutGrid, label: "Counters", path: "/counters", id: "counters", color: "from-violet-500 to-purple-500", description: "Configure multiple billing counters" },
+    { icon: Tag, label: "Coupons", path: "/coupons", id: "coupons", color: "from-pink-500 to-rose-500", description: "Create discount coupons" },
+    { icon: Percent, label: "Limited Discounts", path: "/limited-discounts", id: "discounts", color: "from-amber-500 to-yellow-500", description: "Set time-based product discounts" },
+    { icon: QrCode, label: "Barcodes", path: "/barcodes", id: "barcodes", color: "from-cyan-500 to-blue-500", description: "Generate barcodes and QR codes" },
+    { icon: FileText, label: "Templates", path: "/templates", id: "templates", color: "from-indigo-500 to-blue-500", description: "Customize invoice templates" },
+    // Restaurant specific
+    { icon: UtensilsCrossed, label: "Tables", path: "/restaurant-tables", id: "restaurant-tables", color: "from-amber-500 to-orange-500", description: "Manage restaurant table layouts" },
+    { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", id: "kitchen", color: "from-orange-500 to-red-500", description: "View and manage kitchen orders" },
+    { icon: UserCog, label: "Waiter Interface", path: "/waiter", id: "waiter", color: "from-teal-500 to-green-500", description: "Mobile-friendly order taking" },
   ];
 
   // Filter menu items based on role and permissions
@@ -241,24 +248,7 @@ const Dashboard = () => {
                   </div>
                   <CardTitle className="text-sm sm:text-base md:text-lg">{item.label}</CardTitle>
                   <CardDescription className="hidden sm:block text-xs sm:text-sm">
-                    {item.label === "Manual Billing" && "Create bills by searching products"}
-                    {item.label === "Modern Billing" && "Visual product grid with categories"}
-                    {item.label === "Inventory" && "Manage your product catalog"}
-                    {item.label === "Low Stocks" && "Monitor products with low inventory"}
-                    {item.label === "Invoices" && "View billing history"}
-                    {item.label === "Customers" && "Manage customer information"}
-                    {item.label === "Analytics" && "View sales and profit reports"}
-                    {item.label === "Advanced Reports" && "View detailed monthly, category-wise, and product-wise reports"}
-                    {item.label === "Profile" && "Manage company profile and details"}
-                    {item.label === "Categories" && "Add and manage product categories"}
-                    {item.label === "Counters" && "Configure multiple business counters"}
-                    {item.label === "Coupons" && "Create discount coupons for customers"}
-                    {item.label === "Limited Discounts" && "Set time-based product discounts"}
-                    {item.label === "Barcodes" && "Generate barcodes and QR codes"}
-                    {item.label === "Templates" && "Customize your invoice templates"}
-                    {item.label === "Tables" && "Manage restaurant tables"}
-                    {item.label === "Kitchen Display" && "View and manage kitchen orders"}
-                    {item.label === "Waiter Interface" && "Take orders as waiter"}
+                    {item.description}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 hidden md:block">
@@ -270,14 +260,17 @@ const Dashboard = () => {
                     {item.label === "Invoices" && "Access past invoices and sales records"}
                     {item.label === "Customers" && "View and add customer details for billing"}
                     {item.label === "Analytics" && "Track daily and monthly revenue and profits"}
-                    {item.label === "Advanced Reports" && "Take deep insights through advanced reporting modules and export features"}
+                    {item.label === "Advanced Reports" && "Take deep insights through advanced reporting modules"}
                     {item.label === "Profile" && "Set up your business details for invoices"}
                     {item.label === "Categories" && "Create custom categories for your products"}
                     {item.label === "Counters" && "Manage multiple billing counters"}
                     {item.label === "Coupons" && "Create fixed or percentage-based discount coupons"}
                     {item.label === "Limited Discounts" && "Schedule promotional discounts on products"}
-                    {item.label === "Barcodes" && "Generate printable barcodes and QR codes for products"}
-                    {item.label === "Templates" && "Create and manage custom A4 invoice templates"}
+                    {item.label === "Barcodes" && "Generate printable barcodes and QR codes"}
+                    {item.label === "Templates" && "Create and manage custom invoice templates"}
+                    {item.label === "Purchases" && "Create and track purchase orders from suppliers"}
+                    {item.label === "Suppliers" && "Manage vendor details and map products"}
+                    {item.label === "Expenses" && "Record and categorize business expenses"}
                     {item.label === "Tables" && "Add and manage restaurant table layouts"}
                     {item.label === "Kitchen Display" && "Real-time kitchen order management"}
                     {item.label === "Waiter Interface" && "Mobile-friendly order taking interface"}

@@ -82,6 +82,51 @@ const TAMIL_TRANSLATIONS: { [key: string]: string } = {
   'CARD': 'அட்டை',
 };
 
+// Common product name translations to Tamil
+const PRODUCT_TAMIL_MAP: { [key: string]: string } = {
+  // Food items
+  'rice': 'அரிசி', 'biryani': 'பிரியாணி', 'chicken': 'கோழி', 'mutton': 'ஆட்டிறைச்சி',
+  'fish': 'மீன்', 'egg': 'முட்டை', 'dosa': 'தோசை', 'idli': 'இட்லி',
+  'vada': 'வடை', 'sambar': 'சாம்பார்', 'rasam': 'ரசம்', 'curd': 'தயிர்',
+  'chutney': 'சட்னி', 'parotta': 'பரோட்டா', 'chapati': 'சப்பாத்தி', 'naan': 'நான்',
+  'roti': 'ரொட்டி', 'puri': 'பூரி', 'paneer': 'பன்னீர்', 'dal': 'பருப்பு',
+  'curry': 'கறி', 'gravy': 'குழம்பு', 'fry': 'வறுவல்', 'masala': 'மசாலா',
+  'tea': 'தேநீர்', 'coffee': 'காபி', 'milk': 'பால்', 'juice': 'சாறு',
+  'water': 'தண்ணீர்', 'butter': 'வெண்ணெய்', 'ghee': 'நெய்', 'oil': 'எண்ணெய்',
+  'salt': 'உப்பு', 'sugar': 'சர்க்கரை', 'pepper': 'மிளகு', 'chilli': 'மிளகாய்',
+  'meal': 'உணவு', 'meals': 'உணவு', 'lunch': 'மதிய உணவு', 'dinner': 'இரவு உணவு',
+  'breakfast': 'காலை உணவு', 'snacks': 'சிற்றுண்டி', 'sweet': 'இனிப்பு',
+  'payasam': 'பாயசம்', 'halwa': 'அல்வா', 'laddu': 'லட்டு', 'jalebi': 'ஜிலேபி',
+  'samosa': 'சமோசா', 'pakoda': 'பக்கோடா', 'bajji': 'பஜ்ஜி', 'vadai': 'வடை',
+  'pongal': 'பொங்கல்', 'upma': 'உப்புமா', 'kesari': 'கேசரி', 'haleem': 'ஹலீம்',
+  // Vegetables
+  'tomato': 'தக்காளி', 'onion': 'வெங்காயம்', 'potato': 'உருளைக்கிழங்கு',
+  'carrot': 'கேரட்', 'beans': 'பீன்ஸ்', 'cabbage': 'முட்டைக்கோஸ்',
+  'brinjal': 'கத்திரிக்காய்', 'ladies finger': 'வெண்டைக்காய்', 'drumstick': 'முருங்கைக்காய்',
+  // Fruits
+  'banana': 'வாழைப்பழம்', 'apple': 'ஆப்பிள்', 'mango': 'மாம்பழம்', 'grape': 'திராட்சை',
+  'orange': 'ஆரஞ்சு', 'coconut': 'தேங்காய்', 'lemon': 'எலுமிச்சை',
+};
+
+// Function to get Tamil translation for product name
+function getProductTamilName(englishName: string): string {
+  const lowerName = englishName.toLowerCase();
+  
+  // Check for exact match
+  if (PRODUCT_TAMIL_MAP[lowerName]) {
+    return PRODUCT_TAMIL_MAP[lowerName];
+  }
+  
+  // Check for partial matches
+  for (const [eng, tamil] of Object.entries(PRODUCT_TAMIL_MAP)) {
+    if (lowerName.includes(eng)) {
+      return tamil;
+    }
+  }
+  
+  return ''; // Return empty if no translation found
+}
+
 function padRight(str: string, len: number): string {
   if (str.length >= len) return str.substring(0, len);
   return str + ' '.repeat(len - str.length);
@@ -201,9 +246,12 @@ function generateReceiptCommands(data: ReceiptData): string {
       receipt += padLeft(formatCurrency(item.price * item.quantity), 7) + LF;
     }
     
-    // Tamil name if bilingual
-    if (data.enableBilingual && item.nameTamil) {
-      receipt += '  (' + item.nameTamil + ')' + LF;
+    // Tamil name - use provided nameTamil or auto-translate
+    if (data.enableBilingual) {
+      const tamilName = item.nameTamil || getProductTamilName(item.name);
+      if (tamilName) {
+        receipt += '  (' + tamilName + ')' + LF;
+      }
     }
   }
   
