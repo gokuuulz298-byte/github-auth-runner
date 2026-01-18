@@ -335,6 +335,7 @@ const ManualBilling = () => {
         id: product.id,
         barcode: product.barcode,
         name: product.name,
+        tamil_name: product.tamil_name || '',
         price: basePrice,
         quantity,
         tax_rate: gstRate,

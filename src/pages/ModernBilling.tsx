@@ -434,6 +434,7 @@ if (product.igst > 0) {
       const newItem: CartItem = {
         id: product.id,
         name: product.name,
+        tamil_name: product.tamil_name || '',
         price: basePrice,
         quantity: quantity,
         tax_rate: gstRate,

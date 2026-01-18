@@ -111,6 +111,8 @@ const PRODUCT_TAMIL_MAP: { [key: string]: string } = {
   'payasam': 'பாயசம்', 'halwa': 'அல்வா', 'laddu': 'லட்டு', 'jalebi': 'ஜிலேபி',
   'samosa': 'சமோசா', 'pakoda': 'பக்கோடா', 'bajji': 'பஜ்ஜி', 'vadai': 'வடை',
   'pongal': 'பொங்கல்', 'upma': 'உப்புமா', 'kesari': 'கேசரி', 'haleem': 'ஹலீம்',
+  // Dairy
+  'aavin': 'ஆவின்', 'premium': 'பிரீமியம்',
   // Vegetables
   'tomato': 'தக்காளி', 'onion': 'வெங்காயம்', 'potato': 'உருளைக்கிழங்கு',
   'carrot': 'கேரட்', 'beans': 'பீன்ஸ்', 'cabbage': 'முட்டைக்கோஸ்',
@@ -177,7 +179,7 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += LF;
   }
   
-  // Company Header - English
+  // Company Header - English (centered, bold, double height)
   receipt += CENTER + BOLD_ON + DOUBLE_HEIGHT;
   receipt += data.companyName.toUpperCase() + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
@@ -190,10 +192,12 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += CENTER;
   
+  // Address - each part on separate line
   if (data.address) {
     receipt += data.address + LF;
   }
   
+  // City, State - Pincode
   const location = [data.city, data.state].filter(Boolean).join(', ');
   if (location || data.pincode) {
     receipt += [location, data.pincode].filter(Boolean).join(' - ') + LF;
@@ -210,26 +214,28 @@ function generateReceiptCommands(data: ReceiptData): string {
   // Separator
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // TAX INVOICE Header
+  // TAX INVOICE Header (centered)
   receipt += CENTER + BOLD_ON;
   receipt += 'TAX INVOICE' + LF;
-  if (data.enableBilingual) {
-    receipt += BOLD_OFF + '(' + TAMIL_TRANSLATIONS['TAX INVOICE'] + ')' + LF;
-  }
   receipt += BOLD_OFF;
+  if (data.enableBilingual) {
+    receipt += '(' + TAMIL_TRANSLATIONS['TAX INVOICE'] + ')' + LF;
+  }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Bill details - formatted layout
+  // Bill details - formatted layout (left aligned)
   receipt += LEFT;
   const now = new Date();
-  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   const dateStr = now.toLocaleDateString('en-GB'); // DD/MM/YYYY
   
-  receipt += `Bill: ${data.billNumber}     Mode: ${data.paymentMode.toUpperCase()}` + LF;
-  receipt += `Date: ${dateStr}    Time: ${timeStr}` + LF;
+  // Line 1: Bill number and Mode
+  receipt += padRight(`Bill: ${data.billNumber}`, 18) + padLeft(`Mode: ${data.paymentMode.toUpperCase()}`, 14) + LF;
+  // Line 2: Date and Time
+  receipt += padRight(`Date: ${dateStr}`, 18) + padLeft(`Time: ${timeStr}`, 14) + LF;
   
-  // Customer details
+  // Customer details (if present)
   if (data.customerName || data.customerPhone) {
     receipt += '-'.repeat(LINE_WIDTH) + LF;
     if (data.customerName) {
@@ -246,35 +252,31 @@ function generateReceiptCommands(data: ReceiptData): string {
   // Items header
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   receipt += BOLD_ON;
-  // Column headers: Item(20) Qty(4) Rate(4) Amt(4) = 32
-  receipt += padRight('Item', 17) + padLeft('Qty', 5) + padLeft('Rate', 5) + padLeft('Amt', 5) + LF;
+  // Column layout: Item(14) Qty(4) Rate(6) Amt(8) = 32
+  receipt += padRight('Item', 14) + padLeft('Qty', 4) + padLeft('Rate', 6) + padLeft('Amt', 8) + LF;
   receipt += BOLD_OFF;
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Items - English on first line, Tamil below
+  // Items - English on first line, Tamil below (if bilingual)
   for (const item of data.items) {
-    const qtyLabel = item.price_type === 'weight' ? item.quantity.toFixed(2) : item.quantity.toString();
+    const qtyStr = item.price_type === 'weight' ? item.quantity.toFixed(2) : item.quantity.toString();
+    const rateStr = formatCurrency(item.price);
     const amount = item.price * item.quantity;
+    const amtStr = formatCurrency(amount);
     
-    // Item name - if longer than 17 chars, wrap to next line
-    let itemName = item.name;
-    if (itemName.length <= 17) {
-      // Single line with values
-      receipt += padRight(itemName, 17);
-      receipt += padLeft(qtyLabel, 5);
-      receipt += padLeft(formatCurrency(item.price), 5);
-      receipt += padLeft(formatCurrency(amount), 5) + LF;
+    const itemName = item.name;
+    
+    // If item name fits in 14 chars, print all on one line
+    if (itemName.length <= 14) {
+      receipt += padRight(itemName, 14) + padLeft(qtyStr, 4) + padLeft(rateStr, 6) + padLeft(amtStr, 8) + LF;
     } else {
-      // First line: Item name only
+      // Item name on first line (full width)
       receipt += itemName + LF;
-      // Second line: Values aligned to right
-      receipt += padRight('', 17);
-      receipt += padLeft(qtyLabel, 5);
-      receipt += padLeft(formatCurrency(item.price), 5);
-      receipt += padLeft(formatCurrency(amount), 5) + LF;
+      // Values on second line, right-aligned
+      receipt += padRight('', 14) + padLeft(qtyStr, 4) + padLeft(rateStr, 6) + padLeft(amtStr, 8) + LF;
     }
     
-    // Tamil name on separate line (if bilingual)
+    // Tamil name on separate line (if bilingual and has Tamil name)
     if (data.enableBilingual) {
       const tamilName = item.nameTamil || getProductTamilName(item.name);
       if (tamilName) {
@@ -285,7 +287,7 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Totals - right aligned values
+  // Totals section - right aligned values
   receipt += padRight('Subtotal:', 20) + padLeft(formatCurrency(data.subtotal), 12) + LF;
   
   if (data.taxAmount > 0) {
@@ -298,18 +300,18 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Grand total
+  // Grand total (bold, double height)
   receipt += BOLD_ON + DOUBLE_HEIGHT;
-  receipt += padRight('TOTAL:', 12) + padLeft('Rs.' + formatCurrency(data.total), 20) + LF;
+  receipt += padRight('TOTAL:', 14) + padLeft('Rs.' + formatCurrency(data.total), 18) + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
   
   if (data.enableBilingual) {
-    receipt += padRight('(' + TAMIL_TRANSLATIONS['TOTAL'] + ')', 12) + LF;
+    receipt += '(' + TAMIL_TRANSLATIONS['TOTAL'] + ')' + LF;
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Thank you note
+  // Thank you note (centered)
   receipt += CENTER;
   const thankYou = data.thankYouNote || 'Thank You!';
   receipt += thankYou + LF;

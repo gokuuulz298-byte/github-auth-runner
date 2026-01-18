@@ -9,6 +9,7 @@ export interface CartItem {
   id: string;
   barcode: string;
   name: string;
+  tamil_name?: string;
   price: number;
   quantity: number;
   tax_rate: number;

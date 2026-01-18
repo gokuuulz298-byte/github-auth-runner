@@ -184,8 +184,8 @@ export function buildReceiptData(params: {
     customerPhone,
     items: cartItems.map((item) => ({
       name: item.name,
-      // Use tamil_name from database if available, otherwise edge function will auto-translate
-      nameTamil: enableBilingual ? item.tamil_name || transliterate(item.name) : undefined,
+      // Use tamil_name from database if available
+      nameTamil: enableBilingual ? item.tamil_name || undefined : undefined,
       quantity: item.quantity,
       price: item.price,
       price_type: item.price_type,
