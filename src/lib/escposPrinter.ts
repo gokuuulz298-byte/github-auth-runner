@@ -38,8 +38,8 @@ interface PrintServiceConfig {
 
 // Default local print service config
 const DEFAULT_PRINT_SERVICE: PrintServiceConfig = {
-  host: 'localhost',
-  port: 3001
+  host: "localhost",
+  port: 3001,
 };
 
 /**
@@ -47,19 +47,19 @@ const DEFAULT_PRINT_SERVICE: PrintServiceConfig = {
  */
 export async function generateEscPosCommands(data: PrintReceiptData): Promise<string> {
   try {
-    const { data: response, error } = await supabase.functions.invoke('print-receipt', {
-      body: data
+    const { data: response, error } = await supabase.functions.invoke("print-receipt", {
+      body: data,
     });
 
     if (error) throw error;
 
     if (!response.success) {
-      throw new Error(response.error || 'Failed to generate receipt');
+      throw new Error(response.error || "Failed to generate receipt");
     }
 
     return response.rawCommands;
   } catch (error) {
-    console.error('Error generating ESC/POS commands:', error);
+    console.error("Error generating ESC/POS commands:", error);
     throw error;
   }
 }
@@ -68,14 +68,14 @@ export async function generateEscPosCommands(data: PrintReceiptData): Promise<st
  * Send ESC/POS commands to local print service
  */
 export async function sendToLocalPrinter(
-  commands: string, 
-  config: PrintServiceConfig = DEFAULT_PRINT_SERVICE
+  commands: string,
+  config: PrintServiceConfig = DEFAULT_PRINT_SERVICE,
 ): Promise<boolean> {
   try {
     const response = await fetch(`http://${config.host}:${config.port}/print`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ commands }),
     });
@@ -87,7 +87,7 @@ export async function sendToLocalPrinter(
     const result = await response.json();
     return result.success;
   } catch (error) {
-    console.error('Error sending to local printer:', error);
+    console.error("Error sending to local printer:", error);
     // Don't throw - local service might not be running
     return false;
   }
@@ -105,10 +105,10 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<{
   try {
     // Generate ESC/POS commands
     const commands = await generateEscPosCommands(data);
-    
+
     // Try to send to local print service
     const printed = await sendToLocalPrinter(commands);
-    
+
     return {
       success: true,
       commands,
@@ -125,12 +125,10 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<{
 /**
  * Check if local print service is available
  */
-export async function checkPrintServiceAvailable(
-  config: PrintServiceConfig = DEFAULT_PRINT_SERVICE
-): Promise<boolean> {
+export async function checkPrintServiceAvailable(config: PrintServiceConfig = DEFAULT_PRINT_SERVICE): Promise<boolean> {
   try {
     const response = await fetch(`http://${config.host}:${config.port}/status`, {
-      method: 'GET',
+      method: "GET",
       signal: AbortSignal.timeout(2000), // 2 second timeout
     });
     return response.ok;
@@ -159,11 +157,22 @@ export function buildReceiptData(params: {
   loyaltyPoints?: number;
   enableBilingual?: boolean;
 }): PrintReceiptData {
-  const { billNumber, companyProfile, customerName, customerPhone, cartItems, totals, paymentMode, isParcel, loyaltyPoints, enableBilingual } = params;
+  const {
+    billNumber,
+    companyProfile,
+    customerName,
+    customerPhone,
+    cartItems,
+    totals,
+    paymentMode,
+    isParcel,
+    loyaltyPoints,
+    enableBilingual,
+  } = params;
 
   return {
     billNumber,
-    companyName: companyProfile?.company_name || 'STORE',
+    companyName: companyProfile?.company_name || "STORE",
     companyNameTamil: companyProfile?.company_name ? transliterate(companyProfile.company_name) : undefined,
     address: companyProfile?.address,
     city: companyProfile?.city,
@@ -173,10 +182,10 @@ export function buildReceiptData(params: {
     gstin: companyProfile?.gstin,
     customerName,
     customerPhone,
-    items: cartItems.map(item => ({
+    items: cartItems.map((item) => ({
       name: item.name,
       // Use tamil_name from database if available, otherwise edge function will auto-translate
-      nameTamil: enableBilingual ? (item.tamil_name || transliterate(item.name)) : undefined,
+      nameTamil: enableBilingual ? item.tamil_name || transliterate(item.name) : undefined,
       quantity: item.quantity,
       price: item.price,
       price_type: item.price_type,
