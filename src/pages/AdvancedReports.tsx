@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck, ArrowUpRight, ArrowDownRight, Sparkles, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface TopProduct {
   id: string;
@@ -548,7 +549,7 @@ const AdvancedReports = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <LoadingSpinner size="lg" text="Loading reports..." />
       </div>
     );
   }
@@ -612,79 +613,79 @@ const AdvancedReports = () => {
           </CardContent>
         </Card>
 
-        {/* Key Metrics Grid */}
+        {/* Key Metrics Grid - Zoho Style */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-200 dark:border-blue-800">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-blue-100">Total Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold text-blue-600">₹{metrics.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-xs text-blue-200 mt-1 flex items-center gap-1">
                 {metrics.growthRate >= 0 ? (
-                  <span className="text-green-600">↑ {metrics.growthRate.toFixed(1)}% growth</span>
+                  <><ArrowUpRight className="h-3 w-3" /> {metrics.growthRate.toFixed(1)}% growth</>
                 ) : (
-                  <span className="text-red-600">↓ {Math.abs(metrics.growthRate).toFixed(1)}% decline</span>
+                  <><ArrowDownRight className="h-3 w-3" /> {Math.abs(metrics.growthRate).toFixed(1)}% decline</>
                 )}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-200 dark:border-green-800">
+          <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Total Profit</CardTitle>
-              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-green-100">Total Profit</CardTitle>
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold text-green-600">₹{metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                <Percent className="inline h-3 w-3 mr-1" />
+              <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-xs text-green-200 mt-1 flex items-center gap-1">
+                <Percent className="h-3 w-3" />
                 {metrics.profitMargin.toFixed(1)}% margin
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-200 dark:border-purple-800">
+          <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Avg. Order Value</CardTitle>
-              <Target className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-purple-100">Avg. Order Value</CardTitle>
+              <Target className="h-4 w-4 sm:h-5 sm:w-5 text-purple-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold text-purple-600">₹{metrics.averageSale.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
-              <p className="text-xs text-muted-foreground mt-1">{metrics.totalOrders} total orders</p>
+              <div className="text-lg sm:text-2xl font-bold">₹{metrics.averageSale.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-xs text-purple-200 mt-1">{metrics.totalOrders} orders</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-200 dark:border-orange-800">
+          <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Repeat Customers</CardTitle>
-              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-orange-100">Repeat Customers</CardTitle>
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-orange-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold text-orange-600">{metrics.repeatCustomerRate.toFixed(1)}%</div>
-              <p className="text-xs text-muted-foreground mt-1">{metrics.totalCustomers} unique customers</p>
+              <div className="text-lg sm:text-2xl font-bold">{metrics.repeatCustomerRate.toFixed(1)}%</div>
+              <p className="text-xs text-orange-200 mt-1">{metrics.totalCustomers} unique</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Additional Metrics Row */}
+        {/* Additional Metrics Row - With Trend Indicators */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <Card>
+          <Card className="border-l-4 border-l-amber-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Total Tax</CardTitle>
-              <Layers className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Total Tax</CardTitle>
+              <Layers className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-xl font-bold">₹{metrics.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+              <div className="text-lg sm:text-xl font-bold">₹{metrics.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
               <p className="text-xs text-muted-foreground">GST collected</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-indigo-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Avg Items/Order</CardTitle>
-              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Avg Items/Order</CardTitle>
+              <Package className="h-4 w-4 text-indigo-500" />
             </CardHeader>
             <CardContent>
               <div className="text-lg sm:text-xl font-bold">{metrics.averageItemsPerOrder.toFixed(1)}</div>
@@ -692,24 +693,30 @@ const AdvancedReports = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-cyan-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Peak Hour</CardTitle>
-              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Peak Hour</CardTitle>
+              <Flame className="h-4 w-4 text-cyan-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-xl font-bold">{metrics.peakHour}</div>
+              <div className="text-lg sm:text-xl font-bold flex items-center gap-1">
+                {metrics.peakHour}
+                <Sparkles className="h-3 w-3 text-amber-400" />
+              </div>
               <p className="text-xs text-muted-foreground">busiest time</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-rose-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Peak Day</CardTitle>
-              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-rose-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Peak Day</CardTitle>
+              <Calendar className="h-4 w-4 text-rose-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-xl font-bold">{metrics.peakDay}</div>
+              <div className="text-lg sm:text-xl font-bold flex items-center gap-1">
+                {metrics.peakDay}
+                <Sparkles className="h-3 w-3 text-amber-400" />
+              </div>
               <p className="text-xs text-muted-foreground">busiest day</p>
             </CardContent>
           </Card>

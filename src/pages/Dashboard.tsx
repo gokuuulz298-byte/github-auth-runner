@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode, ChefHat, ClipboardList, UserCog, Receipt, UtensilsCrossed, Bell, X } from "lucide-react";
+import { Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, LogOut, AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, QrCode, ChefHat, ClipboardList, UserCog, Receipt, UtensilsCrossed, Bell, X, History } from "lucide-react";
 import GuidelinesDialog from "@/components/GuidelinesDialog";
 import LiveOrdersPanel from "@/components/LiveOrdersPanel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -54,6 +54,8 @@ const Dashboard = () => {
     { icon: Percent, label: "Limited Discounts", path: "/limited-discounts", id: "discounts", color: "from-amber-500 to-yellow-500", description: "Set time-based product discounts" },
     { icon: QrCode, label: "Barcodes", path: "/barcodes", id: "barcodes", color: "from-cyan-500 to-blue-500", description: "Generate barcodes and QR codes" },
     { icon: FileText, label: "Templates", path: "/templates", id: "templates", color: "from-indigo-500 to-blue-500", description: "Customize invoice templates" },
+    // Audits
+    { icon: History, label: "Audits", path: "/audits", id: "audits", color: "from-slate-500 to-gray-600", description: "View all system activities and logs" },
     // Restaurant specific
     { icon: UtensilsCrossed, label: "Tables", path: "/restaurant-tables", id: "restaurant-tables", color: "from-amber-500 to-orange-500", description: "Manage restaurant table layouts" },
     { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", id: "kitchen", color: "from-orange-500 to-red-500", description: "View and manage kitchen orders" },

@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Package, Users, Calendar, BarChart3, Target, Activity, Percent, ShoppingBag, ArrowUpRight, ArrowDownRight, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart } from 'recharts';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { Badge } from "@/components/ui/badge";
 
 interface Invoice {
   id: string;
@@ -22,6 +24,7 @@ interface Invoice {
 
 const Analytics = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalSales: 0,
     totalRevenue: 0,
@@ -30,6 +33,9 @@ const Analytics = () => {
     totalDiscount: 0,
     totalProducts: 0,
     totalCustomers: 0,
+    avgOrderValue: 0,
+    revenueGrowth: 0,
+    profitGrowth: 0,
   });
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dailyInvoices, setDailyInvoices] = useState<Invoice[]>([]);
@@ -47,7 +53,6 @@ const Analytics = () => {
     fetchDailyData();
     fetchWeeklyData();
 
-    // Set up real-time subscription for invoices
     const channel = supabase
       .channel('analytics-invoices')
       .on(
@@ -58,7 +63,6 @@ const Analytics = () => {
           table: 'invoices'
         },
         () => {
-          // Refresh all data when invoices change
           fetchAnalytics();
           fetchDailyData();
           fetchWeeklyData();
@@ -91,12 +95,13 @@ const Analytics = () => {
 
   const fetchAnalytics = async () => {
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       let query = supabase
         .from('invoices')
-        .select('total_amount, tax_amount, items_data')
+        .select('total_amount, tax_amount, items_data, discount_amount, created_at')
         .eq('created_by', user.id);
       
       if (selectedCounter !== "all") {
@@ -105,7 +110,6 @@ const Analytics = () => {
       
       const { data: invoices } = await query;
 
-      // Include deleted products for historical analytics data
       const { data: productsList } = await supabase
         .from('products')
         .select('*')
@@ -132,10 +136,25 @@ const Analytics = () => {
             invoiceProfit += (item.price - product.buying_price) * item.quantity;
           }
         });
-        // Subtract discount from profit
         const invoiceDiscount = parseFloat(((invoice as any).discount_amount || 0).toString());
         totalProfit += (invoiceProfit - invoiceDiscount);
       });
+
+      // Calculate growth (compare last 7 days vs previous 7 days)
+      const now = new Date();
+      const last7DaysInvoices = invoices?.filter(inv => 
+        new Date(inv.created_at) >= subDays(now, 7)
+      ) || [];
+      const prev7DaysInvoices = invoices?.filter(inv => 
+        new Date(inv.created_at) >= subDays(now, 14) && 
+        new Date(inv.created_at) < subDays(now, 7)
+      ) || [];
+
+      const last7Revenue = last7DaysInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount.toString()), 0);
+      const prev7Revenue = prev7DaysInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount.toString()), 0);
+      const revenueGrowth = prev7Revenue > 0 ? ((last7Revenue - prev7Revenue) / prev7Revenue) * 100 : 0;
+
+      const avgOrderValue = invoices && invoices.length > 0 ? totalRevenue / invoices.length : 0;
 
       setStats({
         totalSales: invoices?.length || 0,
@@ -145,10 +164,15 @@ const Analytics = () => {
         totalDiscount,
         totalProducts: productsList?.length || 0,
         totalCustomers: customers?.length || 0,
+        avgOrderValue,
+        revenueGrowth,
+        profitGrowth: 0,
       });
+      setLoading(false);
     } catch (error) {
       toast.error("Error fetching analytics");
       console.error(error);
+      setLoading(false);
     }
   };
 
@@ -185,7 +209,6 @@ const Analytics = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch all products including deleted ones for historical calculations
       const { data: allProducts } = await supabase
         .from('products')
         .select('*')
@@ -195,6 +218,7 @@ const Analytics = () => {
         const date = subDays(new Date(), 6 - i);
         return {
           date: format(date, 'MMM dd'),
+          day: format(date, 'EEE'),
           start: startOfDay(date),
           end: endOfDay(date),
           sales: 0,
@@ -257,6 +281,14 @@ const Analytics = () => {
   const dailyTax = dailyInvoices.reduce((sum, inv) => sum + parseFloat(inv.tax_amount.toString()), 0);
   const dailyProfit = calculateDailyProfit();
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
+        <LoadingSpinner size="lg" text="Loading analytics..." />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
@@ -270,80 +302,149 @@ const Analytics = () => {
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Counter Filter */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Filter by Counter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Select value={selectedCounter} onValueChange={setSelectedCounter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select counter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Counters</SelectItem>
-                {counters.map((counter) => (
-                  <SelectItem key={counter.id} value={counter.id}>
-                    {counter.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Business Overview</h2>
+                <p className="text-sm text-muted-foreground">Track your sales performance</p>
+              </div>
+              <Select value={selectedCounter} onValueChange={setSelectedCounter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select counter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Counters</SelectItem>
+                  {counters.map((counter) => (
+                    <SelectItem key={counter.id} value={counter.id}>
+                      {counter.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
-        {/* Overall Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+
+        {/* KPI Cards - Zoho Style */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-              <TrendingUp className="h-4 w-4 text-primary" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-blue-100">Total Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">{stats.totalSales}</div>
-              <p className="text-xs text-muted-foreground">All-time invoices</p>
+              <div className="text-lg sm:text-2xl font-bold">₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <div className="flex items-center mt-1 text-xs">
+                {stats.revenueGrowth >= 0 ? (
+                  <span className="flex items-center text-green-200">
+                    <ArrowUpRight className="h-3 w-3 mr-0.5" />
+                    {stats.revenueGrowth.toFixed(1)}%
+                  </span>
+                ) : (
+                  <span className="flex items-center text-red-200">
+                    <ArrowDownRight className="h-3 w-3 mr-0.5" />
+                    {Math.abs(stats.revenueGrowth).toFixed(1)}%
+                  </span>
+                )}
+                <span className="ml-1 text-blue-200">vs last week</span>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5">
+          <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-green-100">Total Profit</CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-green-600">₹{stats.totalRevenue.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">Total sales amount</p>
+              <div className="text-lg sm:text-2xl font-bold">₹{stats.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-xs text-green-200 mt-1">
+                {stats.totalRevenue > 0 ? ((stats.totalProfit / stats.totalRevenue) * 100).toFixed(1) : 0}% margin
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
+          <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-purple-100">Total Sales</CardTitle>
+              <ShoppingBag className="h-4 w-4 text-purple-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-blue-600">₹{stats.totalProfit.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">Profit from all sales</p>
+              <div className="text-lg sm:text-2xl font-bold">{stats.totalSales.toLocaleString()}</div>
+              <p className="text-xs text-purple-200 mt-1">invoices generated</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5">
+          <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Tax</CardTitle>
-              <Package className="h-4 w-4 text-orange-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-orange-100">Avg Order Value</CardTitle>
+              <Target className="h-4 w-4 text-orange-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-orange-600">₹{stats.totalTax.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">Tax collected</p>
+              <div className="text-lg sm:text-2xl font-bold">₹{stats.avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-xs text-orange-200 mt-1">per transaction</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-pink-500/10 to-pink-500/5">
+          <Card className="bg-gradient-to-br from-pink-500 to-rose-600 text-white border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Discounts Given</CardTitle>
-              <TrendingUp className="h-4 w-4 text-pink-600" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-pink-100">Tax Collected</CardTitle>
+              <Percent className="h-4 w-4 text-pink-200" />
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-pink-600">₹{stats.totalDiscount.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">Coupons & offers applied</p>
+              <div className="text-lg sm:text-2xl font-bold">₹{stats.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-xs text-pink-200 mt-1">GST amount</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                Products
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold">{stats.totalProducts}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Customers
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold">{stats.totalCustomers}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Zap className="h-3 w-3" />
+                Discounts Given
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold text-orange-600">₹{stats.totalDiscount.toFixed(0)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Activity className="h-3 w-3" />
+                Avg Items/Order
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold">
+                {stats.totalSales > 0 ? (stats.totalProducts / stats.totalSales).toFixed(1) : 0}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -352,36 +453,66 @@ const Analytics = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Last 7 Days Revenue</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                Revenue & Profit Trend
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={weeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
                   <Legend />
-                  <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} name="Revenue (₹)" />
-                </LineChart>
+                  <Area type="monotone" dataKey="revenue" fill="hsl(var(--primary) / 0.2)" stroke="hsl(var(--primary))" name="Revenue (₹)" />
+                  <Bar dataKey="profit" fill="#10b981" name="Profit (₹)" radius={[4, 4, 0, 0]} />
+                </ComposedChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Last 7 Days Profit</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+                Daily Sales Count
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={weeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="profit" fill="#3b82f6" name="Profit (₹)" />
-                </BarChart>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="sales" 
+                    stroke="#8b5cf6" 
+                    fill="url(#salesGradient)" 
+                    name="Orders" 
+                  />
+                  <defs>
+                    <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                </AreaChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -390,7 +521,7 @@ const Analytics = () => {
         {/* Daily Analytics */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
                 Daily Analytics - {format(selectedDate, 'PPP')}
@@ -399,80 +530,76 @@ const Analytics = () => {
                 type="date"
                 value={format(selectedDate, 'yyyy-MM-dd')}
                 onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                className="px-2 sm:px-3 py-1 sm:py-2 border rounded-md bg-background text-sm"
+                className="px-3 py-2 border rounded-md bg-background text-sm"
               />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
-              <div className="p-4 bg-primary/5 rounded-lg">
-                <p className="text-sm text-muted-foreground">Bills</p>
-                <p className="text-xl sm:text-2xl font-bold">{dailyInvoices.length}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20">
+                <p className="text-xs text-muted-foreground font-medium">Bills</p>
+                <p className="text-2xl font-bold">{dailyInvoices.length}</p>
               </div>
-              <div className="p-4 bg-green-500/5 rounded-lg">
-                <p className="text-sm text-muted-foreground">Revenue</p>
-                <p className="text-xl sm:text-2xl font-bold text-green-600">₹{dailyRevenue.toFixed(2)}</p>
+              <div className="p-4 bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-xl border border-green-200 dark:border-green-800">
+                <p className="text-xs text-muted-foreground font-medium">Revenue</p>
+                <p className="text-2xl font-bold text-green-600">₹{dailyRevenue.toFixed(0)}</p>
               </div>
-              <div className="p-4 bg-blue-500/5 rounded-lg">
-                <p className="text-sm text-muted-foreground">Profit</p>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">₹{dailyProfit.toFixed(2)}</p>
+              <div className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-500/5 rounded-xl border border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-muted-foreground font-medium">Profit</p>
+                <p className="text-2xl font-bold text-blue-600">₹{dailyProfit.toFixed(0)}</p>
               </div>
-              <div className="p-4 bg-orange-500/5 rounded-lg">
-                <p className="text-sm text-muted-foreground">Tax</p>
-                <p className="text-xl sm:text-2xl font-bold text-orange-600">₹{dailyTax.toFixed(2)}</p>
+              <div className="p-4 bg-gradient-to-br from-orange-500/10 to-orange-500/5 rounded-xl border border-orange-200 dark:border-orange-800">
+                <p className="text-xs text-muted-foreground font-medium">Tax</p>
+                <p className="text-2xl font-bold text-orange-600">₹{dailyTax.toFixed(0)}</p>
               </div>
             </div>
 
             {/* Bill Logs */}
             <div className="mt-6">
-              <h3 className="font-semibold mb-3">Bills on {format(selectedDate, 'MMM dd, yyyy')}</h3>
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                Bills on {format(selectedDate, 'MMM dd, yyyy')}
+                <Badge variant="secondary">{dailyInvoices.length}</Badge>
+              </h3>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {dailyInvoices.map((invoice) => {
-                  const items = invoice.items_data as any[];
-                  const invoiceProfit = items.reduce((sum, item: any) => {
-                    const product = products.find(p => p.id === item.id);
-                    if (product && product.buying_price) {
-                      return sum + (item.price - product.buying_price) * item.quantity;
-                    }
-                    return sum;
-                  }, 0);
+                {dailyInvoices.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No bills on this date</p>
+                ) : (
+                  dailyInvoices.map((invoice) => {
+                    const items = invoice.items_data as any[];
+                    const invoiceProfit = items.reduce((sum, item: any) => {
+                      const product = products.find(p => p.id === item.id);
+                      if (product && product.buying_price) {
+                        return sum + (item.price - product.buying_price) * item.quantity;
+                      }
+                      return sum;
+                    }, 0);
 
-                  const hasDiscount = invoice.discount_amount && parseFloat(invoice.discount_amount.toString()) > 0;
-                  const hasProductDiscount = items.some(item => item.discountInfo);
+                    const hasDiscount = invoice.discount_amount && parseFloat(invoice.discount_amount.toString()) > 0;
 
-                  return (
-                    <div key={invoice.id} className="p-2 sm:p-3 bg-muted/30 rounded-lg flex flex-col sm:flex-row justify-between gap-2 sm:items-center">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                          <p className="font-medium text-sm sm:text-base truncate">{invoice.bill_number}</p>
-                          {hasDiscount && (
-                            <span className="text-xs bg-orange-500/20 text-orange-700 px-2 py-0.5 rounded">
-                              Coupon Applied
-                            </span>
-                          )}
-                          {hasProductDiscount && (
-                            <span className="text-xs bg-green-500/20 text-green-700 px-2 py-0.5 rounded">
-                              Product Discount
-                            </span>
-                          )}
+                    return (
+                      <div key={invoice.id} className="p-3 bg-muted/30 rounded-lg flex flex-col sm:flex-row justify-between gap-2 sm:items-center hover:bg-muted/50 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-sm">{invoice.bill_number}</p>
+                            {hasDiscount && (
+                              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 dark:bg-orange-900/30">
+                                Discount
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {invoice.customer_name || 'Walk-in'} • {format(new Date(invoice.created_at), 'hh:mm a')}
+                          </p>
                         </div>
-                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                          {invoice.customer_name || 'Walk-in'} • {format(new Date(invoice.created_at), 'hh:mm a')}
-                        </p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="text-right">
+                            <p className="font-bold">₹{parseFloat(invoice.total_amount.toString()).toFixed(2)}</p>
+                            <p className="text-xs text-green-600">+₹{invoiceProfit.toFixed(2)} profit</p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-left sm:text-right shrink-0">
-                        <p className="font-bold text-green-600 text-sm sm:text-base">₹{parseFloat(invoice.total_amount.toString()).toFixed(2)}</p>
-                        <p className="text-xs sm:text-sm text-blue-600">Profit: ₹{invoiceProfit.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Tax: ₹{parseFloat(invoice.tax_amount.toString()).toFixed(2)}
-                          {hasDiscount && ` • Disc: ₹${parseFloat(invoice.discount_amount.toString()).toFixed(2)}`}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {dailyInvoices.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">No bills found for this date</p>
+                    );
+                  })
                 )}
               </div>
             </div>

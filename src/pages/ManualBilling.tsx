@@ -1563,13 +1563,20 @@ const ManualBilling = () => {
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-xs truncate">{product.name}</h4>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                            <span className="font-semibold text-primary">₹{product.price}</span>
-                            <span>Stk:{product.stock_quantity}</span>
-                            {activeDiscount && (
-                              <span className="text-green-600 font-medium">
-                                {activeDiscount.discount_percentage}%
-                              </span>
+                            {activeDiscount ? (
+                              <>
+                                <span className="line-through text-muted-foreground">₹{product.price}</span>
+                                <span className="font-semibold text-green-600">
+                                  ₹{(product.price * (1 - activeDiscount.discount_percentage / 100)).toFixed(2)}
+                                </span>
+                                <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1 rounded text-[8px] font-medium">
+                                  {activeDiscount.discount_percentage}% OFF
+                                </span>
+                              </>
+                            ) : (
+                              <span className="font-semibold text-primary">₹{product.price}</span>
                             )}
+                            <span>Stk:{product.stock_quantity}</span>
                           </div>
                         </div>
                         {product.price_type === 'weight' && (
