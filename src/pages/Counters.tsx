@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const Counters = () => {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ const Counters = () => {
   const [counters, setCounters] = useState<any[]>([]);
   const [newCounter, setNewCounter] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -40,6 +44,7 @@ const Counters = () => {
   const fetchCounters = async () => {
     if (!userId) return;
 
+    setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('counters')
@@ -51,6 +56,8 @@ const Counters = () => {
     } catch (error: any) {
       console.error(error);
       toast.error(`Failed to fetch counters: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -60,6 +67,7 @@ const Counters = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const { error } = await supabase
         .from('counters')
@@ -73,10 +81,13 @@ const Counters = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to add counter");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDeleteCounter = async (id: string) => {
+    setDeletingId(id);
     try {
       const { error } = await supabase
         .from('counters')
@@ -90,8 +101,18 @@ const Counters = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete counter");
+    } finally {
+      setDeletingId(null);
     }
   };
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading counters..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -127,9 +148,13 @@ const Counters = () => {
                     onKeyPress={(e) => e.key === 'Enter' && handleAddCounter()}
                     className="text-sm sm:text-base"
                   />
-                  <Button onClick={handleAddCounter} className="shrink-0">
+                  <Button 
+                    onClick={handleAddCounter} 
+                    className="shrink-0"
+                    disabled={isSubmitting}
+                  >
                     <Plus className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Add</span>
+                    <span className="hidden sm:inline">{isSubmitting ? 'Adding...' : 'Add'}</span>
                   </Button>
                 </div>
               </div>
@@ -157,8 +182,9 @@ const Counters = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDeleteCounter(counter.id)}
+                        disabled={deletingId === counter.id}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className={`h-4 w-4 text-destructive ${deletingId === counter.id ? 'animate-pulse' : ''}`} />
                       </Button>
                     </div>
                   ))

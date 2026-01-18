@@ -769,8 +769,10 @@ const Inventory = () => {
                     <TableHead>Barcode</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Selling Price</TableHead>
+                    <TableHead>Selling Price (MRP)</TableHead>
                     <TableHead>Buying Price</TableHead>
+                    <TableHead>Base Price</TableHead>
+                    <TableHead>Profit</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Tax Rate</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -787,6 +789,29 @@ const Inventory = () => {
                         {product.price_type === 'weight' && '/kg'}
                       </TableCell>
                       <TableCell>₹{((product as any).buying_price || 0).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {/* Base Price = MRP / (1 + Tax%) */}
+                        {(() => {
+                          const taxRate = product.tax_rate || 0;
+                          const basePrice = product.price / (1 + taxRate / 100);
+                          return `₹${basePrice.toFixed(2)}`;
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        {/* Profit = Base Price - Buying Price */}
+                        {(() => {
+                          const taxRate = product.tax_rate || 0;
+                          const buyingPrice = (product as any).buying_price || 0;
+                          const basePrice = product.price / (1 + taxRate / 100);
+                          const profit = basePrice - buyingPrice;
+                          const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
+                          return (
+                            <span className={profitColor}>
+                              ₹{profit.toFixed(2)}
+                            </span>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell>
                         {product.stock_quantity} {(product as any).unit || 'piece'}
                       </TableCell>
