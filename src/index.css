@@ -102,6 +102,15 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Prevent layout shifts during page transitions */
+    min-height: 100vh;
+  }
+  
+  /* Prevent page flicker on navigation */
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
 }
 

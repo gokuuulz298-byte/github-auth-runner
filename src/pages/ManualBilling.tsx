@@ -1558,6 +1558,19 @@ const ManualBilling = () => {
                         new Date(discount.end_date) >= new Date()
                     );
                     
+                    // Calculate discounted price based on discount type
+                    let discountedPrice = product.price;
+                    let discountLabel = '';
+                    if (activeDiscount) {
+                      if (activeDiscount.discount_type === 'percentage') {
+                        discountedPrice = product.price * (1 - activeDiscount.discount_percentage / 100);
+                        discountLabel = `${activeDiscount.discount_percentage}% OFF`;
+                      } else if (activeDiscount.discount_type === 'fixed') {
+                        discountedPrice = Math.max(0, product.price - activeDiscount.discount_amount);
+                        discountLabel = `₹${activeDiscount.discount_amount} OFF`;
+                      }
+                    }
+                    
                     return (
                       <div key={product.id} className="p-1.5 bg-muted/50 rounded flex justify-between items-center gap-1.5">
                         <div className="flex-1 min-w-0">
@@ -1567,10 +1580,10 @@ const ManualBilling = () => {
                               <>
                                 <span className="line-through text-muted-foreground">₹{product.price}</span>
                                 <span className="font-semibold text-green-600">
-                                  ₹{(product.price * (1 - activeDiscount.discount_percentage / 100)).toFixed(2)}
+                                  ₹{discountedPrice.toFixed(2)}
                                 </span>
                                 <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1 rounded text-[8px] font-medium">
-                                  {activeDiscount.discount_percentage}% OFF
+                                  {discountLabel}
                                 </span>
                               </>
                             ) : (

@@ -358,9 +358,15 @@ function generateReceiptCommands(data: ReceiptData): string {
     !(data.billingMode === 'inclusive' && data.inclusiveBillType === 'mrp');
   
   if (showTax && data.taxAmount > 0) {
-    const taxLabel = 'Tax:';
-    const taxVal = formatCurrency(data.taxAmount);
-    receipt += taxLabel + ' '.repeat(LINE_WIDTH - taxLabel.length - taxVal.length) + taxVal + LF;
+    // Show CGST/SGST split for better clarity
+    const halfTax = data.taxAmount / 2;
+    const cgstLabel = 'CGST:';
+    const cgstVal = formatCurrency(halfTax);
+    receipt += cgstLabel + ' '.repeat(LINE_WIDTH - cgstLabel.length - cgstVal.length) + cgstVal + LF;
+    
+    const sgstLabel = 'SGST:';
+    const sgstVal = formatCurrency(halfTax);
+    receipt += sgstLabel + ' '.repeat(LINE_WIDTH - sgstLabel.length - sgstVal.length) + sgstVal + LF;
   }
   
   if (data.discount && data.discount > 0) {
@@ -372,17 +378,18 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Grand total (bold, double height)
-  // Double height halves the effective line width to ~16 chars
-  receipt += BOLD_ON + DOUBLE_HEIGHT_ON;
-  const totalLabel = 'TOTAL:';
+  // IMPORTANT: Must send NORMAL_SIZE after double height to prevent char consumption
+  receipt += LEFT + BOLD_ON + DOUBLE_HEIGHT_ON;
+  const totalLabel = 'TOTAL: ';
   const totalVal = 'Rs.' + formatCurrency(data.total);
-  // For double-height, we have ~16 char width
+  // For double-height, effective width is ~16 chars
   const totalSpacing = Math.max(1, HALF_LINE_WIDTH - totalLabel.length - totalVal.length);
   receipt += totalLabel + ' '.repeat(totalSpacing) + totalVal + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
   
-  // Tamil translation for TOTAL on separate line (centered, normal size)
+  // Tamil translation for TOTAL on a SEPARATE line (centered, normal size)
   if (data.enableBilingual) {
+    receipt += LF;  // Extra line break to prevent collision
     receipt += CENTER;
     receipt += '(' + TAMIL_TRANSLATIONS['TOTAL'] + ')' + LF;
   }
@@ -398,8 +405,9 @@ function generateReceiptCommands(data: ReceiptData): string {
   }
   receipt += BOLD_OFF;
   
-  // Tamil translation for Thank You on separate line (centered, normal size)
+  // Tamil translation for Thank You on SEPARATE line (centered, normal size)
   if (data.enableBilingual) {
+    receipt += LF;  // Extra line break to prevent collision
     receipt += CENTER;
     receipt += '(' + TAMIL_TRANSLATIONS['Thank You!'] + ')' + LF;
   }
