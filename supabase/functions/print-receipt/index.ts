@@ -38,21 +38,21 @@ interface ReceiptData {
   thankYouNote?: string;
 }
 
-// ESC/POS Commands
+// ESC/POS Commands - using hex values directly
 const ESC = '\x1B';
 const GS = '\x1D';
 const LF = '\n';
 
-// Commands
+// Commands - properly formatted
 const INIT = ESC + '@';  // Initialize printer
-const CENTER = ESC + 'a' + '\x01';  // Center align
-const LEFT = ESC + 'a' + '\x00';  // Left align
-const BOLD_ON = ESC + 'E' + '\x01';
-const BOLD_OFF = ESC + 'E' + '\x00';
-const DOUBLE_HEIGHT = ESC + '!' + '\x10';
-const NORMAL_SIZE = ESC + '!' + '\x00';
-const CUT_PAPER = GS + 'V' + '\x00';  // Full cut
-const FEED_LINES = (n: number) => ESC + 'd' + String.fromCharCode(n);
+const CENTER = ESC + 'a\x01';  // Center align
+const LEFT = ESC + 'a\x00';  // Left align
+const BOLD_ON = ESC + 'E\x01';
+const BOLD_OFF = ESC + 'E\x00';
+const DOUBLE_HEIGHT_ON = GS + '!\x10';  // Use GS ! for size - double height
+const DOUBLE_WIDTH_HEIGHT = GS + '!\x11';  // Double width + height
+const NORMAL_SIZE = GS + '!\x00';  // Normal size
+const CUT_PAPER = GS + 'V\x00';  // Full cut
 
 const LINE_WIDTH = 32; // 58mm printer = 32 chars
 
@@ -155,32 +155,27 @@ function formatCurrency(num: number): string {
   return num.toFixed(2);
 }
 
-function centerText(text: string, width: number): string {
-  if (text.length >= width) return text.substring(0, width);
-  const padding = Math.floor((width - text.length) / 2);
-  return ' '.repeat(padding) + text;
-}
-
 function generateReceiptCommands(data: ReceiptData): string {
   let receipt = '';
   
   // Initialize printer
   receipt += INIT;
+  receipt += LF; // Add a line feed after init
   
   // TAKEAWAY header if parcel
   if (data.isParcel) {
-    receipt += CENTER + BOLD_ON + DOUBLE_HEIGHT;
+    receipt += CENTER + BOLD_ON + DOUBLE_HEIGHT_ON;
     receipt += '*** TAKEAWAY ***' + LF;
+    receipt += NORMAL_SIZE + BOLD_OFF;
     if (data.enableBilingual) {
-      receipt += NORMAL_SIZE;
+      receipt += CENTER;
       receipt += '(' + TAMIL_TRANSLATIONS['TAKEAWAY'] + ')' + LF;
     }
-    receipt += NORMAL_SIZE + BOLD_OFF;
     receipt += LF;
   }
   
   // Company Header - English (centered, bold, double height)
-  receipt += CENTER + BOLD_ON + DOUBLE_HEIGHT;
+  receipt += CENTER + BOLD_ON + DOUBLE_HEIGHT_ON;
   receipt += data.companyName.toUpperCase() + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
   
@@ -190,6 +185,7 @@ function generateReceiptCommands(data: ReceiptData): string {
     receipt += '(' + data.companyNameTamil + ')' + LF;
   }
   
+  // Address section - left aligned for better readability
   receipt += CENTER;
   
   // Address - each part on separate line
@@ -214,7 +210,7 @@ function generateReceiptCommands(data: ReceiptData): string {
   // Separator
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // TAX INVOICE Header (centered)
+  // TAX INVOICE Header (centered, bold)
   receipt += CENTER + BOLD_ON;
   receipt += 'TAX INVOICE' + LF;
   receipt += BOLD_OFF;
@@ -230,30 +226,35 @@ function generateReceiptCommands(data: ReceiptData): string {
   const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   const dateStr = now.toLocaleDateString('en-GB'); // DD/MM/YYYY
   
-  // Line 1: Bill number and Mode
-  receipt += padRight(`Bill: ${data.billNumber}`, 18) + padLeft(`Mode: ${data.paymentMode.toUpperCase()}`, 14) + LF;
+  // Line 1: Bill number and Mode (properly spaced)
+  const billInfo = `Bill: ${data.billNumber}`;
+  const modeInfo = `Mode: ${data.paymentMode.toUpperCase()}`;
+  receipt += billInfo + ' '.repeat(Math.max(1, LINE_WIDTH - billInfo.length - modeInfo.length)) + modeInfo + LF;
+  
   // Line 2: Date and Time
-  receipt += padRight(`Date: ${dateStr}`, 18) + padLeft(`Time: ${timeStr}`, 14) + LF;
+  const dateInfo = `Date: ${dateStr}`;
+  const timeInfo = `Time: ${timeStr}`;
+  receipt += dateInfo + ' '.repeat(Math.max(1, LINE_WIDTH - dateInfo.length - timeInfo.length)) + timeInfo + LF;
   
   // Customer details (if present)
   if (data.customerName || data.customerPhone) {
     receipt += '-'.repeat(LINE_WIDTH) + LF;
     if (data.customerName) {
-      receipt += `Customer: ${data.customerName}` + LF;
+      receipt += 'Customer: ' + data.customerName + LF;
     }
     if (data.customerPhone) {
-      receipt += `Phone: ${data.customerPhone}` + LF;
+      receipt += 'Phone: ' + data.customerPhone + LF;
     }
     if (data.loyaltyPoints && data.loyaltyPoints > 0) {
-      receipt += `Loyalty Points: ${data.loyaltyPoints}` + LF;
+      receipt += 'Loyalty Points: ' + data.loyaltyPoints + LF;
     }
   }
   
   // Items header
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   receipt += BOLD_ON;
-  // Column layout: Item(14) Qty(4) Rate(6) Amt(8) = 32
-  receipt += padRight('Item', 14) + padLeft('Qty', 4) + padLeft('Rate', 6) + padLeft('Amt', 8) + LF;
+  // Column layout: Item(12) Qty(5) Rate(7) Amt(8) = 32 with proper spacing
+  receipt += padRight('Item', 12) + padLeft('Qty', 5) + padLeft('Rate', 7) + padLeft('Amt', 8) + LF;
   receipt += BOLD_OFF;
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
@@ -266,14 +267,17 @@ function generateReceiptCommands(data: ReceiptData): string {
     
     const itemName = item.name;
     
-    // If item name fits in 14 chars, print all on one line
-    if (itemName.length <= 14) {
-      receipt += padRight(itemName, 14) + padLeft(qtyStr, 4) + padLeft(rateStr, 6) + padLeft(amtStr, 8) + LF;
+    // Max item name length for single line with values
+    const maxNameLen = 12;
+    
+    // If item name fits in column, print all on one line
+    if (itemName.length <= maxNameLen) {
+      receipt += padRight(itemName, 12) + padLeft(qtyStr, 5) + padLeft(rateStr, 7) + padLeft(amtStr, 8) + LF;
     } else {
-      // Item name on first line (full width)
+      // Item name on first line
       receipt += itemName + LF;
       // Values on second line, right-aligned
-      receipt += padRight('', 14) + padLeft(qtyStr, 4) + padLeft(rateStr, 6) + padLeft(amtStr, 8) + LF;
+      receipt += ' '.repeat(12) + padLeft(qtyStr, 5) + padLeft(rateStr, 7) + padLeft(amtStr, 8) + LF;
     }
     
     // Tamil name on separate line (if bilingual and has Tamil name)
@@ -288,21 +292,29 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Totals section - right aligned values
-  receipt += padRight('Subtotal:', 20) + padLeft(formatCurrency(data.subtotal), 12) + LF;
+  const subtotalLabel = 'Subtotal:';
+  const subtotalVal = formatCurrency(data.subtotal);
+  receipt += subtotalLabel + ' '.repeat(LINE_WIDTH - subtotalLabel.length - subtotalVal.length) + subtotalVal + LF;
   
   if (data.taxAmount > 0) {
-    receipt += padRight('Tax:', 20) + padLeft(formatCurrency(data.taxAmount), 12) + LF;
+    const taxLabel = 'Tax:';
+    const taxVal = formatCurrency(data.taxAmount);
+    receipt += taxLabel + ' '.repeat(LINE_WIDTH - taxLabel.length - taxVal.length) + taxVal + LF;
   }
   
   if (data.discount && data.discount > 0) {
-    receipt += padRight('Discount:', 20) + padLeft('-' + formatCurrency(data.discount), 12) + LF;
+    const discLabel = 'Discount:';
+    const discVal = '-' + formatCurrency(data.discount);
+    receipt += discLabel + ' '.repeat(LINE_WIDTH - discLabel.length - discVal.length) + discVal + LF;
   }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Grand total (bold, double height)
-  receipt += BOLD_ON + DOUBLE_HEIGHT;
-  receipt += padRight('TOTAL:', 14) + padLeft('Rs.' + formatCurrency(data.total), 18) + LF;
+  // Grand total (bold, double height) - FIX: add text AFTER size command
+  receipt += BOLD_ON + DOUBLE_HEIGHT_ON;
+  const totalLabel = 'TOTAL:';
+  const totalVal = 'Rs.' + formatCurrency(data.total);
+  receipt += totalLabel + ' '.repeat(Math.max(1, 16 - totalLabel.length - totalVal.length + 16)) + totalVal + LF;
   receipt += NORMAL_SIZE + BOLD_OFF;
   
   if (data.enableBilingual) {
@@ -312,9 +324,10 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Thank you note (centered)
-  receipt += CENTER;
-  const thankYou = data.thankYouNote || 'Thank You!';
+  receipt += CENTER + BOLD_ON;
+  const thankYou = data.thankYouNote || 'Thank you for your business!';
   receipt += thankYou + LF;
+  receipt += BOLD_OFF;
   if (data.enableBilingual) {
     receipt += '(' + TAMIL_TRANSLATIONS['Thank You!'] + ')' + LF;
   }
@@ -322,7 +335,7 @@ function generateReceiptCommands(data: ReceiptData): string {
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
   // Feed and cut
-  receipt += FEED_LINES(4);
+  receipt += LF + LF + LF + LF;
   receipt += CUT_PAPER;
   
   return receipt;
@@ -342,9 +355,10 @@ serve(async (req) => {
     // Generate ESC/POS commands
     const escposCommands = generateReceiptCommands(receiptData);
     
-    // Log preview for debugging
+    // Log preview for debugging - strip all control characters
     console.log('================ BILL PREVIEW ================');
-    console.log(escposCommands.replace(/[\x1B\x1D]./g, '')); // Strip control chars for preview
+    const previewText = escposCommands.replace(/[\x00-\x1F\x7F]/g, '');
+    console.log(previewText);
     console.log('============== END BILL PREVIEW ==============');
     
     // Convert to base64 for transmission
