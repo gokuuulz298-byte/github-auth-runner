@@ -27,6 +27,7 @@ import WaiterInterface from "./pages/WaiterInterface";
 import Purchases from "./pages/Purchases";
 import Expenses from "./pages/Expenses";
 import RestaurantTables from "./pages/RestaurantTables";
+import Suppliers from "./pages/Suppliers";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/restaurant-tables" element={<RestaurantTables />} />
+          <Route path="/suppliers" element={<Suppliers />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

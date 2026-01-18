@@ -919,12 +919,16 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
     const gstNote = inclusiveBillType === "mrp" ? "MRP Inclusive – Taxes included" : "Base + GST shown";
     doc.text(gstNote, centerX, currentY, { align: "center" });
     
-    // Bilingual support - Tamil translations
+    // Bilingual support - Tamil translations (using transliteration since jsPDF doesn't support Tamil Unicode)
     if (billingSettings?.enableBilingualBill) {
       currentY += 2.5;
       doc.setFontSize(5);
-      const tamilGstNote = inclusiveBillType === "mrp" ? "MRP உள்ளடக்கம் – வரி சேர்க்கப்பட்டது" : "அடிப்படை + GST காட்டப்பட்டது";
+      doc.setTextColor(100, 100, 100); // Gray color for Tamil
+      const tamilGstNote = inclusiveBillType === "mrp" 
+        ? "(MRP Ulladakkam - Vari Serkkappattadhu)" 
+        : "(Adippadai + GST Kaattappattadhu)";
       doc.text(tamilGstNote, centerX, currentY, { align: "center" });
+      doc.setTextColor(0, 0, 0); // Reset to black
     }
     
     currentY += 3;
@@ -937,7 +941,9 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
     if (billingSettings?.enableBilingualBill) {
       currentY += 2.5;
       doc.setFontSize(6);
-      doc.text("உங்கள் வணிகத்திற்கு நன்றி!", centerX, currentY, { align: "center" });
+      doc.setTextColor(100, 100, 100); // Gray color for Tamil
+      doc.text("(Ungal Vanigathirkku Nandri!)", centerX, currentY, { align: "center" });
+      doc.setTextColor(0, 0, 0); // Reset to black
     }
     
     // Auto-print functionality
