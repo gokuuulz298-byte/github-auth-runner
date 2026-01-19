@@ -452,12 +452,12 @@ const Purchases = () => {
                         <Users className="h-3 w-3" />
                         Select Supplier (Optional)
                       </Label>
-                      <Select value={selectedSupplierId} onValueChange={handleSupplierSelect}>
+                      <Select value={selectedSupplierId || "manual"} onValueChange={(val) => handleSupplierSelect(val === "manual" ? "" : val)}>
                         <SelectTrigger className="h-9">
                           <SelectValue placeholder="Choose from saved suppliers" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">-- Manual Entry --</SelectItem>
+                          <SelectItem value="manual">-- Manual Entry --</SelectItem>
                           {suppliers.map(supplier => (
                             <SelectItem key={supplier.id} value={supplier.id}>
                               {supplier.name} ({supplier.phone})

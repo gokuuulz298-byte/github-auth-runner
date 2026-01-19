@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, Settings, Lock, UserCog, UserCircle } from "lucide-react";
+import { ArrowLeft, Building2, Settings, Lock, UserCog, UserCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import WaiterCard from "@/components/WaiterCard";
 import StaffCard from "@/components/StaffCard";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface CompanyProfile {
   id?: string;
@@ -253,6 +254,7 @@ const Profile = () => {
 
   // Billing Settings Component
   const BillingSettingsSection = () => {
+    const [settingsLoading, setSettingsLoading] = useState(true);
     const [settings, setSettings] = useState<BillingSettings>({
       ModernBilling: { mode: "inclusive", inclusiveBillType: "split" },
       ManualBilling: { mode: "exclusive", inclusiveBillType: "split", allowIgst: true },
@@ -268,6 +270,7 @@ const Profile = () => {
     });
 
     useEffect(() => {
+      setSettingsLoading(true);
       if (profile?.billing_settings) {
         setSettings({
           ModernBilling: {
@@ -290,6 +293,7 @@ const Profile = () => {
           enableBilingualBill: profile.billing_settings.enableBilingualBill ?? false
         });
       }
+      setTimeout(() => setSettingsLoading(false), 300);
     }, [profile]);
 
     const save = async () => {
@@ -314,6 +318,14 @@ const Profile = () => {
         toast.error(err.message || "Failed to save");
       }
     };
+
+    if (settingsLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-6">
@@ -582,10 +594,7 @@ const Profile = () => {
   if (pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading settings...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading settings..." />
       </div>
     );
   }
