@@ -229,11 +229,6 @@ export function PrintPreviewModal({ open, onOpenChange, data, onPrintComplete }:
               <span>Subtotal:</span>
               <span>{data.subtotal.toFixed(2)}</span>
             </div>
-            {data.enableBilingual && (
-              <div className="flex justify-between text-[10px] text-gray-600">
-                <span>({TAMIL_LABELS['Subtotal']})</span>
-              </div>
-            )}
 
             {data.taxAmount > 0 && (
               <>
@@ -242,8 +237,8 @@ export function PrintPreviewModal({ open, onOpenChange, data, onPrintComplete }:
                   <span>{data.taxAmount.toFixed(2)}</span>
                 </div>
                 {data.enableBilingual && (
-                  <div className="flex justify-between text-[10px] text-gray-600">
-                    <span>({TAMIL_LABELS['Tax']})</span>
+                  <div className="text-[10px] text-muted-foreground pl-2 leading-4">
+                    ({TAMIL_LABELS['Tax']})
                   </div>
                 )}
               </>
@@ -256,8 +251,8 @@ export function PrintPreviewModal({ open, onOpenChange, data, onPrintComplete }:
                   <span>-{data.discount.toFixed(2)}</span>
                 </div>
                 {data.enableBilingual && (
-                  <div className="flex justify-between text-[10px] text-gray-600">
-                    <span>({TAMIL_LABELS['Discount']})</span>
+                  <div className="text-[10px] text-muted-foreground pl-2 leading-4">
+                    ({TAMIL_LABELS['Discount']})
                   </div>
                 )}
               </>
@@ -270,8 +265,8 @@ export function PrintPreviewModal({ open, onOpenChange, data, onPrintComplete }:
               <span>Rs.{data.total.toFixed(2)}</span>
             </div>
             {data.enableBilingual && (
-              <div className="flex justify-between text-[10px] text-gray-600">
-                <span>({TAMIL_LABELS['TOTAL']})</span>
+              <div className="text-[10px] text-muted-foreground pl-2 leading-4">
+                {TAMIL_LABELS['TOTAL']}
               </div>
             )}
           </div>
@@ -279,10 +274,12 @@ export function PrintPreviewModal({ open, onOpenChange, data, onPrintComplete }:
           <div className="border-t border-dashed border-gray-400 my-2" />
 
           {/* Thank You */}
-          <div className="text-center">
+          <div className="text-center leading-relaxed">
             <div>{data.companyProfile?.thank_you_note || 'Thank you for your business!'}</div>
             {data.enableBilingual && (
-              <div className="text-[10px]">(உங்கள் வணிகத்திற்கு நன்றி!)</div>
+              <div className="text-[10px] text-muted-foreground mt-1 pl-2">
+                நன்றி
+              </div>
             )}
           </div>
         </div>

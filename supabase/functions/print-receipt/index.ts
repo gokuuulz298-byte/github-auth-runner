@@ -558,31 +558,39 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Grand total (bold, normal size to prevent cutoff) - separate lines for Tamil
+  // Grand total (bold, normal size to prevent cutoff)
   receipt += LEFT + BOLD_ON;
   const totalLabel = 'TOTAL:';
   const totalVal = 'Rs.' + roundedTotal.toFixed(2);
   receipt += padRight(totalLabel, LINE_WIDTH - totalVal.length) + totalVal + LF;
-  // Tamil total on separate line to avoid collision
-  if (data.enableBilingual) {
-    receipt += 'மொத்தம்' + LF;
-  }
   receipt += BOLD_OFF;
+
+  // Tamil total on its own line with extra line spacing + slight indent to avoid glyph collisions
+  if (data.enableBilingual) {
+    // Increase line spacing for Tamil (combining marks need more vertical room)
+    receipt += ESC + '3' + '\x28'; // 40-dot line spacing
+    receipt += '  மொத்தம்' + LF;
+    receipt += ESC + '2'; // Restore default spacing
+  }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Thank you note (centered) - separate lines for Tamil
+  // Thank you note (centered)
   receipt += CENTER + BOLD_ON;
   const thankYou = data.thankYouNote || 'Thank you for your business!';
   const thankYouLines = wrapText(thankYou, LINE_WIDTH);
   for (const line of thankYouLines) {
     receipt += line + LF;
   }
-  // Tamil thank you on separate line
-  if (data.enableBilingual) {
-    receipt += 'நன்றி!' + LF;
-  }
   receipt += BOLD_OFF;
+
+  // Tamil thank you on separate line with extra spacing + slight indent
+  if (data.enableBilingual) {
+    receipt += LF;
+    receipt += ESC + '3' + '\x28';
+    receipt += '  நன்றி' + LF;
+    receipt += ESC + '2';
+  }
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
