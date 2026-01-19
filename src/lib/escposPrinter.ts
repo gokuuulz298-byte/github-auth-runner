@@ -29,8 +29,8 @@ interface PrintReceiptData {
   loyaltyPoints?: number;
   enableBilingual?: boolean;
   thankYouNote?: string;
-  billingMode?: 'inclusive' | 'exclusive' | 'no_tax';
-  inclusiveBillType?: 'mrp' | 'split';
+  billingMode?: "inclusive" | "exclusive" | "no_tax";
+  inclusiveBillType?: "mrp" | "split";
 }
 
 interface PrintServiceConfig {
@@ -47,11 +47,7 @@ const DEFAULT_PRINT_SERVICE: PrintServiceConfig = {
 /**
  * Generate ESC/POS commands via edge function
  */
-export async function generateEscPosCommands(data: PrintReceiptData): Promise<{
-  rawCommands: string;
-  receiptHtml?: string;
-  enableBilingual?: boolean;
-}> {
+export async function generateEscPosCommands(data: PrintReceiptData): Promise<string> {
   try {
     const { data: response, error } = await supabase.functions.invoke("print-receipt", {
       body: data,
@@ -63,11 +59,7 @@ export async function generateEscPosCommands(data: PrintReceiptData): Promise<{
       throw new Error(response.error || "Failed to generate receipt");
     }
 
-    return {
-      rawCommands: response.rawCommands,
-      receiptHtml: response.receiptHtml,
-      enableBilingual: response.enableBilingual,
-    };
+    return response;
   } catch (error) {
     console.error("Error generating ESC/POS commands:", error);
     throw error;
@@ -80,28 +72,8 @@ export async function generateEscPosCommands(data: PrintReceiptData): Promise<{
 export async function sendToLocalPrinter(
   commands: string,
   config: PrintServiceConfig = DEFAULT_PRINT_SERVICE,
-  receiptHtml?: string,
 ): Promise<boolean> {
   try {
-    // If HTML is provided (for Tamil/bilingual), use image-based printing
-    if (receiptHtml) {
-      const response = await fetch(`http://${config.host}:${config.port}/print-html`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ html: receiptHtml, fallbackCommands: commands }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) return true;
-      }
-      // Fall through to text-based printing if image fails
-      console.log("Image printing failed, falling back to text");
-    }
-
-    // Text-based printing (fallback or non-bilingual)
     const response = await fetch(`http://${config.host}:${config.port}/print`, {
       method: "POST",
       headers: {
@@ -118,6 +90,7 @@ export async function sendToLocalPrinter(
     return result.success;
   } catch (error) {
     console.error("Error sending to local printer:", error);
+    // Don't throw - local service might not be running
     return false;
   }
 }
@@ -125,33 +98,35 @@ export async function sendToLocalPrinter(
 /**
  * Print receipt using ESC/POS - combines generation and printing
  */
-export async function printEscPosReceipt(data: PrintReceiptData): Promise<{
-  success: boolean;
-  commands?: string;
-  printed?: boolean;
-  error?: string;
-}> {
+export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
   try {
-    // Generate receipt (HTML for bilingual, text commands as fallback)
-    const result = await generateEscPosCommands(data);
+    const response = await supabase.functions.invoke("print-receipt", {
+      body: data,
+    });
 
-    // Try to send to local print service (uses image printing for Tamil)
-    const printed = await sendToLocalPrinter(
-      result.rawCommands,
-      DEFAULT_PRINT_SERVICE,
-      result.enableBilingual ? result.receiptHtml : undefined
-    );
+    if (!response.data?.success) {
+      throw new Error("Receipt generation failed");
+    }
 
-    return {
-      success: true,
-      commands: result.rawCommands,
-      printed,
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      error: error.message,
-    };
+    // 🔥 IF TAMIL / BILINGUAL → SEND HTML
+    if (data.enableBilingual && response.data.receiptHtml) {
+      await fetch("http://localhost:3001/print-html", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: response.data.receiptHtml,
+        }),
+      });
+
+      return { success: true, mode: "html-image" };
+    }
+
+    // ✅ ELSE → NORMAL ESC/POS TEXT
+    const printed = await sendToLocalPrinter(response.data.rawCommands);
+
+    return { success: true, printed, mode: "text" };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -189,8 +164,8 @@ export function buildReceiptData(params: {
   isParcel?: boolean;
   loyaltyPoints?: number;
   enableBilingual?: boolean;
-  billingMode?: 'inclusive' | 'exclusive' | 'no_tax';
-  inclusiveBillType?: 'mrp' | 'split';
+  billingMode?: "inclusive" | "exclusive" | "no_tax";
+  inclusiveBillType?: "mrp" | "split";
 }): PrintReceiptData {
   const {
     billNumber,
