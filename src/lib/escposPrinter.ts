@@ -47,7 +47,11 @@ const DEFAULT_PRINT_SERVICE: PrintServiceConfig = {
 /**
  * Generate ESC/POS commands via edge function
  */
-export async function generateEscPosCommands(data: PrintReceiptData): Promise<string> {
+export async function generateEscPosCommands(data: PrintReceiptData): Promise<{
+  rawCommands: string;
+  receiptHtml?: string;
+  enableBilingual?: boolean;
+}> {
   try {
     const { data: response, error } = await supabase.functions.invoke("print-receipt", {
       body: data,
@@ -59,7 +63,11 @@ export async function generateEscPosCommands(data: PrintReceiptData): Promise<st
       throw new Error(response.error || "Failed to generate receipt");
     }
 
-    return response.rawCommands;
+    return {
+      rawCommands: response.rawCommands,
+      receiptHtml: response.receiptHtml,
+      enableBilingual: response.enableBilingual,
+    };
   } catch (error) {
     console.error("Error generating ESC/POS commands:", error);
     throw error;
@@ -72,8 +80,28 @@ export async function generateEscPosCommands(data: PrintReceiptData): Promise<st
 export async function sendToLocalPrinter(
   commands: string,
   config: PrintServiceConfig = DEFAULT_PRINT_SERVICE,
+  receiptHtml?: string,
 ): Promise<boolean> {
   try {
+    // If HTML is provided (for Tamil/bilingual), use image-based printing
+    if (receiptHtml) {
+      const response = await fetch(`http://${config.host}:${config.port}/print-html`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ html: receiptHtml, fallbackCommands: commands }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) return true;
+      }
+      // Fall through to text-based printing if image fails
+      console.log("Image printing failed, falling back to text");
+    }
+
+    // Text-based printing (fallback or non-bilingual)
     const response = await fetch(`http://${config.host}:${config.port}/print`, {
       method: "POST",
       headers: {
@@ -90,7 +118,6 @@ export async function sendToLocalPrinter(
     return result.success;
   } catch (error) {
     console.error("Error sending to local printer:", error);
-    // Don't throw - local service might not be running
     return false;
   }
 }
@@ -105,15 +132,19 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<{
   error?: string;
 }> {
   try {
-    // Generate ESC/POS commands
-    const commands = await generateEscPosCommands(data);
+    // Generate receipt (HTML for bilingual, text commands as fallback)
+    const result = await generateEscPosCommands(data);
 
-    // Try to send to local print service
-    const printed = await sendToLocalPrinter(commands);
+    // Try to send to local print service (uses image printing for Tamil)
+    const printed = await sendToLocalPrinter(
+      result.rawCommands,
+      DEFAULT_PRINT_SERVICE,
+      result.enableBilingual ? result.receiptHtml : undefined
+    );
 
     return {
       success: true,
-      commands,
+      commands: result.rawCommands,
       printed,
     };
   } catch (error: any) {
