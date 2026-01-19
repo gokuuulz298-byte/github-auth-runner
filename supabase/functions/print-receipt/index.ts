@@ -764,7 +764,7 @@ serve(async (req) => {
 
     // Generate ESC/POS commands
     const escposCommands = generateReceiptCommands(receiptData);
-    const receiptHtml = generateReceiptHtml(receiptData);
+    const receiptHtml = receiptData.enableBilingual ? generateReceiptHtml(receiptData) : null;
 
     // Log preview for debugging - strip all control characters
     console.log("================ BILL PREVIEW ================");
