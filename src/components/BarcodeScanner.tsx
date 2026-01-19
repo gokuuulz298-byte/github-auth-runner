@@ -18,45 +18,48 @@ const BarcodeScanner = ({ onScan, disabled }: BarcodeScannerProps) => {
   const lastKeyTime = useRef<number>(0);
 
   // Listen for barcode scanner input (rapid keystrokes)
+  // Barcode scanners send characters VERY fast (< 50ms between keys)
+  // This distinguishes scanner input from normal typing
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Ignore if typing in an input field (except our barcode input)
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        // Only allow barcode input field
-        if (!target.classList.contains('barcode-input')) {
-          return;
-        }
-      }
-
       const currentTime = Date.now();
+      const timeSinceLastKey = currentTime - lastKeyTime.current;
       
-      // If it's been more than 100ms since last keystroke, start fresh
-      // Barcode scanners typically send characters very rapidly
-      if (currentTime - lastKeyTime.current > 100) {
+      // Barcode scanners are VERY fast - typically < 50ms between keys
+      // If it's been more than 50ms since last keystroke, start fresh buffer
+      if (timeSinceLastKey > 50) {
         barcodeBuffer.current = "";
       }
       lastKeyTime.current = currentTime;
 
-      // Handle Enter key - submit barcode
+      // Handle Enter key - submit barcode if we have one
       if (e.key === 'Enter') {
         if (barcodeBuffer.current.length >= 3) {
           e.preventDefault();
+          e.stopPropagation();
           onScan(barcodeBuffer.current);
-          toast.success(`Scanned: ${barcodeBuffer.current}`);
           barcodeBuffer.current = "";
         }
         return;
       }
 
       // Only accept alphanumeric and common barcode characters
+      // When scanner is active (rapid input), capture the keys
       if (/^[a-zA-Z0-9\-_]$/.test(e.key)) {
         barcodeBuffer.current += e.key;
+        
+        // If we're getting rapid input (scanner mode), prevent default
+        // to avoid typing in focused input fields
+        if (timeSinceLastKey < 50 && barcodeBuffer.current.length > 1) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
       }
     };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    // Use capture phase to intercept before other handlers
+    window.addEventListener('keydown', handleKeyPress, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyPress, { capture: true });
   }, [onScan]);
 
   // Focus input when dialog opens

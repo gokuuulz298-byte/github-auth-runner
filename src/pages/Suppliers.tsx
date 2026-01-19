@@ -419,20 +419,24 @@ const Suppliers = () => {
                               <div
                                 key={product.id}
                                 className={`flex items-center gap-2 py-1.5 px-2 hover:bg-muted rounded cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
-                                onClick={() => toggleProduct(product.id)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleProduct(product.id);
+                                }}
                               >
                                 <Checkbox
-                                  id={`product-${product.id}`}
                                   checked={isSelected}
-                                  onCheckedChange={() => toggleProduct(product.id)}
+                                  onCheckedChange={(checked) => {
+                                    // Prevent event bubbling
+                                    toggleProduct(product.id);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
                                 />
-                                <label 
-                                  htmlFor={`product-${product.id}`}
-                                  className="text-sm flex-1 cursor-pointer"
-                                >
+                                <span className="text-sm flex-1">
                                   {product.name}
-                                </label>
-                                <Badge variant="outline" className="text-xs pointer-events-none">
+                                </span>
+                                <Badge variant="outline" className="text-xs">
                                   {formatIndianCurrency(product.buying_price || 0)}
                                 </Badge>
                               </div>
