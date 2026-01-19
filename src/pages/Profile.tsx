@@ -71,7 +71,9 @@ interface Staff {
 const Profile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [waiters, setWaiters] = useState<Waiter[]>([]);
@@ -90,9 +92,9 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    fetchProfile();
-    fetchWaiters();
-    fetchStaff();
+    Promise.all([fetchProfile(), fetchWaiters(), fetchStaff()]).finally(() => {
+      setPageLoading(false);
+    });
   }, []);
 
   const fetchWaiters = async () => {
@@ -197,6 +199,11 @@ const Profile = () => {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!oldPassword) {
+      toast.error("Please enter your current password");
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
@@ -210,6 +217,22 @@ const Profile = () => {
     setPasswordLoading(true);
 
     try {
+      // First verify old password by re-authenticating
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("User not found");
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: oldPassword,
+      });
+
+      if (signInError) {
+        toast.error("Current password is incorrect");
+        setPasswordLoading(false);
+        return;
+      }
+
+      // Now update password
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
@@ -217,6 +240,7 @@ const Profile = () => {
       if (error) throw error;
 
       toast.success("Password changed successfully!");
+      setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
@@ -555,6 +579,17 @@ const Profile = () => {
 
   const isRestaurantMode = profile.billing_settings?.isRestaurant;
 
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
@@ -732,7 +767,18 @@ const Profile = () => {
               <CardContent>
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
                   <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
+                    <Label htmlFor="old-password">Current Password *</Label>
+                    <Input
+                      id="old-password"
+                      type="password"
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password *</Label>
                     <Input
                       id="new-password"
                       type="password"
@@ -743,7 +789,7 @@ const Profile = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Label htmlFor="confirm-password">Confirm Password *</Label>
                     <Input
                       id="confirm-password"
                       type="password"
@@ -754,7 +800,12 @@ const Profile = () => {
                     />
                   </div>
                   <Button type="submit" disabled={passwordLoading}>
-                    {passwordLoading ? "Changing..." : "Change Password"}
+                    {passwordLoading ? (
+                      <>
+                        <span className="animate-spin mr-2">⟳</span>
+                        Changing...
+                      </>
+                    ) : "Change Password"}
                   </Button>
                 </form>
               </CardContent>

@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Package, Truck, CheckCircle2, Clock, Search, X, Eye, Lock, GripVertical, Percent } from "lucide-react";
+import { ArrowLeft, Plus, Package, Truck, CheckCircle2, Clock, Search, X, Eye, Lock, GripVertical, Percent, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import { Textarea } from "@/components/ui/textarea";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface PurchaseItem {
   id: string;
@@ -37,6 +38,13 @@ interface Purchase {
   created_at: string;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  mapped_products: string[];
+}
+
 const STATUS_COLUMNS = [
   { id: 'pending', label: 'Pending', color: 'bg-yellow-500' },
   { id: 'ordered', label: 'Ordered', color: 'bg-blue-500' },
@@ -48,6 +56,7 @@ const Purchases = () => {
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -58,6 +67,7 @@ const Purchases = () => {
   // Form state
   const [supplierName, setSupplierName] = useState("");
   const [supplierPhone, setSupplierPhone] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [selectedItems, setSelectedItems] = useState<PurchaseItem[]>([]);
@@ -67,6 +77,7 @@ const Purchases = () => {
   useEffect(() => {
     fetchPurchases();
     fetchProducts();
+    fetchSuppliers();
   }, []);
 
   const fetchPurchases = async () => {
@@ -112,11 +123,45 @@ const Purchases = () => {
     }
   };
 
+  const fetchSuppliers = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('id, name, phone, mapped_products')
+        .eq('created_by', user.id)
+        .order('name');
+
+      if (error) throw error;
+      setSuppliers((data || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        phone: s.phone,
+        mapped_products: (s.mapped_products as string[]) || []
+      })));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const generatePurchaseNumber = () => {
     const date = new Date();
     const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `PO-${dateStr}-${random}`;
+  };
+
+  const handleSupplierSelect = (supplierId: string) => {
+    const supplier = suppliers.find(s => s.id === supplierId);
+    if (supplier) {
+      setSelectedSupplierId(supplierId);
+      setSupplierName(supplier.name);
+      setSupplierPhone(supplier.phone);
+    } else {
+      setSelectedSupplierId("");
+    }
   };
 
   const handleAddProduct = (product: any) => {
@@ -307,6 +352,7 @@ const Purchases = () => {
   const resetForm = () => {
     setSupplierName("");
     setSupplierPhone("");
+    setSelectedSupplierId("");
     setNotes("");
     setExpectedDate("");
     setSelectedItems([]);
@@ -335,14 +381,36 @@ const Purchases = () => {
     return matchesSearch;
   });
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.barcode.includes(productSearch)
-  );
+  // Filter products based on selected supplier mapping or all products
+  const getFilteredProducts = () => {
+    const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
+    let productsToShow = products;
+    
+    // If supplier is selected and has mapped products, show only mapped ones
+    if (selectedSupplier && selectedSupplier.mapped_products && selectedSupplier.mapped_products.length > 0) {
+      productsToShow = products.filter(p => selectedSupplier.mapped_products.includes(p.id));
+    }
+    
+    // Apply search filter
+    return productsToShow.filter(p =>
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.barcode.includes(productSearch)
+    );
+  };
+
+  const filteredProducts = getFilteredProducts();
 
   const getPurchasesByStatus = (status: string) => {
     return filteredPurchases.filter(p => p.status === status);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner size="lg" text="Loading purchases..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -378,6 +446,35 @@ const Purchases = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left - Supplier & Items */}
                   <div className="space-y-4">
+                    {/* Supplier Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-xs flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        Select Supplier (Optional)
+                      </Label>
+                      <Select value={selectedSupplierId} onValueChange={handleSupplierSelect}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Choose from saved suppliers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">-- Manual Entry --</SelectItem>
+                          {suppliers.map(supplier => (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.name} ({supplier.phone})
+                              {supplier.mapped_products.length > 0 && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  • {supplier.mapped_products.length} products
+                                </span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Select a supplier to auto-fill details and filter to their mapped products
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Supplier Name</Label>
@@ -410,7 +507,12 @@ const Purchases = () => {
                     </div>
 
                     <div className="space-y-1">
-                      <Label className="text-xs">Search Products (by name or barcode)</Label>
+                      <Label className="text-xs">
+                        Search Products (by name or barcode)
+                        {selectedSupplierId && suppliers.find(s => s.id === selectedSupplierId)?.mapped_products.length ? (
+                          <span className="text-primary ml-1">• Showing mapped products only</span>
+                        ) : null}
+                      </Label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -423,22 +525,28 @@ const Purchases = () => {
                     </div>
 
                     <div className="border rounded-lg max-h-40 overflow-y-auto">
-                      {filteredProducts.slice(0, 15).map(product => (
-                        <div
-                          key={product.id}
-                          className="p-2 hover:bg-muted/50 cursor-pointer flex justify-between items-center border-b last:border-b-0"
-                          onClick={() => handleAddProduct(product)}
-                        >
-                          <div>
-                            <p className="font-medium text-sm">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">{product.barcode}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-primary">{formatIndianCurrency(product.buying_price || product.price)}</p>
-                            <p className="text-xs text-muted-foreground">Cost</p>
-                          </div>
+                      {filteredProducts.length === 0 ? (
+                        <div className="p-4 text-center text-muted-foreground text-sm">
+                          No products found
                         </div>
-                      ))}
+                      ) : (
+                        filteredProducts.slice(0, 15).map(product => (
+                          <div
+                            key={product.id}
+                            className="p-2 hover:bg-muted/50 cursor-pointer flex justify-between items-center border-b last:border-b-0"
+                            onClick={() => handleAddProduct(product)}
+                          >
+                            <div>
+                              <p className="font-medium text-sm">{product.name}</p>
+                              <p className="text-xs text-muted-foreground">{product.barcode}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-primary">{formatIndianCurrency(product.buying_price || product.price)}</p>
+                              <p className="text-xs text-muted-foreground">Cost</p>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
 
                     <div className="space-y-1">
@@ -545,83 +653,77 @@ const Purchases = () => {
       </header>
 
       <main className="container mx-auto px-2 py-4">
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          </div>
-        ) : (
-          /* Kanban Board */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {STATUS_COLUMNS.map(column => {
-              const statusBgColor = 
-                column.id === 'pending' ? 'bg-yellow-50 dark:bg-yellow-950/20' :
-                column.id === 'ordered' ? 'bg-blue-50 dark:bg-blue-950/20' :
-                column.id === 'received' ? 'bg-green-50 dark:bg-green-950/20' :
-                column.id === 'cancelled' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-muted/30';
-              
-              return (
-              <div
-                key={column.id}
-                className={`rounded-lg p-3 ${statusBgColor} border border-opacity-50 ${
-                  column.id === 'pending' ? 'border-yellow-200 dark:border-yellow-800' :
-                  column.id === 'ordered' ? 'border-blue-200 dark:border-blue-800' :
-                  column.id === 'received' ? 'border-green-200 dark:border-green-800' :
-                  column.id === 'cancelled' ? 'border-red-200 dark:border-red-800' : ''
-                }`}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, column.id)}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={`w-2 h-2 rounded-full ${column.color}`} />
-                  <h3 className="font-semibold text-sm">{column.label}</h3>
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    {getPurchasesByStatus(column.id).length}
-                  </Badge>
-                </div>
-                
-                <div className="space-y-2 min-h-[200px]">
-                  {getPurchasesByStatus(column.id).map(purchase => (
-                    <Card
-                      key={purchase.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, purchase)}
-                      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-card"
-                      onClick={() => {
-                        setSelectedPurchase(purchase);
-                        setDetailDialogOpen(true);
-                      }}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-mono text-xs font-semibold text-primary truncate">
-                              {purchase.purchase_number}
-                            </p>
-                            <p className="text-sm font-medium truncate mt-1">
-                              {purchase.supplier_name || 'No supplier'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {purchase.items_data.length} items
-                            </p>
-                          </div>
-                          <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        </div>
-                        <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(purchase.created_at).toLocaleDateString()}
-                          </span>
-                          <span className="font-semibold text-sm">
-                            {formatIndianCurrency(purchase.total_amount)}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+        {/* Kanban Board */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {STATUS_COLUMNS.map(column => {
+            const statusBgColor = 
+              column.id === 'pending' ? 'bg-yellow-50 dark:bg-yellow-950/20' :
+              column.id === 'ordered' ? 'bg-blue-50 dark:bg-blue-950/20' :
+              column.id === 'received' ? 'bg-green-50 dark:bg-green-950/20' :
+              column.id === 'cancelled' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-muted/30';
+            
+            return (
+            <div
+              key={column.id}
+              className={`rounded-lg p-3 ${statusBgColor} border border-opacity-50 ${
+                column.id === 'pending' ? 'border-yellow-200 dark:border-yellow-800' :
+                column.id === 'ordered' ? 'border-blue-200 dark:border-blue-800' :
+                column.id === 'received' ? 'border-green-200 dark:border-green-800' :
+                column.id === 'cancelled' ? 'border-red-200 dark:border-red-800' : ''
+              }`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.id)}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`w-2 h-2 rounded-full ${column.color}`} />
+                <h3 className="font-semibold text-sm">{column.label}</h3>
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {getPurchasesByStatus(column.id).length}
+                </Badge>
               </div>
-            )})}
-          </div>
-        )}
+              
+              <div className="space-y-2 min-h-[200px]">
+                {getPurchasesByStatus(column.id).map(purchase => (
+                  <Card
+                    key={purchase.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, purchase)}
+                    className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-card"
+                    onClick={() => {
+                      setSelectedPurchase(purchase);
+                      setDetailDialogOpen(true);
+                    }}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-xs font-semibold text-primary truncate">
+                            {purchase.purchase_number}
+                          </p>
+                          <p className="text-sm font-medium truncate mt-1">
+                            {purchase.supplier_name || 'No supplier'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {purchase.items_data.length} items
+                          </p>
+                        </div>
+                        <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </div>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(purchase.created_at).toLocaleDateString()}
+                        </span>
+                        <span className="font-semibold text-sm">
+                          {formatIndianCurrency(purchase.total_amount)}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )})}
+        </div>
       </main>
 
       {/* Detail Dialog */}

@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Plus, Receipt, Trash2, Edit2, X, Check, Calendar, Wallet } from "lucide-react";
+import { ArrowLeft, Plus, Receipt, Trash2, Edit2, X, Check, Calendar, Wallet, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, parseISO, subMonths } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -21,6 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Expense {
   id: string;
@@ -50,6 +52,7 @@ const EXPENSE_CATEGORIES = [
 const Expenses = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -57,6 +60,8 @@ const Expenses = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   
   const [formData, setFormData] = useState({
     expense_date: format(new Date(), "yyyy-MM-dd"),
@@ -80,6 +85,7 @@ const Expenses = () => {
       const start = startOfMonth(monthDate);
       const end = endOfMonth(monthDate);
 
+      // Current month expenses
       const { data, error } = await supabase
         .from("expenses")
         .select("*")
@@ -90,6 +96,20 @@ const Expenses = () => {
 
       if (error) throw error;
       setExpenses((data || []) as Expense[]);
+
+      // Previous month expenses for comparison
+      const prevMonthDate = subMonths(monthDate, 1);
+      const prevStart = startOfMonth(prevMonthDate);
+      const prevEnd = endOfMonth(prevMonthDate);
+
+      const { data: prevData } = await supabase
+        .from("expenses")
+        .select("*")
+        .eq("created_by", user.id)
+        .gte("expense_date", prevStart.toISOString())
+        .lte("expense_date", prevEnd.toISOString());
+
+      setPreviousMonthExpenses((prevData || []) as Expense[]);
     } catch (error) {
       console.error(error);
       toast.error("Failed to fetch expenses");
@@ -117,6 +137,7 @@ const Expenses = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -139,6 +160,8 @@ const Expenses = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to add expense");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -148,6 +171,7 @@ const Expenses = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const { error } = await supabase
         .from("expenses")
@@ -169,6 +193,8 @@ const Expenses = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to update expense");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -212,6 +238,31 @@ const Expenses = () => {
     return acc;
   }, {} as Record<string, number>);
 
+  // Previous month category totals for comparison
+  const prevCategoryTotals = previousMonthExpenses.reduce((acc, e) => {
+    acc[e.category] = (acc[e.category] || 0) + parseFloat(e.amount.toString());
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Sort categories by amount
+  const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+  const topCategories = sortedCategories.slice(0, 3);
+  const remainingCategories = sortedCategories.slice(3);
+
+  const getPercentageChange = (category: string, currentAmount: number) => {
+    const prevAmount = prevCategoryTotals[category] || 0;
+    if (prevAmount === 0) return currentAmount > 0 ? 100 : 0;
+    return ((currentAmount - prevAmount) / prevAmount) * 100;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner size="lg" text="Loading expenses..." />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
@@ -247,15 +298,69 @@ const Expenses = () => {
               <p className="text-2xl font-bold text-red-600">₹{totalExpenses.toFixed(2)}</p>
             </CardContent>
           </Card>
-          {Object.entries(categoryTotals).slice(0, 3).map(([category, total]) => (
-            <Card key={category}>
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground truncate">{category}</p>
-                <p className="text-xl font-bold">₹{total.toFixed(2)}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {topCategories.map(([category, total]) => {
+            const change = getPercentageChange(category, total);
+            return (
+              <Card key={category}>
+                <CardContent className="pt-4">
+                  <p className="text-sm text-muted-foreground truncate">{category}</p>
+                  <p className="text-xl font-bold">₹{total.toFixed(2)}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {change > 0 ? (
+                      <TrendingUp className="h-3 w-3 text-red-500" />
+                    ) : change < 0 ? (
+                      <TrendingDown className="h-3 w-3 text-green-500" />
+                    ) : null}
+                    <span className={`text-xs ${change > 0 ? 'text-red-500' : change < 0 ? 'text-green-500' : 'text-muted-foreground'}`}>
+                      {change > 0 ? '+' : ''}{change.toFixed(1)}% vs last month
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
+
+        {/* Expandable All Categories */}
+        {remainingCategories.length > 0 && (
+          <Collapsible open={categoriesExpanded} onOpenChange={setCategoriesExpanded}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full flex items-center justify-between">
+                <span>View All Categories ({sortedCategories.length})</span>
+                {categoriesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {sortedCategories.map(([category, total]) => {
+                  const prevAmount = prevCategoryTotals[category] || 0;
+                  const change = getPercentageChange(category, total);
+                  return (
+                    <Card key={category} className="relative">
+                      <CardContent className="pt-4 pb-3">
+                        <p className="text-sm text-muted-foreground truncate font-medium">{category}</p>
+                        <p className="text-lg font-bold">₹{total.toFixed(2)}</p>
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-xs text-muted-foreground">Last month: ₹{prevAmount.toFixed(2)}</p>
+                          <div className={`flex items-center gap-1 mt-1 ${change > 0 ? 'text-red-500' : change < 0 ? 'text-green-500' : 'text-muted-foreground'}`}>
+                            {change > 0 ? (
+                              <TrendingUp className="h-3 w-3" />
+                            ) : change < 0 ? (
+                              <TrendingDown className="h-3 w-3" />
+                            ) : null}
+                            <span className="text-xs font-medium">
+                              {change > 0 ? '+' : ''}{change.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
         {/* Expenses List */}
         <Card>
@@ -266,9 +371,7 @@ const Expenses = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="text-center py-8">Loading...</div>
-            ) : expenses.length === 0 ? (
+            {expenses.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Receipt className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No expenses recorded for this month</p>
@@ -401,11 +504,24 @@ const Expenses = () => {
                 />
               </div>
               <div className="flex gap-2 pt-2">
-                <Button onClick={() => (editingId ? handleUpdate(editingId) : handleAdd())} className="flex-1">
-                  <Check className="h-4 w-4 mr-1" />
-                  {editingId ? "Update" : "Add"} Expense
+                <Button 
+                  onClick={() => (editingId ? handleUpdate(editingId) : handleAdd())} 
+                  className="flex-1"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      {editingId ? "Updating..." : "Adding..."}
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 mr-1" />
+                      {editingId ? "Update" : "Add"} Expense
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={resetForm}>
+                <Button variant="outline" onClick={resetForm} disabled={isSubmitting}>
                   <X className="h-4 w-4 mr-1" />
                   Cancel
                 </Button>
@@ -453,7 +569,11 @@ const Expenses = () => {
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
-                  <Button variant="destructive" className="flex-1" onClick={() => { setDetailDialogOpen(false); setDeleteId(selectedExpense.id); }}>
+                  <Button 
+                    variant="destructive" 
+                    className="flex-1"
+                    onClick={() => { setDetailDialogOpen(false); setDeleteId(selectedExpense.id); }}
+                  >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
                   </Button>
@@ -463,8 +583,8 @@ const Expenses = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Delete Confirmation */}
-        <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Expense</AlertDialogTitle>
@@ -474,7 +594,7 @@ const Expenses = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
