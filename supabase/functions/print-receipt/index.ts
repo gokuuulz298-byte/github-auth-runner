@@ -498,14 +498,12 @@ function generateReceiptCommands(data: ReceiptData): string {
       }
       
       // Line 2: Tamil name in brackets (if bilingual) - using TRANSLITERATION
+      // Print on separate line to avoid collision with English text
       if (data.enableBilingual) {
         const tamilName = item.nameTamil || getProductTamilName(item.name);
         if (tamilName) {
-          const tamilLine = '(' + tamilName + ')';
-          const tamilLines = wrapText(tamilLine, LINE_WIDTH);
-          for (const line of tamilLines) {
-            receipt += line + LF;
-          }
+          // Print Tamil name on its own line with proper spacing
+          receipt += '  ' + tamilName + LF;
         }
       }
       
@@ -517,9 +515,8 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Totals section - use predefined Tamil text in compact format
-  // Subtotal with inline Tamil
-  const subtotalLabel = data.enableBilingual ? 'Subtotal/உபமொத்தம்:' : 'Subtotal:';
+  // Totals section - NO Tamil for subtotal as requested
+  const subtotalLabel = 'Subtotal:';
   const subtotalVal = formatCurrency(data.subtotal);
   receipt += padRight(subtotalLabel, LINE_WIDTH - subtotalVal.length) + subtotalVal + LF;
   
@@ -540,9 +537,13 @@ function generateReceiptCommands(data: ReceiptData): string {
   }
   
   if (data.discount && data.discount > 0) {
-    const discLabel = data.enableBilingual ? 'Discount/தள்ளுபடி:' : 'Discount:';
+    const discLabel = 'Discount:';
     const discVal = '-' + formatCurrency(data.discount);
     receipt += padRight(discLabel, LINE_WIDTH - discVal.length) + discVal + LF;
+    // Tamil discount on separate line
+    if (data.enableBilingual) {
+      receipt += 'தள்ளுபடி' + LF;
+    }
   }
   
   // Calculate round-off
@@ -557,25 +558,29 @@ function generateReceiptCommands(data: ReceiptData): string {
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Grand total (bold, normal size to prevent cutoff) with inline Tamil
+  // Grand total (bold, normal size to prevent cutoff) - separate lines for Tamil
   receipt += LEFT + BOLD_ON;
-  const totalLabel = data.enableBilingual ? 'TOTAL/மொத்தம்:' : 'TOTAL:';
+  const totalLabel = 'TOTAL:';
   const totalVal = 'Rs.' + roundedTotal.toFixed(2);
   receipt += padRight(totalLabel, LINE_WIDTH - totalVal.length) + totalVal + LF;
+  // Tamil total on separate line to avoid collision
+  if (data.enableBilingual) {
+    receipt += 'மொத்தம்' + LF;
+  }
   receipt += BOLD_OFF;
   
   receipt += '-'.repeat(LINE_WIDTH) + LF;
   
-  // Thank you note (centered) with inline Tamil
+  // Thank you note (centered) - separate lines for Tamil
   receipt += CENTER + BOLD_ON;
   const thankYou = data.thankYouNote || 'Thank you for your business!';
   const thankYouLines = wrapText(thankYou, LINE_WIDTH);
   for (const line of thankYouLines) {
     receipt += line + LF;
   }
-  // Inline Tamil thank you - நன்றி!
+  // Tamil thank you on separate line
   if (data.enableBilingual) {
-    receipt += '(நன்றி!)' + LF;
+    receipt += 'நன்றி!' + LF;
   }
   receipt += BOLD_OFF;
   

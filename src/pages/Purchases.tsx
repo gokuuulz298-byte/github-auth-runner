@@ -14,6 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import { Textarea } from "@/components/ui/textarea";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import LoadingButton from "@/components/LoadingButton";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface PurchaseItem {
   id: string;
@@ -22,6 +24,8 @@ interface PurchaseItem {
   unit_price: number;
   barcode: string;
   discount?: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
 }
 
 interface Purchase {
@@ -73,6 +77,9 @@ const Purchases = () => {
   const [selectedItems, setSelectedItems] = useState<PurchaseItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+  const [discountValue, setDiscountValue] = useState<number>(0);
+  const [isCreating, setIsCreating] = useState<boolean>(false);
 
   useEffect(() => {
     fetchPurchases();
@@ -177,7 +184,9 @@ const Purchases = () => {
         quantity: 1,
         unit_price: Number(product.buying_price) || Number(product.price),
         barcode: product.barcode,
-        discount: 0
+        discount: 0,
+        discountType: 'percentage',
+        discountValue: 0
       }]);
     }
   };
@@ -192,24 +201,41 @@ const Purchases = () => {
     }
   };
 
-  const handleUpdateItemDiscount = (id: string, discount: number) => {
+  const handleUpdateItemDiscount = (id: string, value: number, type: 'percentage' | 'fixed') => {
     setSelectedItems(selectedItems.map(item =>
-      item.id === id ? { ...item, discount: Math.max(0, Math.min(100, discount)) } : item
+      item.id === id ? { 
+        ...item, 
+        discountType: type,
+        discountValue: type === 'percentage' ? Math.max(0, Math.min(100, value)) : Math.max(0, value),
+        discount: type === 'percentage' ? Math.max(0, Math.min(100, value)) : 0
+      } : item
     ));
   };
 
   const calculateSubtotal = () => {
     return selectedItems.reduce((sum, item) => {
       const itemTotal = item.unit_price * item.quantity;
-      const itemDiscount = item.discount ? (itemTotal * item.discount / 100) : 0;
-      return sum + (itemTotal - itemDiscount);
+      let itemDiscountAmount = 0;
+      if (item.discountType === 'fixed' && item.discountValue) {
+        itemDiscountAmount = item.discountValue;
+      } else if (item.discountType === 'percentage' && item.discountValue) {
+        itemDiscountAmount = itemTotal * item.discountValue / 100;
+      } else if (item.discount) {
+        itemDiscountAmount = itemTotal * item.discount / 100;
+      }
+      return sum + (itemTotal - itemDiscountAmount);
     }, 0);
   };
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const globalDiscount = discountPercent > 0 ? (subtotal * discountPercent / 100) : 0;
-    return subtotal - globalDiscount;
+    let globalDiscountAmount = 0;
+    if (discountType === 'fixed') {
+      globalDiscountAmount = discountValue;
+    } else {
+      globalDiscountAmount = subtotal * discountValue / 100;
+    }
+    return subtotal - globalDiscountAmount;
   };
 
   const handleCreatePurchase = async () => {
@@ -358,6 +384,8 @@ const Purchases = () => {
     setSelectedItems([]);
     setProductSearch("");
     setDiscountPercent(0);
+    setDiscountType('percentage');
+    setDiscountValue(0);
   };
 
   const getStatusBadge = (status: string) => {
@@ -596,18 +624,34 @@ const Purchases = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
-                              <Percent className="h-3 w-3 text-muted-foreground" />
+                              <Select
+                                value={item.discountType || 'percentage'}
+                                onValueChange={(val: 'percentage' | 'fixed') => handleUpdateItemDiscount(item.id, item.discountValue || 0, val)}
+                              >
+                                <SelectTrigger className="w-16 h-6 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="percentage">%</SelectItem>
+                                  <SelectItem value="fixed">₹</SelectItem>
+                                </SelectContent>
+                              </Select>
                               <Input
                                 type="number"
-                                value={item.discount || 0}
-                                onChange={(e) => handleUpdateItemDiscount(item.id, parseFloat(e.target.value) || 0)}
+                                value={item.discountValue || 0}
+                                onChange={(e) => handleUpdateItemDiscount(item.id, parseFloat(e.target.value) || 0, item.discountType || 'percentage')}
                                 className="w-16 h-6 text-xs"
-                                placeholder="Disc %"
+                                placeholder="Disc"
                                 min={0}
-                                max={100}
+                                max={item.discountType === 'percentage' ? 100 : undefined}
                               />
                               <span className="text-xs text-muted-foreground">
-                                = {formatIndianCurrency((item.unit_price * item.quantity) * (1 - (item.discount || 0) / 100))}
+                                = {formatIndianCurrency(
+                                  (item.unit_price * item.quantity) - 
+                                  (item.discountType === 'fixed' 
+                                    ? (item.discountValue || 0) 
+                                    : (item.unit_price * item.quantity) * (item.discountValue || 0) / 100)
+                                )}
                               </span>
                             </div>
                           </div>
@@ -621,17 +665,29 @@ const Purchases = () => {
                         <span>{formatIndianCurrency(calculateSubtotal())}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label className="text-xs whitespace-nowrap">Extra Discount %</Label>
+                        <Label className="text-xs whitespace-nowrap">Discount</Label>
+                        <Select
+                          value={discountType}
+                          onValueChange={(val: 'percentage' | 'fixed') => setDiscountType(val)}
+                        >
+                          <SelectTrigger className="w-14 h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="percentage">%</SelectItem>
+                            <SelectItem value="fixed">₹</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <Input
                           type="number"
-                          value={discountPercent}
-                          onChange={(e) => setDiscountPercent(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                          value={discountValue}
+                          onChange={(e) => setDiscountValue(Math.max(0, parseFloat(e.target.value) || 0))}
                           className="w-20 h-7 text-sm"
                           min={0}
-                          max={100}
+                          max={discountType === 'percentage' ? 100 : undefined}
                         />
                         <span className="text-sm text-muted-foreground">
-                          -{formatIndianCurrency(calculateSubtotal() * discountPercent / 100)}
+                          -{formatIndianCurrency(discountType === 'fixed' ? discountValue : calculateSubtotal() * discountValue / 100)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-lg font-bold pt-2 border-t">
@@ -640,10 +696,14 @@ const Purchases = () => {
                       </div>
                     </div>
 
-                    <Button onClick={handleCreatePurchase} className="w-full" disabled={selectedItems.length === 0}>
+                    <LoadingButton 
+                      onClick={handleCreatePurchase} 
+                      className="w-full" 
+                      disabled={selectedItems.length === 0}
+                    >
                       <Package className="h-4 w-4 mr-2" />
                       Create Purchase Order
-                    </Button>
+                    </LoadingButton>
                   </div>
                 </div>
               </DialogContent>

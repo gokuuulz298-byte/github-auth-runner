@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode, Info, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode, Info, Loader2, X } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -600,29 +600,42 @@ const Inventory = () => {
 
                 <div>
                   <Label htmlFor="image">Product Image (Max 2MB)</Label>
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 2 * 1024 * 1024) {
-                          toast.error("Image size must be less than 2MB");
-                          e.target.value = "";
-                          return;
+                  <div className="relative">
+                    <Input
+                      id="image"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 2 * 1024 * 1024) {
+                            toast.error("Image size must be less than 2MB");
+                            e.target.value = "";
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setFormData({ ...formData, image_url: reader.result as string });
+                          };
+                          reader.readAsDataURL(file);
                         }
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setFormData({ ...formData, image_url: reader.result as string });
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  {formData.image_url && (
-                    <img src={formData.image_url} alt="Preview" className="w-20 h-20 object-cover rounded mt-2" />
-                  )}
+                      }}
+                    />
+                    {formData.image_url && (
+                      <div className="relative inline-block mt-2">
+                        <img src={formData.image_url} alt="Preview" className="w-20 h-20 object-cover rounded" />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-5 w-5"
+                          onClick={() => setFormData({ ...formData, image_url: "" })}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Optional: Upload image for modern billing view
                   </p>
@@ -651,7 +664,14 @@ const Inventory = () => {
                   <Label htmlFor="price_type">Price Type</Label>
                   <Select
                     value={formData.price_type}
-                    onValueChange={(value) => setFormData({ ...formData, price_type: value })}
+                    onValueChange={(value) => {
+                      // If weight based, auto-set unit to kg
+                      if (value === 'weight') {
+                        setFormData({ ...formData, price_type: value, unit: 'kg' });
+                      } else {
+                        setFormData({ ...formData, price_type: value });
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -712,12 +732,13 @@ const Inventory = () => {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="unit">Unit</Label>
+                  <Label htmlFor="unit">Unit {formData.price_type === 'weight' && <span className="text-xs text-muted-foreground">(Auto: kg for weight-based)</span>}</Label>
                   <Select
                     value={formData.unit}
                     onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                    disabled={formData.price_type === 'weight'}
                   >
-                    <SelectTrigger id="unit">
+                    <SelectTrigger id="unit" className={formData.price_type === 'weight' ? 'bg-muted' : ''}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
