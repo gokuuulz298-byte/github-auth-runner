@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode, Info, Loader2 } from "lucide-react";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -27,6 +29,17 @@ interface Product {
   price_type?: string;
 }
 
+interface BillingSettings {
+  ModernBilling?: {
+    mode: "inclusive" | "exclusive";
+    inclusiveBillType: "split" | "nosplit";
+  };
+  ManualBilling?: {
+    mode: "inclusive" | "exclusive";
+    inclusiveBillType: "split" | "nosplit";
+  };
+}
+
 const Inventory = () => {
   const navigate = useNavigate();
   const { userId, loading: authLoading } = useAuthContext();
@@ -36,6 +49,9 @@ const Inventory = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [billingSettings, setBillingSettings] = useState<BillingSettings | null>(null);
 
   const [formData, setFormData] = useState({
     barcode: "",
@@ -62,10 +78,27 @@ const Inventory = () => {
 
   useEffect(() => {
     if (!authLoading && userId) {
-      fetchProducts();
-      fetchCategories();
+      Promise.all([fetchProducts(), fetchCategories(), fetchBillingSettings()]).finally(() => {
+        setPageLoading(false);
+      });
     }
   }, [authLoading, userId]);
+
+  const fetchBillingSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('company_profiles')
+        .select('billing_settings')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (data?.billing_settings) {
+        setBillingSettings(data.billing_settings as BillingSettings);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   useEffect(() => {
 
@@ -156,6 +189,7 @@ const Inventory = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       if (!userId) throw new Error("Not authenticated");
 
@@ -244,6 +278,8 @@ const Inventory = () => {
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -452,6 +488,22 @@ const Inventory = () => {
       toast.error("Error fetching HSN data");
     }
   };
+
+  if (pageLoading || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
+        <LoadingSpinner size="lg" text="Loading inventory..." />
+      </div>
+    );
+  }
+
+  const getTaxMode = () => {
+    const mode = billingSettings?.ModernBilling?.mode || billingSettings?.ManualBilling?.mode || 'inclusive';
+    const billType = billingSettings?.ModernBilling?.inclusiveBillType || billingSettings?.ManualBilling?.inclusiveBillType || 'split';
+    return { mode, billType };
+  };
+
+  const { mode: taxMode, billType } = getTaxMode();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -791,7 +843,8 @@ const Inventory = () => {
                 <p className="text-xs text-muted-foreground -mt-2">
                   If CGST + SGST are entered, total tax will be auto-calculated (e.g., 9% + 9% = 18%)
                 </p>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingProduct ? "Update Product" : "Add Product"}
                 </Button>
               </form>
@@ -821,8 +874,36 @@ const Inventory = () => {
         </div>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Products ({filteredProducts.length})</CardTitle>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md cursor-help">
+                    <Info className="h-3 w-3" />
+                    <span>Tax Mode: {taxMode === 'inclusive' ? 'Inclusive' : 'Exclusive'}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Profit & Margin Calculation</p>
+                  {taxMode === 'inclusive' ? (
+                    <div className="text-xs space-y-1">
+                      <p><strong>Inclusive GST:</strong> MRP includes tax</p>
+                      <p>• Base Price = MRP ÷ (1 + Tax%)</p>
+                      <p>• Profit = Base Price − Buying Price</p>
+                      <p>• Margin = (Profit ÷ Buying Price) × 100</p>
+                    </div>
+                  ) : (
+                    <div className="text-xs space-y-1">
+                      <p><strong>Exclusive GST:</strong> Tax added on top</p>
+                      <p>• Profit = Selling Price − Buying Price</p>
+                      <p>• Margin = (Profit ÷ Buying Price) × 100</p>
+                    </div>
+                  )}
+                  <p className="text-[10px] mt-2 text-muted-foreground">Change this in Profile → Billing Settings</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -834,7 +915,21 @@ const Inventory = () => {
                     <TableHead>Category</TableHead>
                     <TableHead>Selling Price (MRP)</TableHead>
                     <TableHead>Buying Price</TableHead>
-                    <TableHead>Profit</TableHead>
+                    <TableHead className="flex items-center gap-1">
+                      Profit
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="h-3 w-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {taxMode === 'inclusive' 
+                              ? 'Base Price (excl. tax) − Buying Price' 
+                              : 'Selling Price − Buying Price'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
                     <TableHead>Margin %</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Tax Rate</TableHead>
@@ -853,12 +948,15 @@ const Inventory = () => {
                       </TableCell>
                       <TableCell>₹{((product as any).buying_price || 0).toFixed(2)}</TableCell>
                       <TableCell>
-                        {/* Profit = Base Price - Buying Price (for inclusive GST) */}
+                        {/* Profit calculation based on tax mode */}
                         {(() => {
                           const taxRate = product.tax_rate || 0;
                           const buyingPrice = (product as any).buying_price || 0;
-                          // Base price = MRP / (1 + Tax%) - for tax-inclusive pricing
-                          const basePrice = taxRate > 0 ? product.price / (1 + taxRate / 100) : product.price;
+                          // For inclusive: Base price = MRP / (1 + Tax%)
+                          // For exclusive: Base price = Selling Price directly
+                          const basePrice = taxMode === 'inclusive' && taxRate > 0 
+                            ? product.price / (1 + taxRate / 100) 
+                            : product.price;
                           const profit = basePrice - buyingPrice;
                           const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
                           return (
@@ -873,7 +971,9 @@ const Inventory = () => {
                         {(() => {
                           const taxRate = product.tax_rate || 0;
                           const buyingPrice = (product as any).buying_price || 0;
-                          const basePrice = taxRate > 0 ? product.price / (1 + taxRate / 100) : product.price;
+                          const basePrice = taxMode === 'inclusive' && taxRate > 0 
+                            ? product.price / (1 + taxRate / 100) 
+                            : product.price;
                           const profit = basePrice - buyingPrice;
                           
                           if (buyingPrice <= 0) return <span className="text-muted-foreground">-</span>;
