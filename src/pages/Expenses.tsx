@@ -251,7 +251,8 @@ const Expenses = () => {
 
   const getPercentageChange = (category: string, currentAmount: number) => {
     const prevAmount = prevCategoryTotals[category] || 0;
-    if (prevAmount === 0) return currentAmount > 0 ? 100 : 0;
+    // If no previous data, show "New" instead of 100%
+    if (prevAmount === 0) return null;
     return ((currentAmount - prevAmount) / prevAmount) * 100;
   };
 
@@ -298,27 +299,34 @@ const Expenses = () => {
               <p className="text-2xl font-bold text-red-600">₹{totalExpenses.toFixed(2)}</p>
             </CardContent>
           </Card>
-          {topCategories.map(([category, total]) => {
-            const change = getPercentageChange(category, total);
-            return (
-              <Card key={category}>
-                <CardContent className="pt-4">
-                  <p className="text-sm text-muted-foreground truncate">{category}</p>
-                  <p className="text-xl font-bold">₹{total.toFixed(2)}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    {change > 0 ? (
+        {topCategories.map(([category, total]) => {
+          const change = getPercentageChange(category, total);
+          return (
+            <Card key={category}>
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground truncate">{category}</p>
+                <p className="text-xl font-bold">₹{total.toFixed(2)}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  {change === null ? (
+                    <span className="text-xs text-blue-500 font-medium">New this month</span>
+                  ) : change > 0 ? (
+                    <>
                       <TrendingUp className="h-3 w-3 text-red-500" />
-                    ) : change < 0 ? (
+                      <span className="text-xs text-red-500">+{change.toFixed(1)}% vs last month</span>
+                    </>
+                  ) : change < 0 ? (
+                    <>
                       <TrendingDown className="h-3 w-3 text-green-500" />
-                    ) : null}
-                    <span className={`text-xs ${change > 0 ? 'text-red-500' : change < 0 ? 'text-green-500' : 'text-muted-foreground'}`}>
-                      {change > 0 ? '+' : ''}{change.toFixed(1)}% vs last month
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                      <span className="text-xs text-green-500">{change.toFixed(1)}% vs last month</span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No change</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
         </div>
 
         {/* Expandable All Categories */}
@@ -332,7 +340,7 @@ const Expenses = () => {
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {sortedCategories.map(([category, total]) => {
+              {sortedCategories.map(([category, total]) => {
                   const prevAmount = prevCategoryTotals[category] || 0;
                   const change = getPercentageChange(category, total);
                   return (
@@ -342,15 +350,22 @@ const Expenses = () => {
                         <p className="text-lg font-bold">₹{total.toFixed(2)}</p>
                         <div className="mt-2 pt-2 border-t">
                           <p className="text-xs text-muted-foreground">Last month: ₹{prevAmount.toFixed(2)}</p>
-                          <div className={`flex items-center gap-1 mt-1 ${change > 0 ? 'text-red-500' : change < 0 ? 'text-green-500' : 'text-muted-foreground'}`}>
-                            {change > 0 ? (
-                              <TrendingUp className="h-3 w-3" />
+                          <div className="flex items-center gap-1 mt-1">
+                            {change === null ? (
+                              <span className="text-xs text-blue-500 font-medium">New</span>
+                            ) : change > 0 ? (
+                              <>
+                                <TrendingUp className="h-3 w-3 text-red-500" />
+                                <span className="text-xs font-medium text-red-500">+{change.toFixed(1)}%</span>
+                              </>
                             ) : change < 0 ? (
-                              <TrendingDown className="h-3 w-3" />
-                            ) : null}
-                            <span className="text-xs font-medium">
-                              {change > 0 ? '+' : ''}{change.toFixed(1)}%
-                            </span>
+                              <>
+                                <TrendingDown className="h-3 w-3 text-green-500" />
+                                <span className="text-xs font-medium text-green-500">{change.toFixed(1)}%</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No change</span>
+                            )}
                           </div>
                         </div>
                       </CardContent>
