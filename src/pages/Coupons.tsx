@@ -8,12 +8,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const Coupons = () => {
   const navigate = useNavigate();
   const [coupons, setCoupons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     code: "",
     discount_type: "percentage" as "fixed" | "percentage",
@@ -46,6 +60,8 @@ const Coupons = () => {
     } catch (error: any) {
       console.error(error);
       toast.error(`Failed to fetch coupons: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -125,14 +141,14 @@ const Coupons = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this coupon?")) return;
+  const handleDelete = async () => {
+    if (!couponToDelete) return;
 
     try {
       const { error } = await supabase
         .from('coupons')
         .delete()
-        .eq('id', id);
+        .eq('id', couponToDelete);
 
       if (error) throw error;
       toast.success("Coupon deleted successfully");
@@ -140,8 +156,33 @@ const Coupons = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete coupon");
+    } finally {
+      setDeleteDialogOpen(false);
+      setCouponToDelete(null);
     }
   };
+
+  // Check if coupon is expired (past end date)
+  const isExpired = (coupon: any) => {
+    if (!coupon.end_date) return false;
+    return new Date(coupon.end_date) < new Date();
+  };
+
+  // Check if coupon is currently active (considering dates and is_active flag)
+  const isCurrentlyActive = (coupon: any) => {
+    if (!coupon.is_active) return false;
+    if (isExpired(coupon)) return false;
+    if (coupon.start_date && new Date(coupon.start_date) > new Date()) return false;
+    return true;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner size="lg" text="Loading coupons..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -258,43 +299,57 @@ const Coupons = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {coupons.map((coupon) => (
-            <Card key={coupon.id}>
-              <CardContent className="pt-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold">{coupon.code}</h3>
-                    <p className="text-muted-foreground">
-                      {coupon.discount_type === 'percentage' 
-                        ? `${coupon.discount_value}% off` 
-                        : `₹${coupon.discount_value} off`}
-                    </p>
-                    {(coupon.start_date || coupon.end_date) && (
-                      <div className="text-xs text-muted-foreground mt-2">
-                        {coupon.start_date && <p>Start: {new Date(coupon.start_date).toLocaleString()}</p>}
-                        {coupon.end_date && <p>End: {new Date(coupon.end_date).toLocaleString()}</p>}
-                      </div>
-                    )}
+          {coupons.map((coupon) => {
+            const expired = isExpired(coupon);
+            const active = isCurrentlyActive(coupon);
+            
+            return (
+              <Card key={coupon.id} className={expired ? 'opacity-60' : ''}>
+                <CardContent className="pt-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold">{coupon.code}</h3>
+                      <p className="text-muted-foreground">
+                        {coupon.discount_type === 'percentage' 
+                          ? `${coupon.discount_value}% off` 
+                          : `₹${coupon.discount_value} off`}
+                      </p>
+                      {(coupon.start_date || coupon.end_date) && (
+                        <div className="text-xs text-muted-foreground mt-2">
+                          {coupon.start_date && <p>Start: {new Date(coupon.start_date).toLocaleString()}</p>}
+                          {coupon.end_date && <p>End: {new Date(coupon.end_date).toLocaleString()}</p>}
+                        </div>
+                      )}
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      expired 
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                        : active 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                    }`}>
+                      {expired ? 'Expired' : active ? 'Active' : 'Inactive'}
+                    </span>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    coupon.is_active 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-                  }`}>
-                    {coupon.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(coupon)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDelete(coupon.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(coupon)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      onClick={() => {
+                        setCouponToDelete(coupon.id);
+                        setDeleteDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {coupons.length === 0 && !showForm && (
@@ -304,6 +359,24 @@ const Coupons = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Coupon</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this coupon? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setCouponToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

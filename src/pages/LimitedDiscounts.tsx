@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const LimitedDiscounts = () => {
   const navigate = useNavigate();
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -53,6 +55,8 @@ const LimitedDiscounts = () => {
     } catch (error: any) {
       console.error(error);
       toast.error(`Failed to fetch discounts: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -178,6 +182,12 @@ const LimitedDiscounts = () => {
     }
   };
 
+  // Check if discount is expired
+  const isExpired = (discount: any) => {
+    return new Date(discount.end_date) < new Date();
+  };
+
+  // Check if discount is currently active (within date range and is_active)
   const isActive = (discount: any) => {
     const now = new Date();
     const start = new Date(discount.start_date);
@@ -200,6 +210,14 @@ const LimitedDiscounts = () => {
     
     return { originalPrice, discountedPrice: Math.max(0, discountedPrice) };
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner size="lg" text="Loading discounts..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -335,8 +353,11 @@ const LimitedDiscounts = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {discounts.map((discount) => {
             const priceEstimate = getEstimatedPrice(discount);
+            const expired = isExpired(discount);
+            const active = isActive(discount);
+            
             return (
-              <Card key={discount.id}>
+              <Card key={discount.id} className={expired ? 'opacity-60' : ''}>
                 <CardContent className="pt-6">
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -355,11 +376,13 @@ const LimitedDiscounts = () => {
                       )}
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs ${
-                      isActive(discount)
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                      expired 
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                        : active
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
                     }`}>
-                      {isActive(discount) ? 'Active' : 'Inactive'}
+                      {expired ? 'Expired' : active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground mb-4">
