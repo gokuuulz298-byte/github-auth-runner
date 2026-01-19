@@ -47,24 +47,6 @@ const DEFAULT_PRINT_SERVICE: PrintServiceConfig = {
 /**
  * Generate ESC/POS commands via edge function
  */
-export async function generateEscPosCommands(data: PrintReceiptData): Promise<string> {
-  try {
-    const { data: response, error } = await supabase.functions.invoke("print-receipt", {
-      body: data,
-    });
-
-    if (error) throw error;
-
-    if (!response.success) {
-      throw new Error(response.error || "Failed to generate receipt");
-    }
-
-    return response;
-  } catch (error) {
-    console.error("Error generating ESC/POS commands:", error);
-    throw error;
-  }
-}
 
 /**
  * Send ESC/POS commands to local print service
@@ -108,7 +90,7 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
       throw new Error("Receipt generation failed");
     }
 
-    // 🔥 IF TAMIL / BILINGUAL → SEND HTML
+    // 🔥 BILINGUAL / TAMIL → HTML IMAGE FLOW
     if (data.enableBilingual && response.data.receiptHtml) {
       await fetch("http://localhost:3001/print-html", {
         method: "POST",
@@ -121,7 +103,7 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
       return { success: true, mode: "html-image" };
     }
 
-    // ✅ ELSE → NORMAL ESC/POS TEXT
+    // ✅ ENGLISH → ESC/POS TEXT FLOW
     const printed = await sendToLocalPrinter(response.data.rawCommands);
 
     return { success: true, printed, mode: "text" };
