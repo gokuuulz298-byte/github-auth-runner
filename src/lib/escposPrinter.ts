@@ -47,6 +47,24 @@ const DEFAULT_PRINT_SERVICE: PrintServiceConfig = {
 /**
  * Generate ESC/POS commands via edge function
  */
+export async function generateEscPosCommands(data: PrintReceiptData): Promise<string> {
+  try {
+    const { data: response, error } = await supabase.functions.invoke("print-receipt", {
+      body: data,
+    });
+
+    if (error) throw error;
+
+    if (!response.success) {
+      throw new Error(response.error || "Failed to generate receipt");
+    }
+
+    return response.rawCommands;
+  } catch (error) {
+    console.error("Error generating ESC/POS commands:", error);
+    throw error;
+  }
+}
 
 /**
  * Send ESC/POS commands to local print service
@@ -82,30 +100,27 @@ export async function sendToLocalPrinter(
  */
 export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
   try {
-    const response = await supabase.functions.invoke("print-receipt", {
+    const { data: response, error } = await supabase.functions.invoke("print-receipt", {
       body: data,
     });
 
-    if (!response.data?.success) {
+    if (error || !response?.success) {
       throw new Error("Receipt generation failed");
     }
 
-    // 🔥 BILINGUAL / TAMIL → HTML IMAGE FLOW
-    if (data.enableBilingual && response.data.receiptHtml) {
+    // 🔥 BILINGUAL → HTML IMAGE FLOW
+    if (data.enableBilingual && response.receiptHtml) {
       await fetch("http://localhost:3001/print-html", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          html: response.data.receiptHtml,
-        }),
+        body: JSON.stringify({ html: response.receiptHtml }),
       });
 
       return { success: true, mode: "html-image" };
     }
 
-    // ✅ ENGLISH → ESC/POS TEXT FLOW
-    const printed = await sendToLocalPrinter(response.data.rawCommands);
-
+    // ❄️ ENGLISH → ESC/POS TEXT FLOW
+    const printed = await sendToLocalPrinter(response.rawCommands);
     return { success: true, printed, mode: "text" };
   } catch (err: any) {
     return { success: false, error: err.message };
