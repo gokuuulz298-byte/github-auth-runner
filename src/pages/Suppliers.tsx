@@ -412,22 +412,38 @@ const Suppliers = () => {
                         />
                       </div>
                       <ScrollArea className="h-40 mt-2 border rounded-md p-2">
-                        {filteredProducts.map(product => (
-                          <div
-                            key={product.id}
-                            className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted rounded cursor-pointer"
-                            onClick={() => toggleProduct(product.id)}
-                          >
-                            <Checkbox
-                              checked={selectedProducts.includes(product.id)}
-                              onCheckedChange={() => toggleProduct(product.id)}
-                            />
-                            <span className="text-sm flex-1">{product.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {formatIndianCurrency(product.buying_price || 0)}
-                            </Badge>
-                          </div>
-                        ))}
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.map(product => (
+                            <div
+                              key={product.id}
+                              className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted rounded cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleProduct(product.id);
+                              }}
+                            >
+                              <Checkbox
+                                checked={selectedProducts.includes(product.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedProducts(prev => [...prev, product.id]);
+                                  } else {
+                                    setSelectedProducts(prev => prev.filter(id => id !== product.id));
+                                  }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="text-sm flex-1">{product.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {formatIndianCurrency(product.buying_price || 0)}
+                              </Badge>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No products found
+                          </p>
+                        )}
                       </ScrollArea>
                       <p className="text-xs text-muted-foreground mt-1">
                         {selectedProducts.length} products selected

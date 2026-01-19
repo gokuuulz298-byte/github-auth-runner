@@ -33,15 +33,23 @@ const Dashboard = () => {
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [showLowStockPanel, setShowLowStockPanel] = useState(false);
 
-  // Restore scroll position on mount
+  // Restore scroll position on mount and when returning from other pages
   useEffect(() => {
     const savedPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
-    if (savedPosition && mainRef.current) {
-      setTimeout(() => {
-        window.scrollTo(0, parseInt(savedPosition, 10));
-      }, 100);
+    if (savedPosition) {
+      // Use requestAnimationFrame for smoother scroll restoration
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.scrollTo({ top: parseInt(savedPosition, 10), behavior: 'instant' });
+        }, 50);
+      });
     }
-  }, []);
+
+    // Clear stored position after restoring (one-time use per navigation)
+    return () => {
+      // Keep position for when returning to this page
+    };
+  }, [location.key]);
 
   // Save scroll position before navigating
   const handleNavigate = (path: string) => {

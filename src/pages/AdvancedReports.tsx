@@ -817,12 +817,100 @@ const AdvancedReports = () => {
           </Card>
         </div>
 
+        {/* Expenses & Purchases Metrics */}
+        <TooltipProvider>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="bg-gradient-to-br from-red-500 to-rose-600 text-white border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-1">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-red-100">Total Expenses</CardTitle>
+                  <UITooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 text-red-200" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold">Expenses Formula:</p>
+                      <p className="text-xs">Sum of all expense entries in selected period</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </div>
+                <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-red-200" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalExpenses.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                <p className="text-xs text-red-200 mt-1">operational costs</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-cyan-500 to-teal-600 text-white border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-1">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-cyan-100">Total Purchases</CardTitle>
+                  <UITooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 text-cyan-200" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold">Purchases Formula:</p>
+                      <p className="text-xs">Sum of all purchase order amounts</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </div>
+                <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-200" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalPurchases.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                <p className="text-xs text-cyan-200 mt-1">{metrics.purchaseCount} orders ({metrics.pendingPurchases} pending)</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-emerald-600 to-green-700 text-white border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-1">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-emerald-100">Net Profit</CardTitle>
+                  <UITooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 text-emerald-200" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold">Net Profit Formula:</p>
+                      <p className="text-xs">Gross Profit − Total Expenses</p>
+                      <p className="text-xs mt-1">= ₹{metrics.totalProfit.toFixed(0)} − ₹{metrics.totalExpenses.toFixed(0)}</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </div>
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-200" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-lg sm:text-2xl font-bold ${metrics.netProfit < 0 ? 'text-red-200' : ''}`}>
+                  ₹{metrics.netProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </div>
+                <p className="text-xs text-emerald-200 mt-1">after expenses</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-violet-500">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Expense Ratio</CardTitle>
+                <Wallet className="h-4 w-4 text-violet-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg sm:text-xl font-bold">
+                  {metrics.totalRevenue > 0 ? ((metrics.totalExpenses / metrics.totalRevenue) * 100).toFixed(1) : 0}%
+                </div>
+                <p className="text-xs text-muted-foreground">of revenue</p>
+              </CardContent>
+            </Card>
+          </div>
+        </TooltipProvider>
+
         {/* Charts Section */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-7">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="profit">Profit Analysis</TabsTrigger>
+            <TabsTrigger value="expenses">Expenses</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
             {isRestaurant && <TabsTrigger value="restaurant">Restaurant</TabsTrigger>}
@@ -1228,6 +1316,72 @@ const AdvancedReports = () => {
                     ))}
                     {paymentModeStats.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">No payment data available</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Expenses Tab */}
+          <TabsContent value="expenses" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5 text-red-500" />
+                    Expenses by Category
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={expensesByCategory}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {expensesByCategory.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Expense Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {expensesByCategory.map((exp, index) => (
+                      <div key={exp.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          />
+                          <span className="font-medium">{exp.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-red-600">₹{exp.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {metrics.totalExpenses > 0 ? ((exp.value / metrics.totalExpenses) * 100).toFixed(1) : 0}%
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {expensesByCategory.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No expense data available</p>
                     )}
                   </div>
                 </CardContent>

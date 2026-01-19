@@ -27,6 +27,7 @@ interface AuditEntry {
 
 const MODULE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
   products: { icon: Package, label: 'Products', color: 'bg-blue-500' },
+  inventory: { icon: Package, label: 'Inventory Movement', color: 'bg-emerald-500' },
   customers: { icon: Users, label: 'Customers', color: 'bg-green-500' },
   invoices: { icon: Receipt, label: 'Invoices', color: 'bg-purple-500' },
   categories: { icon: Tag, label: 'Categories', color: 'bg-orange-500' },
@@ -273,7 +274,7 @@ const Audits = () => {
         });
       });
 
-      // Status updates for purchases
+      // Status updates for purchases (with inventory movement)
       const { data: receivedPurchases } = await supabase
         .from('purchases')
         .select('*')
@@ -294,7 +295,65 @@ const Audits = () => {
             user_id: user.id,
             timestamp: pur.received_date,
           });
+
+          // Track inventory movement for received purchases
+          const items = (pur.items_data as any[]) || [];
+          items.forEach((item: any) => {
+            auditEntries.push({
+              id: `inv-movement-${pur.id}-${item.product_id || item.name}`,
+              module: 'inventory',
+              operation: 'update',
+              entity_id: item.product_id || pur.id,
+              entity_name: item.name || 'Unknown Product',
+              details: { 
+                action: 'Stock Inflow', 
+                quantity_added: item.quantity,
+                source: `Purchase ${pur.purchase_number}`,
+                supplier: pur.supplier_name
+              },
+              user_id: user.id,
+              timestamp: pur.received_date,
+              full_data: {
+                product_name: item.name,
+                quantity_added: item.quantity,
+                unit_price: item.price,
+                total_value: (item.quantity || 0) * (item.price || 0),
+                purchase_number: pur.purchase_number,
+                supplier: pur.supplier_name
+              }
+            });
+          });
         }
+      });
+
+      // Track inventory movement from sales (stock outflow)
+      invoices?.forEach(inv => {
+        const items = (inv.items_data as any[]) || [];
+        items.forEach((item: any) => {
+          auditEntries.push({
+            id: `inv-outflow-${inv.id}-${item.id || item.name}`,
+            module: 'inventory',
+            operation: 'update',
+            entity_id: item.id || inv.id,
+            entity_name: item.name || 'Unknown Product',
+            details: { 
+              action: 'Stock Outflow', 
+              quantity_sold: item.quantity,
+              source: `Sale ${inv.bill_number}`,
+              customer: inv.customer_name || 'Walk-in'
+            },
+            user_id: user.id,
+            timestamp: inv.created_at,
+            full_data: {
+              product_name: item.name,
+              quantity_sold: item.quantity,
+              unit_price: item.price,
+              total_value: (item.quantity || 0) * (item.price || 0),
+              bill_number: inv.bill_number,
+              customer: inv.customer_name || 'Walk-in'
+            }
+          });
+        });
       });
 
       // Fetch categories
