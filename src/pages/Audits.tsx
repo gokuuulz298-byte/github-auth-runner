@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, FileText, Plus, Edit, Trash2, Package, Users, Receipt, Settings, ShoppingBag, Tag, Wallet, Truck, Calendar, Filter } from "lucide-react";
+import { ArrowLeft, Search, FileText, Plus, Edit, Trash2, Package, Users, Receipt, Settings, ShoppingBag, Tag, Wallet, Truck, Calendar, Filter, Building2, CreditCard, UserCog, UtensilsCrossed, FileCheck, Store } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AuditEntry {
   id: string;
@@ -20,6 +22,7 @@ interface AuditEntry {
   details: Record<string, any>;
   user_id: string;
   timestamp: string;
+  full_data?: Record<string, any>;
 }
 
 const MODULE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
@@ -32,6 +35,11 @@ const MODULE_CONFIG: Record<string, { icon: any; label: string; color: string }>
   purchases: { icon: Truck, label: 'Purchases', color: 'bg-cyan-500' },
   discounts: { icon: Tag, label: 'Discounts', color: 'bg-amber-500' },
   counters: { icon: Settings, label: 'Counters', color: 'bg-indigo-500' },
+  suppliers: { icon: Store, label: 'Suppliers', color: 'bg-violet-500' },
+  profile: { icon: Building2, label: 'Profile', color: 'bg-slate-500' },
+  staff: { icon: UserCog, label: 'Staff', color: 'bg-teal-500' },
+  waiters: { icon: UtensilsCrossed, label: 'Waiters', color: 'bg-lime-500' },
+  templates: { icon: FileCheck, label: 'Templates', color: 'bg-fuchsia-500' },
 };
 
 const OPERATION_COLORS = {
@@ -85,15 +93,36 @@ const Audits = () => {
         .order('created_at', { ascending: false });
 
       invoices?.forEach(inv => {
+        const items = (inv.items_data as any[]) || [];
         auditEntries.push({
           id: `inv-${inv.id}`,
           module: 'invoices',
           operation: 'create',
           entity_id: inv.id,
           entity_name: inv.bill_number,
-          details: { total: inv.total_amount, customer: inv.customer_name, items: (inv.items_data as any[])?.length || 0 },
+          details: { 
+            total: inv.total_amount, 
+            customer: inv.customer_name || 'Walk-in', 
+            items_count: items.length,
+            tax: inv.tax_amount,
+            discount: inv.discount_amount
+          },
           user_id: user.id,
           timestamp: inv.created_at,
+          full_data: {
+            bill_number: inv.bill_number,
+            customer_name: inv.customer_name,
+            customer_phone: inv.customer_phone,
+            total_amount: inv.total_amount,
+            tax_amount: inv.tax_amount,
+            discount_amount: inv.discount_amount,
+            items: items.map((item: any) => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+              total: item.price * item.quantity
+            }))
+          }
         });
       });
 
@@ -112,9 +141,26 @@ const Audits = () => {
           operation: 'create',
           entity_id: prod.id,
           entity_name: prod.name,
-          details: { price: prod.price, barcode: prod.barcode, category: prod.category },
+          details: { 
+            price: prod.price, 
+            barcode: prod.barcode, 
+            category: prod.category,
+            stock: prod.stock_quantity,
+            buying_price: prod.buying_price
+          },
           user_id: user.id,
           timestamp: prod.created_at!,
+          full_data: {
+            name: prod.name,
+            barcode: prod.barcode,
+            price: prod.price,
+            buying_price: prod.buying_price,
+            category: prod.category,
+            stock_quantity: prod.stock_quantity,
+            tax_rate: prod.tax_rate,
+            hsn_code: prod.hsn_code,
+            unit: prod.unit
+          }
         });
       });
 
@@ -481,47 +527,109 @@ const Audits = () => {
 
         {/* Detail Dialog */}
         <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden">
             <DialogHeader>
-              <DialogTitle>Audit Details</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Audit Details
+              </DialogTitle>
             </DialogHeader>
             {selectedAudit && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Module</p>
-                    <p className="font-medium capitalize">{selectedAudit.module}</p>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Operation</p>
-                    <Badge className={OPERATION_COLORS[selectedAudit.operation]}>
-                      {selectedAudit.operation.toUpperCase()}
-                    </Badge>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg col-span-2">
-                    <p className="text-xs text-muted-foreground">Entity</p>
-                    <p className="font-medium">{selectedAudit.entity_name}</p>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg col-span-2">
-                    <p className="text-xs text-muted-foreground">Timestamp</p>
-                    <p className="font-medium">{format(new Date(selectedAudit.timestamp), 'PPpp')}</p>
-                  </div>
-                </div>
-                
-                {Object.keys(selectedAudit.details).length > 0 && (
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-2">Details</p>
-                    <div className="space-y-1 text-sm">
-                      {Object.entries(selectedAudit.details).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="capitalize text-muted-foreground">{key.replace('_', ' ')}:</span>
-                          <span className="font-medium">{typeof value === 'number' ? `₹${value}` : String(value) || '-'}</span>
-                        </div>
-                      ))}
+              <ScrollArea className="max-h-[70vh]">
+                <div className="space-y-4 pr-4">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Module</p>
+                      <p className="font-medium capitalize">{selectedAudit.module}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Operation</p>
+                      <Badge className={OPERATION_COLORS[selectedAudit.operation]}>
+                        {selectedAudit.operation.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg col-span-2">
+                      <p className="text-xs text-muted-foreground">Entity</p>
+                      <p className="font-medium">{selectedAudit.entity_name}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg col-span-2">
+                      <p className="text-xs text-muted-foreground">Timestamp</p>
+                      <p className="font-medium">{format(new Date(selectedAudit.timestamp), 'PPpp')}</p>
                     </div>
                   </div>
-                )}
-              </div>
+                  
+                  {Object.keys(selectedAudit.details).length > 0 && (
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Quick Summary</p>
+                      <div className="space-y-1 text-sm">
+                        {Object.entries(selectedAudit.details).map(([key, value]) => (
+                          <div key={key} className="flex justify-between">
+                            <span className="capitalize text-muted-foreground">{key.replace(/_/g, ' ')}:</span>
+                            <span className="font-medium">
+                              {key.includes('amount') || key.includes('price') || key.includes('total') || key === 'tax' || key === 'discount'
+                                ? `₹${parseFloat(String(value || 0)).toFixed(2)}`
+                                : String(value) || '-'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Full Data Section for detailed view */}
+                  {selectedAudit.full_data && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mb-3 font-semibold">Complete Record Data</p>
+                      <div className="space-y-2 text-sm">
+                        {Object.entries(selectedAudit.full_data).map(([key, value]) => {
+                          // Handle items array specially for invoices
+                          if (key === 'items' && Array.isArray(value)) {
+                            return (
+                              <div key={key} className="mt-3">
+                                <p className="text-xs text-muted-foreground mb-2 font-medium">Items ({value.length})</p>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-xs">Item</TableHead>
+                                      <TableHead className="text-xs text-right">Qty</TableHead>
+                                      <TableHead className="text-xs text-right">Price</TableHead>
+                                      <TableHead className="text-xs text-right">Total</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {value.map((item: any, idx: number) => (
+                                      <TableRow key={idx}>
+                                        <TableCell className="text-xs font-medium">{item.name}</TableCell>
+                                        <TableCell className="text-xs text-right">{item.quantity}</TableCell>
+                                        <TableCell className="text-xs text-right">₹{item.price}</TableCell>
+                                        <TableCell className="text-xs text-right">₹{item.total?.toFixed(2)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={key} className="flex justify-between py-1 border-b border-blue-100 dark:border-blue-900 last:border-0">
+                              <span className="capitalize text-muted-foreground">{key.replace(/_/g, ' ')}:</span>
+                              <span className="font-medium text-right max-w-[60%] break-words">
+                                {value === null || value === undefined 
+                                  ? '-' 
+                                  : typeof value === 'number' 
+                                    ? (key.includes('amount') || key.includes('price') || key.includes('tax') || key.includes('discount')
+                                        ? `₹${value.toFixed(2)}`
+                                        : value)
+                                    : String(value)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             )}
           </DialogContent>
         </Dialog>

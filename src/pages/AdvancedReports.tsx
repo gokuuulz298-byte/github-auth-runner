@@ -3,13 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck, ArrowUpRight, ArrowDownRight, Sparkles, Flame } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck, ArrowUpRight, ArrowDownRight, Sparkles, Flame, Info, ChevronDown, ChevronUp, Filter, Truck, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TopProduct {
   id: string;
@@ -48,6 +50,7 @@ const AdvancedReports = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<string>("7d");
   const [selectedCounter, setSelectedCounter] = useState<string>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [counters, setCounters] = useState<any[]>([]);
   const [isRestaurant, setIsRestaurant] = useState(false);
   
@@ -67,6 +70,12 @@ const AdvancedReports = () => {
     averageItemsPerOrder: 0,
     peakHour: '',
     peakDay: '',
+    // New metrics for expenses and purchases
+    totalExpenses: 0,
+    totalPurchases: 0,
+    netProfit: 0,
+    purchaseCount: 0,
+    pendingPurchases: 0,
   });
 
   // Charts Data
@@ -80,6 +89,8 @@ const AdvancedReports = () => {
   const [orderTypeStats, setOrderTypeStats] = useState<OrderTypeStats[]>([]);
   const [dailySales, setDailySales] = useState<any[]>([]);
   const [weeklyComparison, setWeeklyComparison] = useState<any[]>([]);
+  const [expensesByCategory, setExpensesByCategory] = useState<any[]>([]);
+  const [purchasesTrend, setPurchasesTrend] = useState<any[]>([]);
 
   useEffect(() => {
     fetchCounters();
@@ -218,6 +229,22 @@ const AdvancedReports = () => {
         .from('customers')
         .select('*')
         .eq('created_by', user.id);
+
+      // Fetch expenses
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('expense_date', start.toISOString())
+        .lte('expense_date', end.toISOString());
+
+      // Fetch purchases
+      const { data: purchases } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
 
       if (!invoices || !products || !customers) return;
 
@@ -511,6 +538,27 @@ const AdvancedReports = () => {
         }
       ];
 
+      // Expenses Analysis
+      const totalExpenses = (expenses || []).reduce((sum, exp) => sum + parseFloat(exp.amount?.toString() || '0'), 0);
+      
+      const expenseCategoryMap = new Map<string, number>();
+      (expenses || []).forEach(exp => {
+        const existing = expenseCategoryMap.get(exp.category) || 0;
+        expenseCategoryMap.set(exp.category, existing + parseFloat(exp.amount?.toString() || '0'));
+      });
+      
+      const expensesByCategoryData = Array.from(expenseCategoryMap.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      // Purchases Analysis
+      const totalPurchases = (purchases || []).reduce((sum, pur) => sum + parseFloat(pur.total_amount?.toString() || '0'), 0);
+      const purchaseCount = (purchases || []).length;
+      const pendingPurchases = (purchases || []).filter(p => p.status === 'pending' || p.status === 'ordered').length;
+      
+      // Net Profit (Revenue - Cost of goods - Expenses)
+      const netProfit = totalProfit - totalExpenses;
+
       setMetrics({
         totalRevenue,
         averageSale,
@@ -526,6 +574,11 @@ const AdvancedReports = () => {
         averageItemsPerOrder,
         peakHour,
         peakDay,
+        totalExpenses,
+        totalPurchases,
+        netProfit,
+        purchaseCount,
+        pendingPurchases,
       });
 
       setTopProducts(topProductsList);
@@ -538,6 +591,7 @@ const AdvancedReports = () => {
       setOrderTypeStats(orderStats);
       setDailySales(dailySalesData);
       setWeeklyComparison(weeklyComparisonData);
+      setExpensesByCategory(expensesByCategoryData);
       setLoading(false);
     } catch (error) {
       console.error(error);
@@ -566,84 +620,124 @@ const AdvancedReports = () => {
       </header>
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
-        {/* Filters */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Time Range</label>
-                <Select value={timeRange} onValueChange={setTimeRange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="7d">Last 7 Days</SelectItem>
-                    <SelectItem value="30d">Last 30 Days</SelectItem>
-                    <SelectItem value="90d">Last 90 Days</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="all">All Time</SelectItem>
-                  </SelectContent>
-                </Select>
+        {/* Collapsible Filters */}
+        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                <span className="font-medium">Filters</span>
+                <span className="text-xs text-muted-foreground">
+                  ({timeRange === 'today' ? 'Today' : timeRange === 'week' ? 'This Week' : timeRange === '7d' ? 'Last 7 Days' : timeRange === '30d' ? 'Last 30 Days' : timeRange === '90d' ? 'Last 90 Days' : timeRange === 'month' ? 'This Month' : 'All Time'})
+                </span>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Counter</label>
-                <Select value={selectedCounter} onValueChange={setSelectedCounter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Counters</SelectItem>
-                    {counters.map((counter) => (
-                      <SelectItem key={counter.id} value={counter.id}>
-                        {counter.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button onClick={fetchAdvancedData} className="w-full">
-                  <Activity className="mr-2 h-4 w-4" />
-                  Refresh Data
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Time Range</label>
+                    <Select value={timeRange} onValueChange={setTimeRange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="week">This Week</SelectItem>
+                        <SelectItem value="7d">Last 7 Days</SelectItem>
+                        <SelectItem value="30d">Last 30 Days</SelectItem>
+                        <SelectItem value="90d">Last 90 Days</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="all">All Time</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Counter</label>
+                    <Select value={selectedCounter} onValueChange={setSelectedCounter}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Counters</SelectItem>
+                        {counters.map((counter) => (
+                          <SelectItem key={counter.id} value={counter.id}>
+                            {counter.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button onClick={fetchAdvancedData} className="w-full">
+                      <Activity className="mr-2 h-4 w-4" />
+                      Refresh Data
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
 
-        {/* Key Metrics Grid - Zoho Style */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-blue-100">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <p className="text-xs text-blue-200 mt-1 flex items-center gap-1">
-                {metrics.growthRate >= 0 ? (
-                  <><ArrowUpRight className="h-3 w-3" /> {metrics.growthRate.toFixed(1)}% growth</>
-                ) : (
-                  <><ArrowDownRight className="h-3 w-3" /> {Math.abs(metrics.growthRate).toFixed(1)}% decline</>
-                )}
-              </p>
-            </CardContent>
-          </Card>
+        {/* Key Metrics Grid - Enhanced with info tooltips */}
+        <TooltipProvider>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-1">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-blue-100">Total Revenue</CardTitle>
+                  <UITooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 text-blue-200" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold">Revenue Formula:</p>
+                      <p className="text-xs">Sum of all invoice totals (including tax)</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </div>
+                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                <p className="text-xs text-blue-200 mt-1 flex items-center gap-1">
+                  {metrics.growthRate >= 0 ? (
+                    <><ArrowUpRight className="h-3 w-3" /> {metrics.growthRate.toFixed(1)}% growth</>
+                  ) : (
+                    <><ArrowDownRight className="h-3 w-3" /> {Math.abs(metrics.growthRate).toFixed(1)}% decline</>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-green-100">Total Profit</CardTitle>
-              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-200" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <p className="text-xs text-green-200 mt-1 flex items-center gap-1">
-                <Percent className="h-3 w-3" />
-                {metrics.profitMargin.toFixed(1)}% margin
-              </p>
-            </CardContent>
+            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-1">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-green-100">Gross Profit</CardTitle>
+                  <UITooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 text-green-200" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold">Profit Formula:</p>
+                      <p className="text-xs">Σ (Selling Price - Buying Price) × Quantity</p>
+                      <p className="text-xs mt-1">Margin = (Profit / Revenue) × 100</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </div>
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-200" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                <p className="text-xs text-green-200 mt-1 flex items-center gap-1">
+                  <Percent className="h-3 w-3" />
+                  {metrics.profitMargin.toFixed(1)}% margin
+                </p>
+              </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white border-0 shadow-lg">
@@ -668,6 +762,7 @@ const AdvancedReports = () => {
             </CardContent>
           </Card>
         </div>
+        </TooltipProvider>
 
         {/* Additional Metrics Row - With Trend Indicators */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
