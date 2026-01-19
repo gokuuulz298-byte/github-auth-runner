@@ -1854,8 +1854,8 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
             </div>
           </div>
 
-          {/* Right Sidebar - Cart */}
-          <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l bg-card h-auto lg:h-[calc(100vh-60px)] max-h-[60vh] lg:max-h-none overflow-y-auto">
+          {/* Right Sidebar - Cart - Extended width */}
+          <div className="w-full lg:w-[420px] xl:w-[480px] border-t lg:border-t-0 lg:border-l bg-card h-auto lg:h-[calc(100vh-60px)] max-h-[60vh] lg:max-h-none overflow-y-auto">
             <div className="p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
               <div className="space-y-1 sm:space-y-2">
                 <Label htmlFor="customer-name" className="text-xs sm:text-sm">Customer Name</Label>
@@ -1934,27 +1934,39 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
               <div className="border-t pt-3 sm:pt-4 space-y-2">
                 <h3 className="font-semibold text-sm sm:text-base">Cart Items ({cartItems.length})</h3>
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                  <div key={item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
                         ₹{formatIndianNumber(Number(item.price.toFixed(2)))} × {item.quantity}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <Button
                         size="icon"
                         variant="outline"
-                        className="h-6 w-6"
+                        className="h-7 w-7"
                         onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="text-sm w-8 text-center">{item.quantity}</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step={item.price_type === 'weight' ? '0.001' : '1'}
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= 0) {
+                            handleUpdateQuantity(item.id, val);
+                          }
+                        }}
+                        className="h-7 w-14 text-center text-sm px-1"
+                      />
                       <Button
                         size="icon"
                         variant="outline"
-                        className="h-6 w-6"
+                        className="h-7 w-7"
                         onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                       >
                         <Plus className="h-3 w-3" />

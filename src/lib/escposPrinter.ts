@@ -97,6 +97,15 @@ export async function sendToLocalPrinter(
 
 /**
  * Print receipt using ESC/POS - combines generation and printing
+ * 
+ * FLOW:
+ * 1. If bilingual (Tamil) is enabled:
+ *    - Send HTML to local print service's /print-html endpoint
+ *    - Local service converts HTML → PNG → ESC/POS GS v 0 (image command)
+ *    - This is the ONLY way Tamil prints correctly on thermal printers
+ * 
+ * 2. If English only:
+ *    - Send raw ESC/POS text commands to /print endpoint
  */
 export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
   try {
@@ -104,25 +113,50 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
       body: data,
     });
 
-    if (error || !response?.success) {
-      throw new Error("Receipt generation failed");
+    if (error) {
+      console.error("Edge function error:", error);
+      throw new Error(error.message || "Receipt generation failed");
     }
 
-    // 🔥 BILINGUAL → HTML IMAGE FLOW
+    if (!response?.success) {
+      throw new Error(response?.error || "Receipt generation failed");
+    }
+
+    // 🔥 BILINGUAL (TAMIL) → HTML IMAGE FLOW
+    // This is the ONLY way Tamil prints correctly on thermal printers
+    // The local print service converts HTML → PNG → ESC/POS image command
     if (data.enableBilingual && response.receiptHtml) {
-      await fetch("http://localhost:3001/print-html", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html: response.receiptHtml }),
-      });
+      try {
+        const printResponse = await fetch("http://localhost:3001/print-html", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ html: response.receiptHtml }),
+        });
 
-      return { success: true, mode: "html-image" };
+        if (!printResponse.ok) {
+          const errorText = await printResponse.text();
+          console.error("Print-html endpoint failed:", errorText);
+          // Fall back to text printing
+          console.log("Falling back to text printing...");
+          const printed = await sendToLocalPrinter(response.rawCommands);
+          return { success: true, printed, mode: "text-fallback" };
+        }
+
+        const result = await printResponse.json();
+        return { success: true, printed: result.success, mode: "html-image" };
+      } catch (fetchError) {
+        console.error("Failed to reach print-html endpoint:", fetchError);
+        // Fall back to text printing if image endpoint fails
+        const printed = await sendToLocalPrinter(response.rawCommands);
+        return { success: true, printed, mode: "text-fallback" };
+      }
     }
 
-    // ❄️ ENGLISH → ESC/POS TEXT FLOW
+    // ❄️ ENGLISH ONLY → ESC/POS TEXT FLOW
     const printed = await sendToLocalPrinter(response.rawCommands);
     return { success: true, printed, mode: "text" };
   } catch (err: any) {
+    console.error("printEscPosReceipt error:", err);
     return { success: false, error: err.message };
   }
 }
