@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+const SCROLL_POSITION_KEY = 'dashboard_scroll_position';
+
 interface LowStockProduct {
   id: string;
   name: string;
@@ -21,13 +23,31 @@ interface LowStockProduct {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, userId, role, isAdmin, isStaff, isWaiter, loading: authLoading, signOut } = useAuthContext();
+  const mainRef = useRef<HTMLDivElement>(null);
   
   const [companyName, setCompanyName] = useState<string>("");
   const [billingSettings, setBillingSettings] = useState<any>(null);
   const [staffModules, setStaffModules] = useState<string[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [showLowStockPanel, setShowLowStockPanel] = useState(false);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    const savedPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
+    if (savedPosition && mainRef.current) {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedPosition, 10));
+      }, 100);
+    }
+  }, []);
+
+  // Save scroll position before navigating
+  const handleNavigate = (path: string) => {
+    sessionStorage.setItem(SCROLL_POSITION_KEY, window.scrollY.toString());
+    navigate(path);
+  };
 
   const allMenuItems = [
     // Primary billing modules
@@ -300,7 +320,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
+      <main ref={mainRef} className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
         <div className="mb-4 sm:mb-8 px-2">
           <h2 className="text-2xl sm:text-3xl font-bold mb-2">
             Welcome{companyName ? `, ${companyName}` : ''}!
@@ -331,7 +351,7 @@ const Dashboard = () => {
               <Card 
                 key={item.path}
                 className="card-hover cursor-pointer group transition-all"
-                onClick={() => navigate(item.path)}
+                onClick={() => handleNavigate(item.path)}
               >
                 <CardHeader className="p-3 sm:p-6">
                   <div className={`p-2 sm:p-3 bg-gradient-to-br ${item.color} bg-opacity-10 rounded-xl w-fit mb-2 group-hover:scale-110 transition-transform`}>
