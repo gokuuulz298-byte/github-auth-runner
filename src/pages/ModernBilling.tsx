@@ -1569,14 +1569,19 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
       <OrderStatusMonitor isOpen={showOrderMonitor} onClose={() => setShowOrderMonitor(false)} />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left Sidebar - Categories + Search - Resizable */}
+        {/* Left Sidebar - Categories + Search - Resizable on desktop, horizontal on mobile */}
         <div 
-          className="border-r bg-card flex-shrink-0 overflow-y-auto resize-x"
-          style={{ width: `${sidebarWidth}px`, minWidth: '150px', maxWidth: '350px' }}
+          className="border-r bg-card flex-shrink-0 overflow-y-auto md:resize-x w-full md:w-auto order-first"
+          style={{ 
+            width: window.innerWidth >= 768 ? `${sidebarWidth}px` : '100%', 
+            minWidth: window.innerWidth >= 768 ? '150px' : 'auto', 
+            maxWidth: window.innerWidth >= 768 ? '350px' : '100%' 
+          }}
         >
           <div 
-            className="h-full relative"
+            className="h-auto md:h-full relative"
             onMouseDown={(e) => {
+              if (window.innerWidth < 768) return;
               // Enable resize from the right edge
               const startX = e.clientX;
               const startWidth = sidebarWidth;
@@ -1614,49 +1619,84 @@ if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType 
                 />
               </div>
 
-              {/* All Products Button */}
-              <Button
-                variant={selectedCategory === "" && !searchTerm ? "default" : "outline"}
-                className="w-full justify-start text-xs h-7 px-2"
-                onClick={() => {
-                  setSelectedCategory("");
-                  setSearchTerm("");
-                }}
-              >
-                <Package className="h-3 w-3 mr-1.5" />
-                All ({allProducts.length})
-              </Button>
-
-              {/* Category Buttons */}
-              <div className="space-y-0.5">
-                {categories.map((category) => {
-                  const count = allProducts.filter(p => p.category === category.name).length;
-                  return (
+              {/* Mobile: Horizontal scroll categories */}
+              <div className="md:hidden overflow-x-auto pb-2">
+                <div className="flex gap-1.5 min-w-max">
+                  <Button
+                    variant={selectedCategory === "" && !searchTerm ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs h-8 px-3 whitespace-nowrap"
+                    onClick={() => {
+                      setSelectedCategory("");
+                      setSearchTerm("");
+                    }}
+                  >
+                    <Package className="h-3 w-3 mr-1" />
+                    All
+                  </Button>
+                  {categories.map((category) => (
                     <Button
                       key={category.id}
-                      variant={selectedCategory === category.name ? "default" : "ghost"}
-                      className="w-full justify-between text-xs h-7 px-2"
+                      variant={selectedCategory === category.name ? "default" : "outline"}
+                      size="sm"
+                      className="text-xs h-8 px-3 whitespace-nowrap"
                       onClick={() => {
                         setSelectedCategory(category.name);
                         setSearchTerm("");
                       }}
                     >
-                      <span className="truncate">{category.name}</span>
-                      <span className="text-[10px] opacity-60">{count}</span>
+                      {category.name}
                     </Button>
-                  );
-                })}
+                  ))}
+                </div>
+              </div>
+
+              {/* Desktop: Vertical category list */}
+              <div className="hidden md:block">
+                {/* All Products Button */}
+                <Button
+                  variant={selectedCategory === "" && !searchTerm ? "default" : "outline"}
+                  className="w-full justify-start text-xs h-7 px-2 mb-1"
+                  onClick={() => {
+                    setSelectedCategory("");
+                    setSearchTerm("");
+                  }}
+                >
+                  <Package className="h-3 w-3 mr-1.5" />
+                  All ({allProducts.length})
+                </Button>
+
+                {/* Category Buttons */}
+                <div className="space-y-0.5">
+                  {categories.map((category) => {
+                    const count = allProducts.filter(p => p.category === category.name).length;
+                    return (
+                      <Button
+                        key={category.id}
+                        variant={selectedCategory === category.name ? "default" : "ghost"}
+                        className="w-full justify-between text-xs h-7 px-2"
+                        onClick={() => {
+                          setSelectedCategory(category.name);
+                          setSearchTerm("");
+                        }}
+                      >
+                        <span className="truncate">{category.name}</span>
+                        <span className="text-[10px] opacity-60">{count}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            {/* Resize handle */}
-            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/20 transition-colors" />
+            {/* Resize handle - desktop only */}
+            <div className="hidden md:block absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/20 transition-colors" />
           </div>
         </div>
 
         {/* Main Content - Products Grid & Cart */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto p-2 max-h-[calc(100vh-130px)]">
+          <div className="flex-1 overflow-y-auto p-2 max-h-[calc(100vh-180px)] md:max-h-[calc(100vh-130px)]">
             <div className="max-w-6xl mx-auto">
               <h2 className="text-xs font-semibold mb-1.5 text-muted-foreground">
                 {searchTerm ? `Search: "${searchTerm}"` : (selectedCategory || "All Products")} ({products.length})
