@@ -636,14 +636,14 @@ const ModernBilling = () => {
         .gte("created_at", startOfToday.toISOString());
 
       const billCount = (count || 0) + 1;
-      const { data, error } = await supabase.rpc("generate_invoice_number", {
+      const { data: invoiceNumberData, error: invoiceNumberError } = await supabase.rpc("generate_invoice_number", {
         p_store_id: companyProfile.id,
         p_counter_id: selectedCounter,
       });
 
-      if (error) throw error;
+      if (invoiceNumberError) throw invoiceNumberError;
 
-      const billNumber = data;
+      const billNumber = invoiceNumberData as string;
 
       // Update stock quantities - fetch fresh data to avoid race conditions
       for (const item of cartItems) {
@@ -673,9 +673,9 @@ const ModernBilling = () => {
         customer_id: null,
       };
 
-      const { error } = await supabase.from("invoices").insert([invoiceData]);
+      const { error: insertError } = await supabase.from("invoices").insert([invoiceData]);
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       // Send to kitchen if parcel and kitchen interface enabled
       if (isParcel && billingSettings?.enableKitchenInterface) {
