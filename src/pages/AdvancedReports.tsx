@@ -261,18 +261,24 @@ const AdvancedReports = () => {
       }, 0);
       const averageItemsPerOrder = totalOrders > 0 ? totalItems / totalOrders : 0;
 
-      let totalProfit = 0;
+      // Calculate profit using correct formula:
+      // Profit = Revenue (including tax) - Expenses - Purchase Order Value - Tax
+      // First calculate gross profit from sales
+      let grossProfit = 0;
       invoices.forEach(invoice => {
         const items = invoice.items_data as any[];
         items.forEach((item: any) => {
           const product = products.find(p => p.id === item.id);
           if (product && product.buying_price) {
-            totalProfit += (item.price - product.buying_price) * item.quantity;
+            // Base selling price = MRP / (1 + Tax%) for inclusive pricing
+            const taxRate = item.tax_rate || product.tax_rate || 0;
+            const baseSellingPrice = item.price / (1 + taxRate / 100);
+            grossProfit += (baseSellingPrice - product.buying_price) * item.quantity;
           }
         });
       });
 
-      const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+      const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
       // Calculate growth rate (compare with previous period)
       const previousStart = new Date(start);
@@ -556,15 +562,16 @@ const AdvancedReports = () => {
       const purchaseCount = (purchases || []).length;
       const pendingPurchases = (purchases || []).filter(p => p.status === 'pending' || p.status === 'ordered').length;
       
-      // Net Profit (Revenue - Cost of goods - Expenses)
-      const netProfit = totalProfit - totalExpenses;
+      // Net Profit = Gross Profit - Expenses - Purchase Order Costs
+      // Using updated profit formula: Revenue - Expenses - PO Value - Tax
+      const netProfit = totalRevenue - totalExpenses - totalPurchases - totalTax;
 
       setMetrics({
         totalRevenue,
         averageSale,
         totalOrders,
         averageOrderValue: averageSale,
-        totalProfit,
+        totalProfit: grossProfit,
         profitMargin,
         totalCustomers: uniqueCustomers.size,
         repeatCustomerRate,

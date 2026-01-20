@@ -67,6 +67,7 @@ const Suppliers = () => {
   });
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Keyboard navigation
   const searchRef = useRef<HTMLInputElement>(null);
@@ -170,41 +171,53 @@ const Suppliers = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      toast.error("Name and Phone are required");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const supplierData = {
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email || null,
-        address: formData.address || null,
-        gst_number: formData.gst_number || null,
-        notes: formData.notes || null,
-        mapped_products: selectedProducts,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim() || null,
+        address: formData.address.trim() || null,
+        gst_number: formData.gst_number.trim() || null,
+        notes: formData.notes.trim() || null,
+        mapped_products: selectedProducts.length > 0 ? selectedProducts : [],
         created_by: userId,
       };
 
       if (editingSupplier) {
         const { error } = await supabase
-          .from('suppliers' as any)
+          .from('suppliers')
           .update(supplierData)
           .eq('id', editingSupplier.id);
 
         if (error) throw error;
         toast.success("Supplier updated successfully!");
       } else {
-        const { error } = await supabase
-          .from('suppliers' as any)
-          .insert(supplierData);
+        const { data, error } = await supabase
+          .from('suppliers')
+          .insert([supplierData])
+          .select();
 
         if (error) throw error;
+        console.log('Supplier created:', data);
         toast.success("Supplier added successfully!");
       }
 
       setDialogOpen(false);
       resetForm();
-      fetchSuppliers();
+      await fetchSuppliers();
     } catch (error: any) {
+      console.error('Supplier save error:', error);
       toast.error(error.message || "Failed to save supplier");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -454,10 +467,10 @@ const Suppliers = () => {
                     </div>
                     
                     <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={isSubmitting}>
                         Cancel
                       </Button>
-                      <LoadingButton type="submit">
+                      <LoadingButton type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
                         {editingSupplier ? "Update" : "Add"} Supplier
                       </LoadingButton>
                     </div>

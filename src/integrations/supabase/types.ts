@@ -660,6 +660,47 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_mode: string | null
+          purchase_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_mode?: string | null
+          purchase_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_mode?: string | null
+          purchase_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_payments_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchases: {
         Row: {
           created_at: string | null
@@ -668,6 +709,8 @@ export type Database = {
           id: string
           items_data: Json
           notes: string | null
+          paid_amount: number | null
+          payment_status: string | null
           purchase_number: string
           received_date: string | null
           status: string
@@ -683,6 +726,8 @@ export type Database = {
           id?: string
           items_data?: Json
           notes?: string | null
+          paid_amount?: number | null
+          payment_status?: string | null
           purchase_number: string
           received_date?: string | null
           status?: string
@@ -698,6 +743,8 @@ export type Database = {
           id?: string
           items_data?: Json
           notes?: string | null
+          paid_amount?: number | null
+          payment_status?: string | null
           purchase_number?: string
           received_date?: string | null
           status?: string

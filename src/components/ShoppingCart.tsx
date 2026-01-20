@@ -29,7 +29,7 @@ interface ShoppingCartProps {
   items: CartItem[];
   onUpdateQuantity: (id: string, quantity: number) => void;
   onRemoveItem: (id: string) => void;
-  onCheckout: () => void;
+  onCheckout: () => void | Promise<void>;
   couponDiscount?: number;
   productSGST?: number;
   productCGST?: number;
@@ -40,6 +40,7 @@ interface ShoppingCartProps {
   useIGST?: boolean;
   billingMode?: string;  // "exclusive" or "inclusive"
   inclusiveBillType?: string;  // "split" or "mrp"
+  isProcessing?: boolean;
 }
 
 const ShoppingCart = ({ 
@@ -56,7 +57,8 @@ const ShoppingCart = ({
   additionalGstRate,
   useIGST = false,
   billingMode = "exclusive",
-  inclusiveBillType = "split"
+  inclusiveBillType = "split",
+  isProcessing = false
 }: ShoppingCartProps) => {
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const totalDiscountSaved = items.reduce((sum, item) => {
@@ -324,12 +326,19 @@ const ShoppingCart = ({
             </div>
 
             <Button 
-              className="w-full mt-4" 
+              className={`w-full mt-4 transition-all duration-200 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
               size="lg"
               onClick={onCheckout}
-              disabled={items.length === 0}
+              disabled={items.length === 0 || isProcessing}
             >
-              Complete Sale
+              {isProcessing ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                  Processing...
+                </span>
+              ) : (
+                'Complete Sale'
+              )}
             </Button>
           </>
         )}
