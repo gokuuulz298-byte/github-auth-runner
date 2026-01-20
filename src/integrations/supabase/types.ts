@@ -281,6 +281,30 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_sequences: {
+        Row: {
+          business_date: string
+          counter_id: string
+          id: string
+          last_number: number
+          store_id: string
+        }
+        Insert: {
+          business_date: string
+          counter_id: string
+          id?: string
+          last_number?: number
+          store_id: string
+        }
+        Update: {
+          business_date?: string
+          counter_id?: string
+          id?: string
+          last_number?: number
+          store_id?: string
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           bill_number: string
@@ -866,6 +890,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_invoice_number: {
+        Args: { p_counter_id: string; p_store_id: string }
+        Returns: string
+      }
       get_parent_user_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
