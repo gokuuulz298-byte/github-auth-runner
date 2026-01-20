@@ -40,6 +40,7 @@ const ManualBilling = () => {
   const [billingSettings, setBillingSettings] = useState<any>(null);
   const [paymentMode, setPaymentMode] = useState<string>("cash");
   const [isParcel, setIsParcel] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // Initialize counter session
   useEffect(() => {
@@ -495,6 +496,8 @@ const ManualBilling = () => {
       return;
     }
 
+    setIsProcessing(true);
+
     // Generate bill number in format: DDMMYY-XX
     const today = new Date();
     const dateStr = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
@@ -695,6 +698,8 @@ const ManualBilling = () => {
     } catch (error) {
       console.error(error);
       toast.error("Error saving invoice");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1665,6 +1670,7 @@ const ManualBilling = () => {
               couponCode={selectedCoupon ? coupons.find(c => c.id === selectedCoupon)?.code : undefined}
               additionalGstAmount={calculateTotals().additionalTaxAmount}
               additionalGstRate={additionalGstRate}
+              isProcessing={isProcessing}
             />
           </div>
         </div>

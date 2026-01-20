@@ -205,9 +205,9 @@ const ModernBilling = () => {
 
       if (error) throw error;
       setCategories(data || []);
-      if (data && data.length > 0) {
-        setSelectedCategory(data[0].name);
-      }
+      // Default to "All Products" (empty selectedCategory) instead of first category
+      // This prevents flickering by showing all products on page load
+      setSelectedCategory("");
     } catch (error) {
       console.error(error);
     }
