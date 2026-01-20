@@ -1671,6 +1671,7 @@ const ManualBilling = () => {
               additionalGstAmount={calculateTotals().additionalTaxAmount}
               additionalGstRate={additionalGstRate}
               isProcessing={isProcessing}
+              stockLimits={Object.fromEntries(products.map(p => [p.id, p.stock_quantity ?? Infinity]))}
             />
           </div>
         </div>

@@ -41,6 +41,7 @@ interface ShoppingCartProps {
   billingMode?: string;  // "exclusive" or "inclusive"
   inclusiveBillType?: string;  // "split" or "mrp"
   isProcessing?: boolean;
+  stockLimits?: { [id: string]: number };  // Product ID -> available stock
 }
 
 const ShoppingCart = ({ 
@@ -58,7 +59,8 @@ const ShoppingCart = ({
   useIGST = false,
   billingMode = "exclusive",
   inclusiveBillType = "split",
-  isProcessing = false
+  isProcessing = false,
+  stockLimits = {}
 }: ShoppingCartProps) => {
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const totalDiscountSaved = items.reduce((sum, item) => {
@@ -138,44 +140,68 @@ const ShoppingCart = ({
                       {item.category && <span className="text-xs text-muted-foreground">• {item.category}</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-7 w-7"
-                      onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <Input
-                      type="number"
-                      step={item.price_type === 'weight' ? "0.1" : "1"}
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '') {
-                          onUpdateQuantity(item.id, 0);
-                        } else {
-                          const parsed = parseFloat(value);
-                          onUpdateQuantity(item.id, Math.max(item.price_type === 'weight' ? 0.1 : 1, parsed || 0));
-                        }
-                      }}
-                      onBlur={(e) => {
-                        if (e.target.value === '' || parseFloat(e.target.value) <= 0) {
-                          onUpdateQuantity(item.id, item.price_type === 'weight' ? 0.1 : 1);
-                        }
-                      }}
-                      className="w-14 text-center h-7 text-sm"
-                      min={item.price_type === 'weight' ? "0.1" : "1"}
-                    />
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-7 w-7"
-                      onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7"
+                        onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <Input
+                        type="number"
+                        step={item.price_type === 'weight' ? "0.1" : "1"}
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '') {
+                            onUpdateQuantity(item.id, 0);
+                          } else {
+                            const parsed = parseFloat(value);
+                            const maxStock = stockLimits[item.id] ?? Infinity;
+                            const newQty = Math.min(maxStock, Math.max(item.price_type === 'weight' ? 0.1 : 1, parsed || 0));
+                            onUpdateQuantity(item.id, newQty);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '' || parseFloat(e.target.value) <= 0) {
+                            onUpdateQuantity(item.id, item.price_type === 'weight' ? 0.1 : 1);
+                          }
+                        }}
+                        className={`w-14 text-center h-7 text-sm ${
+                          stockLimits[item.id] !== undefined && item.quantity >= stockLimits[item.id] 
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                            : ''
+                        }`}
+                        min={item.price_type === 'weight' ? "0.1" : "1"}
+                        max={stockLimits[item.id]}
+                      />
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className={`h-7 w-7 ${
+                          stockLimits[item.id] !== undefined && item.quantity >= stockLimits[item.id]
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
+                        }`}
+                        onClick={() => {
+                          const maxStock = stockLimits[item.id] ?? Infinity;
+                          if (item.quantity < maxStock) {
+                            onUpdateQuantity(item.id, item.quantity + 1);
+                          }
+                        }}
+                        disabled={stockLimits[item.id] !== undefined && item.quantity >= stockLimits[item.id]}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {stockLimits[item.id] !== undefined && item.quantity >= stockLimits[item.id] && (
+                      <span className="text-[10px] text-orange-600 dark:text-orange-400 font-medium">
+                        Max stock reached
+                      </span>
+                    )}
                   </div>
                   <div className="text-right min-w-[70px]">
                     <p className="font-medium text-sm">{formatIndianCurrency(item.price * item.quantity)}</p>
