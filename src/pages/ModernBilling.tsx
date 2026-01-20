@@ -378,6 +378,21 @@ const ModernBilling = () => {
   }, [customerPhone]);
 
   const handleAddToCart = (product: any, quantity: number = 1) => {
+    // Check stock availability
+    const availableStock = product.stock_quantity ?? Infinity;
+    if (availableStock <= 0) {
+      toast.error(`${product.name} is out of stock`);
+      return;
+    }
+    
+    const existingItem = cartItems.find((item) => item.id === product.id);
+    const currentQtyInCart = existingItem?.quantity || 0;
+    
+    if (currentQtyInCart + quantity > availableStock) {
+      toast.error(`Only ${availableStock} units available for ${product.name}`);
+      return;
+    }
+
     const discount = productDiscounts.find(
       (d) => d.product_id === product.id && new Date(d.start_date) <= new Date() && new Date(d.end_date) >= new Date(),
     );
@@ -421,7 +436,6 @@ const ModernBilling = () => {
       finalPrice = priceAfterDiscount * (1 + gstRate / 100);
     }
 
-    const existingItem = cartItems.find((item) => item.id === product.id);
     if (existingItem) {
       setCartItems(
         cartItems.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item)),
@@ -450,8 +464,15 @@ const ModernBilling = () => {
   };
 
   const handleUpdateQuantity = (id: string, newQuantity: number) => {
+    // Find the product to check stock limit
+    const product = allProducts.find(p => p.id === id);
+    const maxStock = product?.stock_quantity ?? Infinity;
+    
     if (newQuantity <= 0) {
       setCartItems(cartItems.filter((item) => item.id !== id));
+    } else if (newQuantity > maxStock) {
+      toast.error(`Only ${maxStock} units available`);
+      setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantity: maxStock } : item)));
     } else {
       setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)));
     }
@@ -1733,24 +1754,35 @@ const ModernBilling = () => {
                     const cartQty = cartItems.find((item) => item.id === product.id)?.quantity || 0;
                     const isSelected = index === selectedProductIndex;
 
-                    // Show cart quantity if in cart, otherwise show productQuantities selector
                     const displayQty = isInCart ? cartQty : productQuantities[product.id] || 1;
+                    const stockQty = product.stock_quantity ?? Infinity;
+                    const isOutOfStock = stockQty <= 0;
 
                     return (
                       <Card
                         key={product.id}
-                        className={`hover:shadow-md transition-all overflow-hidden cursor-pointer border-2 ${
-                          isInCart
-                            ? "border-green-500 bg-green-50 dark:bg-green-950/30"
+                        className={`hover:shadow-md transition-all overflow-hidden border-2 ${
+                          isOutOfStock
+                            ? "opacity-50 cursor-not-allowed border-gray-300 dark:border-gray-700"
+                            : isInCart
+                            ? "border-green-500 bg-green-50 dark:bg-green-950/30 cursor-pointer"
                             : isSelected
-                              ? "border-primary ring-2 ring-primary/50"
-                              : "border-transparent"
+                              ? "border-primary ring-2 ring-primary/50 cursor-pointer"
+                              : "border-transparent cursor-pointer"
                         }`}
                         onClick={() => {
+                          if (isOutOfStock) {
+                            toast.error(`${product.name} is out of stock`);
+                            return;
+                          }
                           setSelectedProductIndex(index);
                           if (isInCart) {
                             // If already in cart, increment cart quantity
-                            handleUpdateQuantity(product.id, cartQty + 1);
+                            if (cartQty < stockQty) {
+                              handleUpdateQuantity(product.id, cartQty + 1);
+                            } else {
+                              toast.error(`Only ${stockQty} units available`);
+                            }
                           } else {
                             // If not in cart, add with selected quantity
                             handleAddToCart(product, productQuantities[product.id] || 1);
@@ -1759,13 +1791,20 @@ const ModernBilling = () => {
                       >
                         <div className="aspect-square bg-muted relative overflow-hidden">
                           {product.image_url ? (
-                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                            <img src={product.image_url} alt={product.name} className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`} />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold">
+                            <div className={`w-full h-full flex items-center justify-center text-muted-foreground text-xs font-semibold ${isOutOfStock ? 'grayscale' : ''}`}>
                               {product.name.substring(0, 2).toUpperCase()}
                             </div>
                           )}
-                          {hasDiscount && (
+                          {isOutOfStock && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                              <span className="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded">
+                                OUT OF STOCK
+                              </span>
+                            </div>
+                          )}
+                          {hasDiscount && !isOutOfStock && (
                             <div className="absolute top-0.5 left-0.5 bg-green-600 text-white text-[8px] font-bold px-1 py-0.5 rounded">
                               {discountPercentage > 0 ? `${discountPercentage}%` : `₹${discountAmount}`}
                             </div>
@@ -1773,6 +1812,11 @@ const ModernBilling = () => {
                           {isInCart && (
                             <div className="absolute top-0.5 right-0.5 bg-green-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
                               {cartQty}
+                            </div>
+                          )}
+                          {!isOutOfStock && stockQty < 10 && stockQty > 0 && (
+                            <div className="absolute bottom-0.5 left-0.5 bg-orange-500 text-white text-[8px] font-medium px-1 py-0.5 rounded">
+                              Only {stockQty} left
                             </div>
                           )}
                         </div>
@@ -1800,6 +1844,7 @@ const ModernBilling = () => {
                                 size="icon"
                                 variant="outline"
                                 className="h-6 w-6"
+                                disabled={isOutOfStock}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isInCart) {
@@ -1818,16 +1863,25 @@ const ModernBilling = () => {
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="h-6 w-6"
+                                className={`h-6 w-6 ${
+                                  isOutOfStock || (isInCart && cartQty >= stockQty)
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : ''
+                                }`}
+                                disabled={isOutOfStock || (isInCart && cartQty >= stockQty)}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isInCart) {
                                     // Increase cart quantity
-                                    handleUpdateQuantity(product.id, cartQty + 1);
+                                    if (cartQty < stockQty) {
+                                      handleUpdateQuantity(product.id, cartQty + 1);
+                                    }
                                   } else {
                                     // Increase selector quantity
                                     const newQty = (productQuantities[product.id] || 1) + 1;
-                                    setProductQuantities({ ...productQuantities, [product.id]: newQty });
+                                    if (newQty <= stockQty) {
+                                      setProductQuantities({ ...productQuantities, [product.id]: newQty });
+                                    }
                                   }
                                 }}
                               >
