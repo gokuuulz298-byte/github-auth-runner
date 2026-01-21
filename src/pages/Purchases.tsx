@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Package, Truck, CheckCircle2, Clock, Search, X, Eye, Lock, GripVertical, Percent, Users } from "lucide-react";
+import { ArrowLeft, Plus, Package, Truck, CheckCircle2, Clock, Search, X, Eye, Lock, GripVertical, Percent, Users, CreditCard, Wallet, History } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import LoadingButton from "@/components/LoadingButton";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface PurchaseItem {
   id: string;
@@ -28,6 +30,16 @@ interface PurchaseItem {
   discountValue?: number;
 }
 
+interface PurchasePayment {
+  id: string;
+  purchase_id: string;
+  amount: number;
+  payment_mode: string;
+  payment_date: string;
+  notes: string | null;
+  created_at: string;
+}
+
 interface Purchase {
   id: string;
   purchase_number: string;
@@ -36,6 +48,8 @@ interface Purchase {
   status: string;
   items_data: PurchaseItem[];
   total_amount: number;
+  paid_amount: number;
+  payment_status: string;
   notes: string | null;
   expected_date: string | null;
   received_date: string | null;
@@ -68,6 +82,13 @@ const Purchases = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [draggedPurchase, setDraggedPurchase] = useState<Purchase | null>(null);
   
+  // Payment log state
+  const [payments, setPayments] = useState<PurchasePayment[]>([]);
+  const [newPaymentAmount, setNewPaymentAmount] = useState<string>("");
+  const [newPaymentMode, setNewPaymentMode] = useState<string>("cash");
+  const [newPaymentNotes, setNewPaymentNotes] = useState<string>("");
+  const [isAddingPayment, setIsAddingPayment] = useState(false);
+  
   // Form state
   const [supplierName, setSupplierName] = useState("");
   const [supplierPhone, setSupplierPhone] = useState("");
@@ -87,6 +108,12 @@ const Purchases = () => {
     fetchSuppliers();
   }, []);
 
+  useEffect(() => {
+    if (selectedPurchase) {
+      fetchPayments(selectedPurchase.id);
+    }
+  }, [selectedPurchase]);
+
   const fetchPurchases = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -101,13 +128,33 @@ const Purchases = () => {
       if (error) throw error;
       setPurchases((data || []).map(p => ({
         ...p,
-        items_data: p.items_data as unknown as PurchaseItem[]
+        items_data: p.items_data as unknown as PurchaseItem[],
+        paid_amount: Number(p.paid_amount) || 0,
+        payment_status: p.payment_status || 'pending'
       })) as Purchase[]);
     } catch (error) {
       console.error(error);
       toast.error("Failed to fetch purchases");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPayments = async (purchaseId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('purchase_payments')
+        .select('*')
+        .eq('purchase_id', purchaseId)
+        .order('payment_date', { ascending: false });
+
+      if (error) throw error;
+      setPayments((data || []) as PurchasePayment[]);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -150,6 +197,91 @@ const Purchases = () => {
       })));
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleAddPayment = async () => {
+    if (!selectedPurchase || !newPaymentAmount || parseFloat(newPaymentAmount) <= 0) {
+      toast.error("Enter a valid payment amount");
+      return;
+    }
+
+    const amount = parseFloat(newPaymentAmount);
+    const remainingAmount = selectedPurchase.total_amount - selectedPurchase.paid_amount;
+
+    if (amount > remainingAmount) {
+      toast.error(`Payment cannot exceed remaining amount: ${formatIndianCurrency(remainingAmount)}`);
+      return;
+    }
+
+    setIsAddingPayment(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Insert payment record
+      const { error: paymentError } = await supabase
+        .from('purchase_payments')
+        .insert({
+          purchase_id: selectedPurchase.id,
+          amount,
+          payment_mode: newPaymentMode,
+          notes: newPaymentNotes || null,
+          created_by: user.id
+        });
+
+      if (paymentError) throw paymentError;
+
+      // Update purchase paid_amount and payment_status
+      const newPaidAmount = selectedPurchase.paid_amount + amount;
+      const newPaymentStatus = newPaidAmount >= selectedPurchase.total_amount 
+        ? 'paid' 
+        : newPaidAmount > 0 
+          ? 'partial' 
+          : 'pending';
+
+      const { error: updateError } = await supabase
+        .from('purchases')
+        .update({ 
+          paid_amount: newPaidAmount,
+          payment_status: newPaymentStatus
+        })
+        .eq('id', selectedPurchase.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Payment recorded successfully!");
+      setNewPaymentAmount("");
+      setNewPaymentNotes("");
+      setNewPaymentMode("cash");
+      
+      // Refresh data
+      fetchPayments(selectedPurchase.id);
+      fetchPurchases();
+      
+      // Update selected purchase locally
+      setSelectedPurchase({
+        ...selectedPurchase,
+        paid_amount: newPaidAmount,
+        payment_status: newPaymentStatus
+      });
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to record payment");
+    } finally {
+      setIsAddingPayment(false);
+    }
+  };
+
+  const getPaymentStatusBadge = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle2 className="h-3 w-3 mr-1" />Fully Paid</Badge>;
+      case 'partial':
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-200"><Clock className="h-3 w-3 mr-1" />Partially Paid</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-700 border-gray-200"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
     }
   };
 
@@ -498,13 +630,10 @@ const Purchases = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Select a supplier to auto-fill details and filter to their mapped products
-                      </p>
                     </div>
-
+                    
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <Label className="text-xs">Supplier Name</Label>
                         <Input
                           value={supplierName}
@@ -513,19 +642,19 @@ const Purchases = () => {
                           className="h-9"
                         />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <Label className="text-xs">Phone</Label>
                         <Input
                           value={supplierPhone}
                           onChange={(e) => setSupplierPhone(e.target.value)}
-                          placeholder="Phone"
+                          placeholder="Phone number"
                           className="h-9"
                         />
                       </div>
                     </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Expected Delivery</Label>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Expected Delivery Date</Label>
                       <Input
                         type="date"
                         value={expectedDate}
@@ -534,169 +663,188 @@ const Purchases = () => {
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <Label className="text-xs">
-                        Search Products (by name or barcode)
-                        {selectedSupplierId && suppliers.find(s => s.id === selectedSupplierId)?.mapped_products.length ? (
-                          <span className="text-primary ml-1">• Showing mapped products only</span>
-                        ) : null}
-                      </Label>
+                    {/* Product Search */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">Add Products</Label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           value={productSearch}
                           onChange={(e) => setProductSearch(e.target.value)}
-                          placeholder="Search..."
+                          placeholder="Search products..."
                           className="pl-10 h-9"
                         />
                       </div>
+                      <div className="max-h-40 overflow-y-auto border rounded-lg">
+                        {filteredProducts.length === 0 ? (
+                          <p className="p-3 text-sm text-muted-foreground text-center">No products found</p>
+                        ) : (
+                          filteredProducts.slice(0, 10).map(product => (
+                            <div
+                              key={product.id}
+                              className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                              onClick={() => handleAddProduct(product)}
+                            >
+                              <div>
+                                <p className="text-sm font-medium">{product.name}</p>
+                                <p className="text-xs text-muted-foreground">{product.barcode}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-semibold">{formatIndianCurrency(product.buying_price || product.price)}</p>
+                                <Plus className="h-4 w-4 text-primary ml-auto" />
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
+                  </div>
 
-                    <div className="border rounded-lg max-h-40 overflow-y-auto">
-                      {filteredProducts.length === 0 ? (
-                        <div className="p-4 text-center text-muted-foreground text-sm">
-                          No products found
-                        </div>
-                      ) : (
-                        filteredProducts.slice(0, 15).map(product => (
-                          <div
-                            key={product.id}
-                            className="p-2 hover:bg-muted/50 cursor-pointer flex justify-between items-center border-b last:border-b-0"
-                            onClick={() => handleAddProduct(product)}
-                          >
-                            <div>
-                              <p className="font-medium text-sm">{product.name}</p>
-                              <p className="text-xs text-muted-foreground">{product.barcode}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-medium text-primary">{formatIndianCurrency(product.buying_price || product.price)}</p>
-                              <p className="text-xs text-muted-foreground">Cost</p>
-                            </div>
+                  {/* Right - Selected Items & Summary */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Selected Items ({selectedItems.length})</Label>
+                      <div className="max-h-60 overflow-y-auto border rounded-lg">
+                        {selectedItems.length === 0 ? (
+                          <p className="p-4 text-sm text-muted-foreground text-center">No items added</p>
+                        ) : (
+                          <div className="divide-y">
+                            {selectedItems.map(item => (
+                              <div key={item.id} className="p-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium">{item.name}</p>
+                                    <p className="text-xs text-muted-foreground">{formatIndianCurrency(item.unit_price)} each</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                                    >
+                                      -
+                                    </Button>
+                                    <span className="w-8 text-center font-medium">{item.quantity}</span>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                                    >
+                                      +
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive"
+                                      onClick={() => handleUpdateQuantity(item.id, 0)}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                {/* Item Discount */}
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="text-xs text-muted-foreground">Discount:</span>
+                                  <RadioGroup 
+                                    value={item.discountType || 'percentage'} 
+                                    onValueChange={(v) => handleUpdateItemDiscount(item.id, item.discountValue || 0, v as 'percentage' | 'fixed')}
+                                    className="flex gap-2"
+                                  >
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem value="percentage" id={`${item.id}-pct`} className="h-3 w-3" />
+                                      <Label htmlFor={`${item.id}-pct`} className="text-xs">%</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem value="fixed" id={`${item.id}-fixed`} className="h-3 w-3" />
+                                      <Label htmlFor={`${item.id}-fixed`} className="text-xs">₹</Label>
+                                    </div>
+                                  </RadioGroup>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={item.discountValue || ''}
+                                    onChange={(e) => handleUpdateItemDiscount(item.id, parseFloat(e.target.value) || 0, item.discountType || 'percentage')}
+                                    className="h-7 w-20 text-xs"
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))
-                      )}
+                        )}
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Global Discount */}
+                    <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                      <Label className="text-xs font-medium flex items-center gap-1">
+                        <Percent className="h-3 w-3" />
+                        Global Discount
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <RadioGroup 
+                          value={discountType} 
+                          onValueChange={(v) => setDiscountType(v as 'percentage' | 'fixed')}
+                          className="flex gap-3"
+                        >
+                          <div className="flex items-center space-x-1">
+                            <RadioGroupItem value="percentage" id="global-pct" />
+                            <Label htmlFor="global-pct" className="text-xs">Percentage (%)</Label>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <RadioGroupItem value="fixed" id="global-fixed" />
+                            <Label htmlFor="global-fixed" className="text-xs">Fixed (₹)</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={discountValue || ''}
+                        onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                        className="h-9"
+                        placeholder={discountType === 'percentage' ? 'Enter %' : 'Enter amount'}
+                      />
+                    </div>
+
+                    {/* Notes */}
+                    <div className="space-y-1.5">
                       <Label className="text-xs">Notes</Label>
                       <Textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Additional notes..."
+                        placeholder="Add any notes..."
                         rows={2}
-                        className="text-sm"
                       />
                     </div>
-                  </div>
 
-                  {/* Right - Selected Items */}
-                  <div className="space-y-3">
-                    <Label className="text-xs">Selected Items ({selectedItems.length})</Label>
-                    <div className="border rounded-lg max-h-52 overflow-y-auto">
-                      {selectedItems.length === 0 ? (
-                        <p className="p-4 text-center text-muted-foreground text-sm">
-                          Click products to add
-                        </p>
-                      ) : (
-                        selectedItems.map(item => (
-                          <div key={item.id} className="p-2 border-b last:border-b-0">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{item.name}</p>
-                                <p className="text-xs text-muted-foreground">{formatIndianCurrency(item.unit_price)}/unit</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => handleUpdateQuantity(item.id, parseInt(e.target.value) || 0)}
-                                  className="w-14 h-7 text-center text-sm"
-                                  min={0}
-                                />
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7"
-                                  onClick={() => handleUpdateQuantity(item.id, 0)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Select
-                                value={item.discountType || 'percentage'}
-                                onValueChange={(val: 'percentage' | 'fixed') => handleUpdateItemDiscount(item.id, item.discountValue || 0, val)}
-                              >
-                                <SelectTrigger className="w-16 h-6 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="percentage">%</SelectItem>
-                                  <SelectItem value="fixed">₹</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Input
-                                type="number"
-                                value={item.discountValue || 0}
-                                onChange={(e) => handleUpdateItemDiscount(item.id, parseFloat(e.target.value) || 0, item.discountType || 'percentage')}
-                                className="w-16 h-6 text-xs"
-                                placeholder="Disc"
-                                min={0}
-                                max={item.discountType === 'percentage' ? 100 : undefined}
-                              />
-                              <span className="text-xs text-muted-foreground">
-                                = {formatIndianCurrency(
-                                  (item.unit_price * item.quantity) - 
-                                  (item.discountType === 'fixed' 
-                                    ? (item.discountValue || 0) 
-                                    : (item.unit_price * item.quantity) * (item.discountValue || 0) / 100)
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                    {/* Summary */}
+                    <div className="p-3 bg-primary/5 rounded-lg space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span>Subtotal</span>
+                        <span>Subtotal:</span>
                         <span>{formatIndianCurrency(calculateSubtotal())}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs whitespace-nowrap">Discount</Label>
-                        <Select
-                          value={discountType}
-                          onValueChange={(val: 'percentage' | 'fixed') => setDiscountType(val)}
-                        >
-                          <SelectTrigger className="w-14 h-7 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="percentage">%</SelectItem>
-                            <SelectItem value="fixed">₹</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          value={discountValue}
-                          onChange={(e) => setDiscountValue(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="w-20 h-7 text-sm"
-                          min={0}
-                          max={discountType === 'percentage' ? 100 : undefined}
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          -{formatIndianCurrency(discountType === 'fixed' ? discountValue : calculateSubtotal() * discountValue / 100)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-lg font-bold pt-2 border-t">
-                        <span>Total</span>
+                      {discountValue > 0 && (
+                        <div className="flex justify-between text-sm text-orange-600">
+                          <span>Discount:</span>
+                          <span>
+                            -{discountType === 'percentage' 
+                              ? formatIndianCurrency(calculateSubtotal() * discountValue / 100)
+                              : formatIndianCurrency(discountValue)
+                            }
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-lg border-t pt-2">
+                        <span>Total:</span>
                         <span className="text-primary">{formatIndianCurrency(calculateTotal())}</span>
                       </div>
                     </div>
 
                     <LoadingButton 
+                      isLoading={isCreating}
                       onClick={handleCreatePurchase} 
                       className="w-full" 
                       disabled={selectedItems.length === 0}
@@ -770,9 +918,12 @@ const Purchases = () => {
                         <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </div>
                       <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(purchase.created_at).toLocaleDateString()}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(purchase.created_at).toLocaleDateString()}
+                          </span>
+                          {getPaymentStatusBadge(purchase.payment_status)}
+                        </div>
                         <span className="font-semibold text-sm">
                           {formatIndianCurrency(purchase.total_amount)}
                         </span>
@@ -788,7 +939,7 @@ const Purchases = () => {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Purchase Order Details
@@ -796,115 +947,249 @@ const Purchases = () => {
             </DialogTitle>
           </DialogHeader>
           {selectedPurchase && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">PO Number</p>
-                  <p className="font-mono font-semibold">{selectedPurchase.purchase_number}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <div className="mt-0.5">{getStatusBadge(selectedPurchase.status)}</div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Supplier</p>
-                  <p className="font-semibold">{selectedPurchase.supplier_name || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Phone</p>
-                  <p className="font-semibold">{selectedPurchase.supplier_phone || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Created</p>
-                  <p className="font-semibold">{new Date(selectedPurchase.created_at).toLocaleString()}</p>
-                </div>
-                {selectedPurchase.received_date && (
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="payments" className="flex items-center gap-1">
+                  <Wallet className="h-4 w-4" />
+                  Payments
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details" className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">Received</p>
-                    <p className="font-semibold">{new Date(selectedPurchase.received_date).toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">PO Number</p>
+                    <p className="font-mono font-semibold">{selectedPurchase.purchase_number}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <div className="mt-0.5">{getStatusBadge(selectedPurchase.status)}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Supplier</p>
+                    <p className="font-semibold">{selectedPurchase.supplier_name || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p className="font-semibold">{selectedPurchase.supplier_phone || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Created</p>
+                    <p className="font-semibold">{new Date(selectedPurchase.created_at).toLocaleString()}</p>
+                  </div>
+                  {selectedPurchase.received_date && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Received</p>
+                      <p className="font-semibold">{new Date(selectedPurchase.received_date).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-sm mb-2">Items</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Product</TableHead>
+                          <TableHead className="text-right text-xs">Qty</TableHead>
+                          <TableHead className="text-right text-xs">Unit Price</TableHead>
+                          <TableHead className="text-right text-xs">Disc %</TableHead>
+                          <TableHead className="text-right text-xs">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedPurchase.items_data.map((item, idx) => {
+                          const itemTotal = item.unit_price * item.quantity;
+                          const discountAmount = item.discount ? (itemTotal * item.discount / 100) : 0;
+                          return (
+                            <TableRow key={idx}>
+                              <TableCell className="text-sm">
+                                <p className="font-medium">{item.name}</p>
+                                <p className="text-xs text-muted-foreground">{item.barcode}</p>
+                              </TableCell>
+                              <TableCell className="text-right text-sm">{item.quantity}</TableCell>
+                              <TableCell className="text-right text-sm">{formatIndianCurrency(item.unit_price)}</TableCell>
+                              <TableCell className="text-right text-sm">{item.discount || 0}%</TableCell>
+                              <TableCell className="text-right text-sm font-medium">
+                                {formatIndianCurrency(itemTotal - discountAmount)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg">
+                  <span className="font-bold">Total Amount</span>
+                  <span className="font-bold text-lg text-primary">{formatIndianCurrency(selectedPurchase.total_amount)}</span>
+                </div>
+
+                {selectedPurchase.notes && (
+                  <div className="p-2 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm">{selectedPurchase.notes}</p>
                   </div>
                 )}
-              </div>
 
-              <div>
-                <h3 className="font-semibold text-sm mb-2">Items</h3>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Product</TableHead>
-                        <TableHead className="text-right text-xs">Qty</TableHead>
-                        <TableHead className="text-right text-xs">Unit Price</TableHead>
-                        <TableHead className="text-right text-xs">Disc %</TableHead>
-                        <TableHead className="text-right text-xs">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedPurchase.items_data.map((item, idx) => {
-                        const itemTotal = item.unit_price * item.quantity;
-                        const discountAmount = item.discount ? (itemTotal * item.discount / 100) : 0;
-                        return (
-                          <TableRow key={idx}>
-                            <TableCell className="text-sm">
-                              <p className="font-medium">{item.name}</p>
-                              <p className="text-xs text-muted-foreground">{item.barcode}</p>
-                            </TableCell>
-                            <TableCell className="text-right text-sm">{item.quantity}</TableCell>
-                            <TableCell className="text-right text-sm">{formatIndianCurrency(item.unit_price)}</TableCell>
-                            <TableCell className="text-right text-sm">{item.discount || 0}%</TableCell>
-                            <TableCell className="text-right text-sm font-medium">
-                              {formatIndianCurrency(itemTotal - discountAmount)}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
+                {selectedPurchase.status === 'pending' && (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      onClick={() => handleStatusChange(selectedPurchase.id, 'ordered')}
+                      className="flex-1"
+                    >
+                      <Truck className="h-4 w-4 mr-2" />
+                      Mark Ordered
+                    </Button>
+                    <Button 
+                      onClick={() => handleReceivePurchase(selectedPurchase)} 
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Receive & Update Stock
+                    </Button>
+                  </div>
+                )}
 
-              <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg">
-                <span className="font-bold">Total Amount</span>
-                <span className="font-bold text-lg text-primary">{formatIndianCurrency(selectedPurchase.total_amount)}</span>
-              </div>
-
-              {selectedPurchase.notes && (
-                <div className="p-2 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                  <p className="text-sm">{selectedPurchase.notes}</p>
-                </div>
-              )}
-
-              {selectedPurchase.status === 'pending' && (
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline"
-                    onClick={() => handleStatusChange(selectedPurchase.id, 'ordered')}
-                    className="flex-1"
-                  >
-                    <Truck className="h-4 w-4 mr-2" />
-                    Mark Ordered
-                  </Button>
+                {selectedPurchase.status === 'ordered' && (
                   <Button 
                     onClick={() => handleReceivePurchase(selectedPurchase)} 
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="w-full bg-green-600 hover:bg-green-700"
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Receive & Update Stock
                   </Button>
-                </div>
-              )}
+                )}
+              </TabsContent>
 
-              {selectedPurchase.status === 'ordered' && (
-                <Button 
-                  onClick={() => handleReceivePurchase(selectedPurchase)} 
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Receive & Update Stock
-                </Button>
-              )}
-            </div>
+              <TabsContent value="payments" className="space-y-4 mt-4">
+                {/* Payment Summary */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200">
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground">Total Amount</p>
+                      <p className="text-lg font-bold text-blue-600">{formatIndianCurrency(selectedPurchase.total_amount)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-green-50 dark:bg-green-950/30 border-green-200">
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground">Paid Amount</p>
+                      <p className="text-lg font-bold text-green-600">{formatIndianCurrency(selectedPurchase.paid_amount)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className={`${selectedPurchase.total_amount - selectedPurchase.paid_amount > 0 ? 'bg-red-50 dark:bg-red-950/30 border-red-200' : 'bg-gray-50 dark:bg-gray-950/30'}`}>
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground">Remaining</p>
+                      <p className={`text-lg font-bold ${selectedPurchase.total_amount - selectedPurchase.paid_amount > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                        {formatIndianCurrency(selectedPurchase.total_amount - selectedPurchase.paid_amount)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">Payment Status:</p>
+                  {getPaymentStatusBadge(selectedPurchase.payment_status)}
+                </div>
+
+                <Separator />
+
+                {/* Add Payment Form */}
+                {selectedPurchase.total_amount - selectedPurchase.paid_amount > 0 && (
+                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Record Payment
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Amount</Label>
+                        <Input
+                          type="number"
+                          value={newPaymentAmount}
+                          onChange={(e) => setNewPaymentAmount(e.target.value)}
+                          placeholder={`Max: ${formatIndianCurrency(selectedPurchase.total_amount - selectedPurchase.paid_amount)}`}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Payment Mode</Label>
+                        <Select value={newPaymentMode} onValueChange={setNewPaymentMode}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="upi">UPI</SelectItem>
+                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                            <SelectItem value="card">Card</SelectItem>
+                            <SelectItem value="cheque">Cheque</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Notes (Optional)</Label>
+                      <Input
+                        value={newPaymentNotes}
+                        onChange={(e) => setNewPaymentNotes(e.target.value)}
+                        placeholder="Payment reference, cheque number, etc."
+                        className="h-9"
+                      />
+                    </div>
+                    <LoadingButton
+                      isLoading={isAddingPayment}
+                      onClick={handleAddPayment}
+                      className="w-full"
+                      disabled={!newPaymentAmount || parseFloat(newPaymentAmount) <= 0}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Payment
+                    </LoadingButton>
+                  </div>
+                )}
+
+                {/* Payment History */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <History className="h-4 w-4" />
+                    Payment History
+                  </h4>
+                  {payments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No payments recorded yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {payments.map((payment) => (
+                        <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg bg-card">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
+                              <Wallet className="h-4 w-4 text-green-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm">{formatIndianCurrency(payment.amount)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(payment.payment_date).toLocaleString()} • {payment.payment_mode.replace('_', ' ').toUpperCase()}
+                              </p>
+                              {payment.notes && (
+                                <p className="text-xs text-muted-foreground italic">{payment.notes}</p>
+                              )}
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="bg-green-50 text-green-700">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Paid
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
