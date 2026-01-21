@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck, ArrowUpRight, ArrowDownRight, Sparkles, Flame, Info, ChevronDown, ChevronUp, Filter, Truck, Receipt } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck, ArrowUpRight, ArrowDownRight, Sparkles, Flame, Info, ChevronDown, ChevronUp, Filter, Truck, Receipt, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
@@ -12,6 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { formatIndianCurrency } from "@/lib/numberFormat";
 
 interface TopProduct {
   id: string;
@@ -43,7 +47,24 @@ interface OrderTypeStats {
   revenue: number;
 }
 
+interface DayWiseData {
+  date: Date;
+  revenue: number;
+  expenses: number;
+  purchases: number;
+  profit: number;
+  netProfit: number;
+  orderCount: number;
+  invoices: any[];
+  expenseList: any[];
+}
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7300'];
+
+// Format number to 2 decimal places
+const formatDecimal = (num: number): string => {
+  return num.toFixed(2);
+};
 
 const AdvancedReports = () => {
   const navigate = useNavigate();
@@ -53,6 +74,11 @@ const AdvancedReports = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [counters, setCounters] = useState<any[]>([]);
   const [isRestaurant, setIsRestaurant] = useState(false);
+  
+  // Day Wise state
+  const [dayWiseDate, setDayWiseDate] = useState<Date>(new Date());
+  const [dayWiseData, setDayWiseData] = useState<DayWiseData | null>(null);
+  const [dayWiseLoading, setDayWiseLoading] = useState(false);
   
   // Key Metrics
   const [metrics, setMetrics] = useState({
@@ -91,10 +117,12 @@ const AdvancedReports = () => {
   const [weeklyComparison, setWeeklyComparison] = useState<any[]>([]);
   const [expensesByCategory, setExpensesByCategory] = useState<any[]>([]);
   const [purchasesTrend, setPurchasesTrend] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     fetchCounters();
     fetchBillingSettings();
+    fetchProducts();
   }, []);
 
   useEffect(() => {
@@ -121,6 +149,86 @@ const AdvancedReports = () => {
       supabase.removeChannel(channel);
     };
   }, [timeRange, selectedCounter]);
+
+  useEffect(() => {
+    fetchDayWiseData();
+  }, [dayWiseDate]);
+
+  const fetchProducts = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('products').select('*').eq('created_by', user.id);
+    setProducts(data || []);
+  };
+
+  const fetchDayWiseData = async () => {
+    setDayWiseLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const start = startOfDay(dayWiseDate);
+      const end = endOfDay(dayWiseDate);
+
+      // Fetch invoices for the day
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
+
+      // Fetch expenses for the day
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('expense_date', start.toISOString())
+        .lte('expense_date', end.toISOString());
+
+      // Fetch purchases for the day
+      const { data: purchases } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
+
+      const revenue = invoices?.reduce((sum, inv) => sum + parseFloat(inv.total_amount?.toString() || '0'), 0) || 0;
+      const expenseTotal = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount?.toString() || '0'), 0) || 0;
+      const purchaseTotal = purchases?.reduce((sum, p) => sum + parseFloat(p.total_amount?.toString() || '0'), 0) || 0;
+
+      // Calculate profit
+      let profit = 0;
+      invoices?.forEach(invoice => {
+        const items = invoice.items_data as any[];
+        items?.forEach((item: any) => {
+          const product = products.find(p => p.id === item.id);
+          if (product && product.buying_price) {
+            profit += (item.price - product.buying_price) * item.quantity;
+          }
+        });
+      });
+
+      const netProfit = profit - expenseTotal;
+
+      setDayWiseData({
+        date: dayWiseDate,
+        revenue,
+        expenses: expenseTotal,
+        purchases: purchaseTotal,
+        profit,
+        netProfit,
+        orderCount: invoices?.length || 0,
+        invoices: invoices || [],
+        expenseList: expenses || []
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setDayWiseLoading(false);
+    }
+  };
 
   const fetchBillingSettings = async () => {
     try {
@@ -913,13 +1021,17 @@ const AdvancedReports = () => {
 
         {/* Charts Section */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-7">
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
-            <TabsTrigger value="profit">Profit Analysis</TabsTrigger>
+            <TabsTrigger value="profit">Profit</TabsTrigger>
             <TabsTrigger value="expenses">Expenses</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
+            <TabsTrigger value="daywise" className="flex items-center gap-1">
+              <CalendarDays className="h-3 w-3" />
+              Day Wise
+            </TabsTrigger>
             {isRestaurant && <TabsTrigger value="restaurant">Restaurant</TabsTrigger>}
           </TabsList>
 
@@ -1328,6 +1440,133 @@ const AdvancedReports = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Day Wise Tab */}
+          <TabsContent value="daywise" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarDays className="h-5 w-5" />
+                    Day Wise Business Insights
+                  </CardTitle>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="gap-2">
+                        <Calendar className="h-4 w-4" />
+                        {format(dayWiseDate, 'PPP')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <CalendarComponent
+                        mode="single"
+                        selected={dayWiseDate}
+                        onSelect={(date) => date && setDayWiseDate(date)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {dayWiseLoading ? (
+                  <div className="flex justify-center py-8">
+                    <LoadingSpinner size="md" text="Loading..." />
+                  </div>
+                ) : dayWiseData ? (
+                  <div className="space-y-4">
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <Card className={`border-l-4 ${dayWiseData.revenue > 0 ? 'border-l-green-500 bg-green-50 dark:bg-green-950/20' : 'border-l-gray-300'}`}>
+                        <CardContent className="p-3">
+                          <p className="text-xs text-muted-foreground">Revenue</p>
+                          <p className="text-lg font-bold text-green-600">{formatIndianCurrency(dayWiseData.revenue)}</p>
+                          <p className="text-xs text-muted-foreground">{dayWiseData.orderCount} orders</p>
+                        </CardContent>
+                      </Card>
+                      <Card className={`border-l-4 ${dayWiseData.expenses > 0 ? 'border-l-red-500 bg-red-50 dark:bg-red-950/20' : 'border-l-gray-300'}`}>
+                        <CardContent className="p-3">
+                          <p className="text-xs text-muted-foreground">Expenses</p>
+                          <p className="text-lg font-bold text-red-600">{formatIndianCurrency(dayWiseData.expenses)}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className={`border-l-4 ${dayWiseData.purchases > 0 ? 'border-l-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-l-gray-300'}`}>
+                        <CardContent className="p-3">
+                          <p className="text-xs text-muted-foreground">Purchases</p>
+                          <p className="text-lg font-bold text-blue-600">{formatIndianCurrency(dayWiseData.purchases)}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className={`border-l-4 ${dayWiseData.profit > 0 ? 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' : 'border-l-gray-300'}`}>
+                        <CardContent className="p-3">
+                          <p className="text-xs text-muted-foreground">Gross Profit</p>
+                          <p className="text-lg font-bold text-emerald-600">{formatIndianCurrency(dayWiseData.profit)}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className={`border-l-4 ${dayWiseData.netProfit >= 0 ? 'border-l-purple-500 bg-purple-50 dark:bg-purple-950/20' : 'border-l-orange-500 bg-orange-50 dark:bg-orange-950/20'}`}>
+                        <CardContent className="p-3">
+                          <p className="text-xs text-muted-foreground">Net Profit</p>
+                          <p className={`text-lg font-bold ${dayWiseData.netProfit >= 0 ? 'text-purple-600' : 'text-orange-600'}`}>
+                            {formatIndianCurrency(dayWiseData.netProfit)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Invoices List */}
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Receipt className="h-4 w-4" />
+                        Invoices ({dayWiseData.invoices.length})
+                      </h4>
+                      {dayWiseData.invoices.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No invoices on this day</p>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {dayWiseData.invoices.map((inv: any) => (
+                            <div key={inv.id} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                              <div>
+                                <p className="font-mono text-sm">{inv.bill_number}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {inv.customer_name || 'Walk-in'} • {new Date(inv.created_at).toLocaleTimeString()}
+                                </p>
+                              </div>
+                              <p className="font-bold text-green-600">{formatIndianCurrency(inv.total_amount)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Expenses List */}
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Wallet className="h-4 w-4" />
+                        Expenses ({dayWiseData.expenseList.length})
+                      </h4>
+                      {dayWiseData.expenseList.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No expenses on this day</p>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {dayWiseData.expenseList.map((exp: any) => (
+                            <div key={exp.id} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                              <div>
+                                <p className="font-semibold text-sm">{exp.category}</p>
+                                <p className="text-xs text-muted-foreground">{exp.description || 'No description'}</p>
+                              </div>
+                              <p className="font-bold text-red-600">-{formatIndianCurrency(exp.amount)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">Select a date to view insights</p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Expenses Tab */}
