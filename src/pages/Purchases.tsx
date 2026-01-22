@@ -234,7 +234,9 @@ const Purchases = () => {
 
       // Update purchase paid_amount and payment_status
       const newPaidAmount = selectedPurchase.paid_amount + amount;
-      const newPaymentStatus = newPaidAmount >= selectedPurchase.total_amount 
+      // Use tolerance for floating point comparison
+      const isFullyPaid = Math.abs(newPaidAmount - selectedPurchase.total_amount) < 0.01 || newPaidAmount >= selectedPurchase.total_amount;
+      const newPaymentStatus = isFullyPaid
         ? 'paid' 
         : newPaidAmount > 0 
           ? 'partial' 

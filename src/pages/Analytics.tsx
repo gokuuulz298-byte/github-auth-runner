@@ -126,6 +126,7 @@ const Analytics = () => {
       const totalTax = invoices?.reduce((sum, inv) => sum + parseFloat(inv.tax_amount.toString()), 0) || 0;
       const totalDiscount = invoices?.reduce((sum, inv: any) => sum + parseFloat((inv.discount_amount || 0).toString()), 0) || 0;
       
+      // Calculate profit using correct formula based on billing mode
       let totalProfit = 0;
       invoices?.forEach(invoice => {
         const items = invoice.items_data as any[];
@@ -133,7 +134,13 @@ const Analytics = () => {
         items.forEach((item: any) => {
           const product = productsList?.find(p => p.id === item.id);
           if (product && product.buying_price) {
-            invoiceProfit += (item.price - product.buying_price) * item.quantity;
+            const taxRate = item.tax_rate || product.tax_rate || 0;
+            const isInclusive = item.is_inclusive !== false; // default to inclusive
+            // For inclusive pricing, extract base price; for exclusive, use as-is
+            const baseSellingPrice = isInclusive && taxRate > 0 
+              ? item.price / (1 + taxRate / 100)
+              : item.price;
+            invoiceProfit += (baseSellingPrice - product.buying_price) * item.quantity;
           }
         });
         const invoiceDiscount = parseFloat(((invoice as any).discount_amount || 0).toString());
@@ -250,7 +257,12 @@ const Analytics = () => {
           items.forEach((item: any) => {
             const product = allProducts?.find(p => p.id === item.id);
             if (product && product.buying_price) {
-              dayProfit += (item.price - product.buying_price) * item.quantity;
+              const taxRate = item.tax_rate || product.tax_rate || 0;
+              const isInclusive = item.is_inclusive !== false;
+              const baseSellingPrice = isInclusive && taxRate > 0 
+                ? item.price / (1 + taxRate / 100)
+                : item.price;
+              dayProfit += (baseSellingPrice - product.buying_price) * item.quantity;
             }
           });
         });
@@ -270,7 +282,12 @@ const Analytics = () => {
       items.forEach((item: any) => {
         const product = products.find(p => p.id === item.id);
         if (product && product.buying_price) {
-          profit += (item.price - product.buying_price) * item.quantity;
+          const taxRate = item.tax_rate || product.tax_rate || 0;
+          const isInclusive = (item as any).is_inclusive !== false;
+          const baseSellingPrice = isInclusive && taxRate > 0 
+            ? item.price / (1 + taxRate / 100)
+            : item.price;
+          profit += (baseSellingPrice - product.buying_price) * item.quantity;
         }
       });
     });
@@ -463,13 +480,14 @@ const Analytics = () => {
                 <ComposedChart data={weeklyData}>
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
-                    }} 
+                    }}
+                    formatter={(value: number) => `₹${value.toFixed(2)}`}
                   />
                   <Legend />
                   <Area type="monotone" dataKey="revenue" fill="hsl(var(--primary) / 0.2)" stroke="hsl(var(--primary))" name="Revenue (₹)" />
@@ -491,13 +509,14 @@ const Analytics = () => {
                 <AreaChart data={weeklyData}>
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => Number(v).toFixed(0)} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
-                    }} 
+                    }}
+                    formatter={(value: number) => value.toFixed(0)}
                   />
                   <Area 
                     type="monotone" 

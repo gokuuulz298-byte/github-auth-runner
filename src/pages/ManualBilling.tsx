@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Search, Printer } from "lucide-react";
 import { toast } from "sonner";
-import ShoppingCart, { CartItem } from "@/components/ShoppingCart";
+import CompactShoppingCart, { CartItem } from "@/components/CompactShoppingCart";
 import { getProductByBarcode, saveInvoiceToIndexedDB } from "@/lib/indexedDB";
 import jsPDF from "jspdf";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1363,8 +1363,8 @@ const ManualBilling = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10 shrink-0">
         <div className="container mx-auto px-3 py-2 flex items-center gap-3">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4" />
@@ -1377,7 +1377,6 @@ const ManualBilling = () => {
                 if (product) {
                   handleAddToCart(product);
                 } else {
-                  // Try to fetch from database
                   const dbProduct = await getProductByBarcode(barcode);
                   if (dbProduct) {
                     handleAddToCart(dbProduct);
@@ -1389,18 +1388,17 @@ const ManualBilling = () => {
             />
             <PrinterStatusIndicator />
             {!isOnline && (
-              <span className="bg-warning text-warning-foreground px-2 py-0.5 rounded-full text-xs">
-                Offline
-              </span>
+              <span className="bg-warning text-warning-foreground px-2 py-0.5 rounded-full text-xs">Offline</span>
             )}
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-2 py-2 overflow-x-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 max-w-full">
-          <div className="space-y-2">
-            {/* Counter & Customer - Compact */}
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full grid grid-cols-1 lg:grid-cols-[1fr_340px]">
+          {/* Left Side - Controls + Products */}
+          <div className="overflow-y-auto p-2 space-y-2">
+            {/* Counter & Customer */}
             <Card className="shadow-sm">
               <CardHeader className="px-2 py-1.5">
                 <CardTitle className="text-xs">Counter & Customer</CardTitle>
@@ -1409,28 +1407,14 @@ const ManualBilling = () => {
                 <div className="grid grid-cols-4 gap-1.5">
                   <div>
                     <Label htmlFor="counter" className="text-[10px]">Counter</Label>
-                    <select
-                      id="counter"
-                      value={selectedCounter}
-                      onChange={(e) => setSelectedCounter(e.target.value)}
-                      className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 py-0.5 text-xs mt-0.5"
-                    >
+                    <select id="counter" value={selectedCounter} onChange={(e) => setSelectedCounter(e.target.value)} className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 py-0.5 text-xs mt-0.5">
                       <option value="">Select</option>
-                      {counters.map((counter) => (
-                        <option key={counter.id} value={counter.id}>
-                          {counter.name}
-                        </option>
-                      ))}
+                      {counters.map((counter) => (<option key={counter.id} value={counter.id}>{counter.name}</option>))}
                     </select>
                   </div>
                   <div>
                     <Label htmlFor="payment-mode" className="text-[10px]">Payment</Label>
-                    <select
-                      id="payment-mode"
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 py-0.5 text-xs mt-0.5"
-                    >
+                    <select id="payment-mode" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 py-0.5 text-xs mt-0.5">
                       <option value="cash">Cash</option>
                       <option value="card">Card</option>
                       <option value="upi">UPI</option>
@@ -1439,86 +1423,39 @@ const ManualBilling = () => {
                   </div>
                   <div>
                     <Label htmlFor="customer-name" className="text-[10px]">Name</Label>
-                    <Input
-                      id="customer-name"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Name"
-                      className="h-7 text-xs mt-0.5"
-                    />
+                    <Input id="customer-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Name" className="h-7 text-xs mt-0.5" />
                   </div>
                   <div>
                     <Label htmlFor="customer-phone" className="text-[10px]">Phone</Label>
-                    <Input
-                      id="customer-phone"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="Phone"
-                      className="h-7 text-xs mt-0.5"
-                    />
-                    {loyaltyPoints > 0 && (
-                      <p className="text-[9px] text-green-600 font-medium">
-                        Pts: {loyaltyPoints}
-                      </p>
-                    )}
+                    <Input id="customer-phone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Phone" className="h-7 text-xs mt-0.5" />
+                    {loyaltyPoints > 0 && <p className="text-[9px] text-green-600 font-medium">Pts: {loyaltyPoints}</p>}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Options - Ultra Compact */}
+            {/* Options */}
             <Card className="shadow-sm">
               <CardContent className="p-2">
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
+                <div className="flex gap-2 items-end flex-wrap">
+                  <div className="flex-1 min-w-[60px]">
                     <Label htmlFor="gst-rate" className="text-[10px]">Tax %</Label>
-                    <Input
-                      id="gst-rate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      placeholder="0"
-                      value={additionalGstRate}
-                      onChange={(e) => setAdditionalGstRate(e.target.value)}
-                      className="h-7 text-xs"
-                    />
+                    <Input id="gst-rate" type="number" step="0.01" min="0" max="100" placeholder="0" value={additionalGstRate} onChange={(e) => setAdditionalGstRate(e.target.value)} className="h-7 text-xs" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-[80px]">
                     <Label htmlFor="coupon" className="text-[10px]">Coupon</Label>
-                    <select
-                      id="coupon"
-                      value={selectedCoupon}
-                      onChange={(e) => setSelectedCoupon(e.target.value)}
-                      className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 text-xs"
-                    >
+                    <select id="coupon" value={selectedCoupon} onChange={(e) => setSelectedCoupon(e.target.value)} className="flex h-7 w-full rounded-md border border-input bg-background px-1.5 text-xs">
                       <option value="">None</option>
-                      {coupons.map((coupon) => (
-                        <option key={coupon.id} value={coupon.id}>
-                          {coupon.code}
-                        </option>
-                      ))}
+                      {coupons.map((coupon) => (<option key={coupon.id} value={coupon.id}>{coupon.code}</option>))}
                     </select>
                   </div>
                   <div className="flex items-center gap-1">
-                    <input
-                      id="igst-toggle"
-                      type="checkbox"
-                      checked={intraStateTrade}
-                      onChange={(e) => setIntraStateTrade(e.target.checked)}
-                      className="h-3.5 w-3.5"
-                    />
+                    <input id="igst-toggle" type="checkbox" checked={intraStateTrade} onChange={(e) => setIntraStateTrade(e.target.checked)} className="h-3.5 w-3.5" />
                     <Label htmlFor="igst-toggle" className="text-[10px]">IGST</Label>
                   </div>
                   {billingSettings?.isRestaurant && (
                     <div className="flex items-center gap-1">
-                      <input
-                        id="parcel-toggle"
-                        type="checkbox"
-                        checked={isParcel}
-                        onChange={(e) => setIsParcel(e.target.checked)}
-                        className="h-3.5 w-3.5"
-                      />
+                      <input id="parcel-toggle" type="checkbox" checked={isParcel} onChange={(e) => setIsParcel(e.target.checked)} className="h-3.5 w-3.5" />
                       <Label htmlFor="parcel-toggle" className="text-[10px]">Parcel</Label>
                     </div>
                   )}
@@ -1526,7 +1463,7 @@ const ManualBilling = () => {
               </CardContent>
             </Card>
 
-            {/* Search Products - Ultra Compact */}
+            {/* Search Products */}
             <Card className="shadow-sm">
               <CardHeader className="px-2 py-1.5">
                 <CardTitle className="text-xs">Products</CardTitle>
@@ -1540,12 +1477,8 @@ const ManualBilling = () => {
                     onKeyDown={async (e) => {
                       if (e.key === 'Enter' && searchTerm) {
                         e.preventDefault();
-                        // Auto-add product when barcode scanned or enter pressed
                         const product = products.find(p => p.barcode === searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-                        if (product) {
-                          handleAddToCart(product);
-                          setSearchTerm("");
-                        }
+                        if (product) { handleAddToCart(product); setSearchTerm(""); }
                       }
                     }}
                     placeholder="Scan barcode or search..."
@@ -1553,17 +1486,9 @@ const ManualBilling = () => {
                     autoFocus
                   />
                 </div>
-
-                <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                <div className="max-h-[300px] overflow-y-auto space-y-0.5">
                   {products.map((product) => {
-                    const activeDiscount = productDiscounts.find(
-                      discount => 
-                        discount.product_id === product.id &&
-                        new Date(discount.start_date) <= new Date() &&
-                        new Date(discount.end_date) >= new Date()
-                    );
-                    
-                    // Calculate discounted price based on discount type
+                    const activeDiscount = productDiscounts.find(d => d.product_id === product.id && new Date(d.start_date) <= new Date() && new Date(d.end_date) >= new Date());
                     let discountedPrice = product.price;
                     let discountLabel = '';
                     if (activeDiscount) {
@@ -1575,61 +1500,26 @@ const ManualBilling = () => {
                         discountLabel = `₹${activeDiscount.discount_amount} OFF`;
                       }
                     }
-                    
                     return (
                       <div key={product.id} className="p-1.5 bg-muted/50 rounded flex justify-between items-center gap-1.5">
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-xs truncate">{product.name}</h4>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                            {activeDiscount ? (
-                              <>
-                                <span className="line-through text-muted-foreground">₹{product.price}</span>
-                                <span className="font-semibold text-green-600">
-                                  ₹{discountedPrice.toFixed(2)}
-                                </span>
-                                <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1 rounded text-[8px] font-medium">
-                                  {discountLabel}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="font-semibold text-primary">₹{product.price}</span>
-                            )}
+                            {activeDiscount ? (<><span className="line-through">₹{product.price}</span><span className="font-semibold text-green-600">₹{discountedPrice.toFixed(2)}</span><span className="bg-green-100 text-green-700 px-1 rounded text-[8px]">{discountLabel}</span></>) : (<span className="font-semibold text-primary">₹{product.price}</span>)}
                             <span>Stk:{product.stock_quantity}</span>
                           </div>
                         </div>
                         {product.price_type === 'weight' && (
-                          <Input
-                            type="text"
-                            value={weight}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                setWeight(val);
-                              }
-                            }}
-                            className="h-6 text-[10px] w-14"
-                            placeholder="kg"
-                          />
+                          <Input type="text" value={weight} onChange={(e) => { if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) setWeight(e.target.value); }} className="h-6 text-[10px] w-14" placeholder="kg" />
                         )}
-                        <Button 
-                          size="sm" 
-                          className="h-6 px-2 text-[10px]"
-                          onClick={() => {
-                            const existingItem = cartItems.find(item => item.barcode === product.barcode);
-                            const weightValue = parseFloat(weight) || 1;
-                            const quantity = product.price_type === 'weight' ? weightValue : 1;
-                            const currentCartQuantity = existingItem ? existingItem.quantity : 0;
-                            const newTotalQuantity = currentCartQuantity + quantity;
-                            
-                            if (newTotalQuantity > product.stock_quantity) {
-                              toast.error(`Insufficient stock!`);
-                              return;
-                            }
-                            handleAddToCart(product);
-                          }}
-                        >
-                          +
-                        </Button>
+                        <Button size="sm" className="h-6 px-2 text-[10px]" onClick={() => {
+                          const existingItem = cartItems.find(item => item.barcode === product.barcode);
+                          const weightValue = parseFloat(weight) || 1;
+                          const quantity = product.price_type === 'weight' ? weightValue : 1;
+                          const currentCartQuantity = existingItem ? existingItem.quantity : 0;
+                          if (currentCartQuantity + quantity > product.stock_quantity) { toast.error(`Insufficient stock!`); return; }
+                          handleAddToCart(product);
+                        }}>+</Button>
                       </div>
                     );
                   })}
@@ -1638,41 +1528,34 @@ const ManualBilling = () => {
             </Card>
           </div>
 
-          <div className="space-y-2">
-            {/* Invoice Settings - Ultra Compact */}
-            <Card className="shadow-sm">
-              <CardContent className="p-2 flex items-center gap-2">
-                <Label htmlFor="invoice-format" className="text-[10px] whitespace-nowrap">Format:</Label>
-                <select
-                  id="invoice-format"
-                  value={invoiceFormat}
-                  onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")}
-                  className="flex h-6 rounded-md border border-input bg-background px-1.5 text-[10px] flex-1"
-                >
-                  <option value="thermal">Thermal</option>
-                  <option value="a4">A4</option>
-                </select>
-              </CardContent>
-            </Card>
-
-            <ShoppingCart
-              items={cartItems}
-              onUpdateQuantity={handleUpdateQuantity}
-              onRemoveItem={handleRemoveItem}
-              onCheckout={generateInvoice}
-              useIGST={intraStateTrade}
-              billingMode={billingSettings?.mode || "exclusive"}
-              inclusiveBillType={billingSettings?.inclusiveBillType || "split"}
-              productSGST={calculateTotals().productSGST}
-              productCGST={calculateTotals().productCGST}
-              productIGST={calculateTotals().productIGST}
-              couponDiscount={calculateTotals().couponDiscountAmount}
-              couponCode={selectedCoupon ? coupons.find(c => c.id === selectedCoupon)?.code : undefined}
-              additionalGstAmount={calculateTotals().additionalTaxAmount}
-              additionalGstRate={additionalGstRate}
-              isProcessing={isProcessing}
-              stockLimits={Object.fromEntries(products.map(p => [p.id, p.stock_quantity ?? Infinity]))}
-            />
+          {/* Right Side - Compact Cart */}
+          <div className="border-l bg-background h-full flex flex-col">
+            <div className="px-2 py-1.5 border-b bg-muted/30 flex items-center gap-2 shrink-0">
+              <Label htmlFor="invoice-format" className="text-[10px] whitespace-nowrap">Format:</Label>
+              <select id="invoice-format" value={invoiceFormat} onChange={(e) => setInvoiceFormat(e.target.value as "thermal" | "a4")} className="flex h-6 rounded-md border border-input bg-background px-1.5 text-[10px] flex-1">
+                <option value="thermal">Thermal</option>
+                <option value="a4">A4</option>
+              </select>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <CompactShoppingCart
+                items={cartItems}
+                onUpdateQuantity={handleUpdateQuantity}
+                onRemoveItem={handleRemoveItem}
+                onCheckout={generateInvoice}
+                useIGST={intraStateTrade}
+                billingMode={billingSettings?.mode || "exclusive"}
+                inclusiveBillType={billingSettings?.inclusiveBillType || "split"}
+                productSGST={calculateTotals().productSGST}
+                productCGST={calculateTotals().productCGST}
+                productIGST={calculateTotals().productIGST}
+                couponDiscount={calculateTotals().couponDiscountAmount}
+                couponCode={selectedCoupon ? coupons.find(c => c.id === selectedCoupon)?.code : undefined}
+                additionalGstAmount={calculateTotals().additionalTaxAmount}
+                isProcessing={isProcessing}
+                stockLimits={Object.fromEntries(products.map(p => [p.id, p.stock_quantity ?? Infinity]))}
+              />
+            </div>
           </div>
         </div>
       </main>
