@@ -196,16 +196,25 @@ const AdvancedReports = () => {
 
       const revenue = invoices?.reduce((sum, inv) => sum + parseFloat(inv.total_amount?.toString() || '0'), 0) || 0;
       const expenseTotal = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount?.toString() || '0'), 0) || 0;
-      const purchaseTotal = purchases?.reduce((sum, p) => sum + parseFloat(p.total_amount?.toString() || '0'), 0) || 0;
+      // Use paid_amount for PO spend (actual cash outflow)
+      const purchaseTotal = purchases?.reduce((sum, p) => sum + parseFloat(p.paid_amount?.toString() || '0'), 0) || 0;
 
-      // Calculate profit
+      // Calculate gross profit using correct formula:
+      // Gross Profit = (Base Selling Price - Buying Price) × Quantity
+      // Base Selling Price = item.price for exclusive, or item.price / (1 + tax%) for inclusive
       let profit = 0;
       invoices?.forEach(invoice => {
         const items = invoice.items_data as any[];
         items?.forEach((item: any) => {
           const product = products.find(p => p.id === item.id);
           if (product && product.buying_price) {
-            profit += (item.price - product.buying_price) * item.quantity;
+            const taxRate = item.tax_rate || product.tax_rate || 0;
+            const isInclusive = item.is_inclusive !== false; // default to inclusive
+            // For inclusive pricing, extract base price; for exclusive, use as-is
+            const baseSellingPrice = isInclusive && taxRate > 0 
+              ? item.price / (1 + taxRate / 100)
+              : item.price;
+            profit += (baseSellingPrice - product.buying_price) * item.quantity;
           }
         });
       });
@@ -369,18 +378,21 @@ const AdvancedReports = () => {
       }, 0);
       const averageItemsPerOrder = totalOrders > 0 ? totalItems / totalOrders : 0;
 
-      // Calculate profit using correct formula:
-      // Profit = Revenue (including tax) - Expenses - Purchase Order Value - Tax
-      // First calculate gross profit from sales
+      // Calculate Gross Profit using correct formula:
+      // Gross Profit = Sum of (Base Selling Price - Buying Price) × Quantity
+      // Base Selling Price depends on billing mode stored in item
       let grossProfit = 0;
       invoices.forEach(invoice => {
         const items = invoice.items_data as any[];
         items.forEach((item: any) => {
           const product = products.find(p => p.id === item.id);
           if (product && product.buying_price) {
-            // Base selling price = MRP / (1 + Tax%) for inclusive pricing
             const taxRate = item.tax_rate || product.tax_rate || 0;
-            const baseSellingPrice = item.price / (1 + taxRate / 100);
+            const isInclusive = item.is_inclusive !== false; // default to inclusive
+            // For inclusive pricing, extract base price; for exclusive, price is already base
+            const baseSellingPrice = isInclusive && taxRate > 0 
+              ? item.price / (1 + taxRate / 100)
+              : item.price;
             grossProfit += (baseSellingPrice - product.buying_price) * item.quantity;
           }
         });
@@ -665,18 +677,19 @@ const AdvancedReports = () => {
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
-      // Purchases Analysis
-      const totalPurchases = (purchases || []).reduce((sum, pur) => sum + parseFloat(pur.total_amount?.toString() || '0'), 0);
+      // Purchases Analysis - use paid_amount (actual cash outflow) not total_amount
+      const totalPurchasesPaid = (purchases || []).reduce((sum, pur) => sum + parseFloat(pur.paid_amount?.toString() || '0'), 0);
       const purchaseCount = (purchases || []).length;
       const pendingPurchases = (purchases || []).filter(p => p.status === 'pending' || p.status === 'ordered').length;
       
-      // Net Profit = Gross Profit - Expenses - Purchase Order Costs
-      // Using updated profit formula: Revenue - Expenses - PO Value - Tax
-      const netProfit = totalRevenue - totalExpenses - totalPurchases - totalTax;
+      // Net Profit = Gross Profit - Expenses
+      // (PO costs are already reflected in buying_price margin, so we don't subtract again)
+      const netProfit = grossProfit - totalExpenses;
 
       setMetrics({
         totalRevenue,
         averageSale,
+        totalPurchases: totalPurchasesPaid,
         totalOrders,
         averageOrderValue: averageSale,
         totalProfit: grossProfit,
@@ -690,7 +703,6 @@ const AdvancedReports = () => {
         peakHour,
         peakDay,
         totalExpenses,
-        totalPurchases,
         netProfit,
         purchaseCount,
         pendingPurchases,
@@ -1046,8 +1058,8 @@ const AdvancedReports = () => {
                     <AreaChart data={revenueTrend}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
+                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                       <Legend />
                       <Area type="monotone" dataKey="revenue" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Revenue (₹)" />
                       <Area type="monotone" dataKey="profit" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Profit (₹)" />
@@ -1092,8 +1104,8 @@ const AdvancedReports = () => {
                     <BarChart data={hourlySales}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="hour" />
-                      <YAxis />
-                      <Tooltip />
+                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
+                      <Tooltip formatter={(value: number, name: string) => name.includes('Revenue') ? `₹${value.toFixed(2)}` : value} />
                       <Legend />
                       <Bar dataKey="revenue" fill="#8884d8" name="Revenue (₹)" />
                       <Bar dataKey="orders" fill="#82ca9d" name="Orders" />
@@ -1111,8 +1123,8 @@ const AdvancedReports = () => {
                     <BarChart data={dailySales}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="day" />
-                      <YAxis />
-                      <Tooltip />
+                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
+                      <Tooltip formatter={(value: number, name: string) => name.includes('Revenue') ? `₹${value.toFixed(2)}` : value} />
                       <Legend />
                       <Bar dataKey="revenue" fill="#6366f1" name="Revenue (₹)" />
                       <Bar dataKey="orders" fill="#f59e0b" name="Orders" />
@@ -1153,8 +1165,8 @@ const AdvancedReports = () => {
                     <BarChart data={productPerformance}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                      <YAxis />
-                      <Tooltip />
+                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                       <Legend />
                       <Bar dataKey="revenue" fill="#3b82f6" name="Revenue (₹)" />
                       <Bar dataKey="profit" fill="#10b981" name="Profit (₹)" />
@@ -1287,8 +1299,8 @@ const AdvancedReports = () => {
                     <AreaChart data={revenueTrend}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
+                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                       <Legend />
                       <Area type="monotone" dataKey="revenue" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Revenue (₹)" />
                       <Area type="monotone" dataKey="profit" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Profit (₹)" />

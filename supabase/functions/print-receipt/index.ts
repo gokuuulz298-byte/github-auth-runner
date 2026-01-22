@@ -682,19 +682,25 @@ function generateReceiptCommands(data: ReceiptData): string {
 }
 
 function generateReceiptHtml(data: ReceiptData): string {
+  // Calculate totals for display
+  const subtotal = data.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const showTax = data.billingMode !== "no_tax" && !(data.billingMode === "inclusive" && data.inclusiveBillType === "mrp");
+  const taxAmount = data.taxAmount || 0;
+  const discount = data.discount || 0;
+  
   const rows = data.items
     .map((item) => {
       const tamil = data.enableBilingual ? item.nameTamil || getProductTamilName(item.name) : "";
 
       return `
-      <tr>
-        <td>
-          <div>${item.name}</div>
-          ${tamil ? `<div class="ta">${tamil}</div>` : ""}
+      <tr class="item-row">
+        <td class="item-name">
+          <div class="en-name">${item.name}</div>
+          ${tamil ? `<div class="ta-name">${tamil}</div>` : ""}
         </td>
-        <td>${item.quantity}</td>
-        <td>${item.price.toFixed(2)}</td>
-        <td>${(item.price * item.quantity).toFixed(2)}</td>
+        <td class="qty">${item.quantity}</td>
+        <td class="rate">${item.price.toFixed(2)}</td>
+        <td class="amt">${(item.price * item.quantity).toFixed(2)}</td>
       </tr>
     `;
     })
@@ -706,45 +712,237 @@ function generateReceiptHtml(data: ReceiptData): string {
 <head>
 <meta charset="utf-8" />
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;700&display=swap');
 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
   body {
     width: 384px;
-    font-family: 'Noto Sans Tamil', Arial, sans-serif;
-    font-size: 14px;
+    font-family: 'Noto Sans Tamil', 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 8px;
+    background: #fff;
   }
+  
   .center { text-align: center; }
-  .ta { font-size: 13px; margin-left: 10px; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 4px 0; }
-  hr { border: none; border-top: 1px dashed #000; }
+  .right { text-align: right; }
+  
+  .header {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  
+  .company-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 2px;
+  }
+  
+  .company-name-tamil {
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #333;
+  }
+  
+  .address {
+    font-size: 11px;
+    color: #555;
+    line-height: 1.3;
+  }
+  
+  .divider {
+    border: none;
+    border-top: 1px dashed #000;
+    margin: 8px 0;
+  }
+  
+  .bill-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+  }
+  
+  thead th {
+    font-size: 11px;
+    font-weight: bold;
+    text-align: left;
+    padding: 4px 2px;
+    border-bottom: 1px solid #000;
+  }
+  
+  thead th:nth-child(2),
+  thead th:nth-child(3),
+  thead th:nth-child(4) {
+    text-align: right;
+  }
+  
+  .item-row td {
+    padding: 6px 2px;
+    vertical-align: top;
+    border-bottom: 1px dotted #ccc;
+  }
+  
+  .item-name {
+    max-width: 180px;
+  }
+  
+  .en-name {
+    font-weight: 500;
+    font-size: 12px;
+  }
+  
+  .ta-name {
+    font-size: 11px;
+    color: #444;
+    margin-top: 2px;
+    padding-left: 8px;
+    line-height: 1.5;
+  }
+  
+  .qty, .rate, .amt {
+    text-align: right;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  
+  .totals {
+    margin-top: 8px;
+  }
+  
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 12px;
+  }
+  
+  .total-row.grand {
+    font-weight: bold;
+    font-size: 16px;
+    border-top: 2px solid #000;
+    border-bottom: 2px solid #000;
+    padding: 6px 0;
+    margin-top: 4px;
+  }
+  
+  .total-label-tamil {
+    font-size: 13px;
+    color: #333;
+    margin-left: 8px;
+  }
+  
+  .footer {
+    text-align: center;
+    margin-top: 12px;
+    padding-top: 8px;
+  }
+  
+  .thank-you {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  .thank-you-tamil {
+    font-size: 14px;
+    margin-top: 4px;
+    color: #333;
+  }
+  
+  .parcel-badge {
+    display: inline-block;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-left: 8px;
+  }
 </style>
 </head>
 <body>
 
-<div class="center"><b>${data.companyName}</b></div>
-${data.enableBilingual && data.companyNameTamil ? `<div class="center">${data.companyNameTamil}</div>` : ""}
+<div class="header">
+  <div class="company-name">${data.companyName}</div>
+  ${data.enableBilingual && data.companyNameTamil ? `<div class="company-name-tamil">${data.companyNameTamil}</div>` : ""}
+  ${data.address ? `<div class="address">${data.address}${data.city ? `, ${data.city}` : ""}${data.state ? `, ${data.state}` : ""}${data.pincode ? ` - ${data.pincode}` : ""}</div>` : ""}
+  ${data.phone ? `<div class="address">Ph: ${data.phone}</div>` : ""}
+  ${data.gstin ? `<div class="address">GSTIN: ${data.gstin}</div>` : ""}
+</div>
 
-<hr/>
+<hr class="divider"/>
 
-<div>Bill: ${data.billNumber}</div>
-<div>Mode: ${data.paymentMode}</div>
+<div class="bill-info">
+  <span>Bill: <b>${data.billNumber}</b></span>
+  <span>${new Date().toLocaleDateString('en-IN')} ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+</div>
+<div class="bill-info">
+  <span>Mode: ${data.paymentMode}${data.isParcel ? '<span class="parcel-badge">PARCEL</span>' : ''}</span>
+  ${data.customerName ? `<span>${data.customerName}</span>` : ""}
+</div>
 
-<hr/>
+<hr class="divider"/>
 
 <table>
-${rows}
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Qty</th>
+      <th>Rate</th>
+      <th>Amt</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows}
+  </tbody>
 </table>
 
-<hr/>
+<hr class="divider"/>
 
-<div>Total: Rs. ${data.total.toFixed(2)}</div>
-${data.enableBilingual ? `<div>மொத்தம்</div>` : ""}
+<div class="totals">
+  <div class="total-row">
+    <span>Subtotal ${data.enableBilingual ? '<span class="total-label-tamil">கூட்டுத்தொகை</span>' : ''}</span>
+    <span>₹${subtotal.toFixed(2)}</span>
+  </div>
+  
+  ${showTax && taxAmount > 0 ? `
+  <div class="total-row">
+    <span>Tax (GST) ${data.enableBilingual ? '<span class="total-label-tamil">வரி</span>' : ''}</span>
+    <span>₹${taxAmount.toFixed(2)}</span>
+  </div>
+  ` : ''}
+  
+  ${discount > 0 ? `
+  <div class="total-row">
+    <span>Discount ${data.enableBilingual ? '<span class="total-label-tamil">தள்ளுபடி</span>' : ''}</span>
+    <span>-₹${discount.toFixed(2)}</span>
+  </div>
+  ` : ''}
+  
+  <div class="total-row grand">
+    <span>TOTAL ${data.enableBilingual ? '<span class="total-label-tamil">மொத்தம்</span>' : ''}</span>
+    <span>₹${data.total.toFixed(2)}</span>
+  </div>
+</div>
 
-<hr/>
+${data.loyaltyPoints && data.loyaltyPoints > 0 ? `
+<div style="text-align: center; margin-top: 8px; font-size: 11px; color: #666;">
+  Loyalty Points: ${data.loyaltyPoints}
+</div>
+` : ''}
 
-<div class="center">Thank you!</div>
-${data.enableBilingual ? `<div class="center">நன்றி!</div>` : ""}
+<hr class="divider"/>
+
+<div class="footer">
+  <div class="thank-you">${data.thankYouNote || 'Thank you for your business!'}</div>
+  ${data.enableBilingual ? '<div class="thank-you-tamil">நன்றி!</div>' : ''}
+</div>
 
 </body>
 </html>
