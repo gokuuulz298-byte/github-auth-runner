@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import LoyaltySettingsCard from "@/components/LoyaltySettingsCard";
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -194,7 +195,10 @@ const Customers = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4">
+        {/* Loyalty Settings */}
+        {userId && <LoyaltySettingsCard userId={userId} />}
+        
         <Card>
           <CardHeader className="px-4 sm:px-6">
             <CardTitle className="text-lg sm:text-xl">Customer List</CardTitle>

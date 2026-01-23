@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Printer } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 import CompactShoppingCart, { CartItem } from "@/components/CompactShoppingCart";
 import { getProductByBarcode, saveInvoiceToIndexedDB } from "@/lib/indexedDB";
@@ -16,6 +16,7 @@ import { printEscPosReceipt, buildReceiptData } from "@/lib/escposPrinter";
 import LoadingButton from "@/components/LoadingButton";
 import PrinterStatusIndicator from "@/components/PrinterStatusIndicator";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 
 const ManualBilling = () => {
   const navigate = useNavigate();
@@ -1371,6 +1372,7 @@ const ManualBilling = () => {
           </Button>
           <h1 className="text-lg font-bold">Manual Billing</h1>
           <div className="ml-auto flex items-center gap-2">
+            <OnlineStatusIndicator />
             <BarcodeScanner 
               onScan={async (barcode) => {
                 const product = products.find(p => p.barcode === barcode);
@@ -1387,9 +1389,6 @@ const ManualBilling = () => {
               }}
             />
             <PrinterStatusIndicator />
-            {!isOnline && (
-              <span className="bg-warning text-warning-foreground px-2 py-0.5 rounded-full text-xs">Offline</span>
-            )}
           </div>
         </div>
       </header>
