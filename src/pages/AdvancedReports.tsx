@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck, ArrowUpRight, ArrowDownRight, Sparkles, Flame, Info, ChevronDown, ChevronUp, Filter, Truck, Receipt, CalendarDays } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3, Target, Award, Activity, ShoppingBag, Percent, Clock, CreditCard, Wallet, Smartphone, Layers, UtensilsCrossed, PackageCheck, ArrowUpRight, ArrowDownRight, Sparkles, Flame, Info, ChevronDown, ChevronUp, Filter, Truck, Receipt, CalendarDays, PieChartIcon, LineChartIcon, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
@@ -16,6 +16,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { formatIndianCurrency } from "@/lib/numberFormat";
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import AnalyticsKPICard from "@/components/AnalyticsKPICard";
 
 interface TopProduct {
   id: string;
@@ -743,6 +745,9 @@ const AdvancedReports = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Advanced Reports</h1>
+          <div className="ml-auto">
+            <OnlineStatusIndicator />
+          </div>
         </div>
       </header>
 
@@ -810,85 +815,77 @@ const AdvancedReports = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Key Metrics Grid - Enhanced with info tooltips */}
+        {/* Key Metrics Grid - New CRM-style cards with faded color backgrounds */}
         <TooltipProvider>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-1">
-                  <CardTitle className="text-xs sm:text-sm font-medium text-blue-100">Total Revenue</CardTitle>
-                  <UITooltip>
-                    <TooltipTrigger>
-                      <Info className="h-3 w-3 text-blue-200" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-semibold">Revenue Formula:</p>
-                      <p className="text-xs">Sum of all invoice totals (including tax)</p>
-                    </TooltipContent>
-                  </UITooltip>
-                </div>
-                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                <p className="text-xs text-blue-200 mt-1 flex items-center gap-1">
-                  {metrics.growthRate >= 0 ? (
-                    <><ArrowUpRight className="h-3 w-3" /> {metrics.growthRate.toFixed(1)}% growth</>
-                  ) : (
-                    <><ArrowDownRight className="h-3 w-3" /> {Math.abs(metrics.growthRate).toFixed(1)}% decline</>
-                  )}
-                </p>
-              </CardContent>
-            </Card>
+            <AnalyticsKPICard
+              title="TOTAL REVENUE"
+              value={`₹${metrics.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              subtitle={metrics.growthRate >= 0 ? `${metrics.growthRate.toFixed(1)}% growth` : `${Math.abs(metrics.growthRate).toFixed(1)}% decline`}
+              icon={DollarSign}
+              colorScheme="blue"
+              trend={{ value: metrics.growthRate, isPositive: metrics.growthRate >= 0 }}
+            />
+            
+            <AnalyticsKPICard
+              title="GROSS PROFIT"
+              value={`₹${metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              subtitle={`${metrics.profitMargin.toFixed(1)}% margin`}
+              icon={TrendingUp}
+              colorScheme="green"
+            />
 
-            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-1">
-                  <CardTitle className="text-xs sm:text-sm font-medium text-green-100">Gross Profit</CardTitle>
-                  <UITooltip>
-                    <TooltipTrigger>
-                      <Info className="h-3 w-3 text-green-200" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-semibold">Profit Formula:</p>
-                      <p className="text-xs">Σ (Selling Price - Buying Price) × Quantity</p>
-                      <p className="text-xs mt-1">Margin = (Profit / Revenue) × 100</p>
-                    </TooltipContent>
-                  </UITooltip>
-                </div>
-                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-200" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                <p className="text-xs text-green-200 mt-1 flex items-center gap-1">
-                  <Percent className="h-3 w-3" />
-                  {metrics.profitMargin.toFixed(1)}% margin
-                </p>
-              </CardContent>
-          </Card>
+            <AnalyticsKPICard
+              title="TOTAL ORDERS"
+              value={metrics.totalOrders.toString()}
+              subtitle={`Avg: ₹${metrics.averageSale.toFixed(0)}`}
+              icon={ShoppingBag}
+              colorScheme="purple"
+            />
 
-          <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-purple-100">Avg. Order Value</CardTitle>
-              <Target className="h-4 w-4 sm:h-5 sm:w-5 text-purple-200" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">₹{metrics.averageSale.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <p className="text-xs text-purple-200 mt-1">{metrics.totalOrders} orders</p>
-            </CardContent>
-          </Card>
+            <AnalyticsKPICard
+              title="TAX COLLECTED"
+              value={`₹${metrics.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              subtitle="GST amount"
+              icon={Percent}
+              colorScheme="orange"
+            />
+          </div>
 
-          <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-orange-100">Repeat Customers</CardTitle>
-              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-orange-200" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">{metrics.repeatCustomerRate.toFixed(1)}%</div>
-              <p className="text-xs text-orange-200 mt-1">{metrics.totalCustomers} unique</p>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Second row of KPI cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <AnalyticsKPICard
+              title="TOTAL EXPENSES"
+              value={`₹${metrics.totalExpenses.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              subtitle="Operational costs"
+              icon={Receipt}
+              colorScheme="red"
+            />
+
+            <AnalyticsKPICard
+              title="PURCHASES PAID"
+              value={`₹${metrics.totalPurchases.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              subtitle={`${metrics.purchaseCount} orders (${metrics.pendingPurchases} pending)`}
+              icon={Truck}
+              colorScheme="cyan"
+            />
+
+            <AnalyticsKPICard
+              title="NET PROFIT"
+              value={`₹${metrics.netProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              subtitle="After expenses"
+              icon={metrics.netProfit >= 0 ? TrendingUp : TrendingDown}
+              colorScheme={metrics.netProfit >= 0 ? "emerald" : "red"}
+            />
+
+            <AnalyticsKPICard
+              title="REPEAT CUSTOMERS"
+              value={`${metrics.repeatCustomerRate.toFixed(1)}%`}
+              subtitle={`${metrics.totalCustomers} unique`}
+              icon={Users}
+              colorScheme="indigo"
+            />
+          </div>
         </TooltipProvider>
 
         {/* Additional Metrics Row - With Trend Indicators */}
@@ -1082,14 +1079,16 @@ const AdvancedReports = () => {
                         labelLine={false}
                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                         outerRadius={100}
+                        innerRadius={50}
                         fill="#8884d8"
                         dataKey="value"
+                        paddingAngle={2}
                       >
                         {categoryRevenue.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -1404,15 +1403,17 @@ const AdvancedReports = () => {
                         labelLine={false}
                         label={({ mode, count }) => `${mode}: ${count}`}
                         outerRadius={100}
+                        innerRadius={50}
                         fill="#8884d8"
                         dataKey="count"
                         nameKey="mode"
+                        paddingAngle={2}
                       >
                         {paymentModeStats.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value: number) => value.toFixed(0)} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1601,14 +1602,16 @@ const AdvancedReports = () => {
                         labelLine={false}
                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                         outerRadius={100}
+                        innerRadius={50}
                         fill="#8884d8"
                         dataKey="value"
+                        paddingAngle={2}
                       >
                         {expensesByCategory.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} />
+                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1659,28 +1662,30 @@ const AdvancedReports = () => {
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={orderTypeStats}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ type, count }) => `${type}: ${count}`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="count"
-                          nameKey="type"
-                        >
-                          {orderTypeStats.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={entry.type === 'Takeaway' ? '#f97316' : '#3b82f6'} 
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
+                    <PieChart>
+                      <Pie
+                        data={orderTypeStats}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ type, count }) => `${type}: ${count}`}
+                        outerRadius={100}
+                        innerRadius={50}
+                        fill="#8884d8"
+                        dataKey="count"
+                        nameKey="type"
+                        paddingAngle={2}
+                      >
+                        {orderTypeStats.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={entry.type === 'Takeaway' ? '#f97316' : '#3b82f6'} 
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => value.toFixed(0)} />
+                      <Legend />
+                    </PieChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>

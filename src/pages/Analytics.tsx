@@ -10,6 +10,7 @@ import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 
 interface Invoice {
   id: string;
@@ -314,6 +315,9 @@ const Analytics = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Analytics & Reports</h1>
+          <div className="ml-auto">
+            <OnlineStatusIndicator />
+          </div>
         </div>
       </header>
 

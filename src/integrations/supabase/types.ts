@@ -508,6 +508,39 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_settings: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          min_points_to_redeem: number
+          points_per_rupee: number
+          rupees_per_point_redeem: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          min_points_to_redeem?: number
+          points_per_rupee?: number
+          rupees_per_point_redeem?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          min_points_to_redeem?: number
+          points_per_rupee?: number
+          rupees_per_point_redeem?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_discounts: {
         Row: {
           created_at: string | null

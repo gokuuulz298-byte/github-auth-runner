@@ -21,6 +21,7 @@ import { printEscPosReceipt, buildReceiptData } from "@/lib/escposPrinter";
 import LoadingButton from "@/components/LoadingButton";
 import PrinterStatusIndicator from "@/components/PrinterStatusIndicator";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 
 const ModernBilling = () => {
   const navigate = useNavigate();
@@ -1543,6 +1544,7 @@ const ModernBilling = () => {
               }}
             />
             <PrinterStatusIndicator />
+            <OnlineStatusIndicator />
             {/* Keyboard Navigation Toggle */}
             <Button
               variant={keyboardNavEnabled ? "default" : "outline"}
