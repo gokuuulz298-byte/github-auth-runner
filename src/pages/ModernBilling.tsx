@@ -55,6 +55,16 @@ const ModernBilling = () => {
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
   const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1);
   const [keyboardNavEnabled, setKeyboardNavEnabled] = useState<boolean>(false);
+  
+  // Loyalty redemption state
+  const [loyaltySettings, setLoyaltySettings] = useState<{
+    points_per_rupee: number;
+    rupees_per_point_redeem: number;
+    min_points_to_redeem: number;
+    is_active: boolean;
+  } | null>(null);
+  const [redeemLoyalty, setRedeemLoyalty] = useState<boolean>(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
 
   // Keyboard navigation handler - only active when toggle is enabled
   useEffect(() => {
@@ -162,7 +172,34 @@ const ModernBilling = () => {
     fetchProductDiscounts();
     fetchActiveTemplate();
     fetchAllProducts(); // Load all products once
+    fetchLoyaltySettings();
   }, []);
+  
+  const fetchLoyaltySettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('loyalty_settings')
+        .select('*')
+        .eq('created_by', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data) {
+        setLoyaltySettings({
+          points_per_rupee: Number(data.points_per_rupee) || 1,
+          rupees_per_point_redeem: Number(data.rupees_per_point_redeem) || 1,
+          min_points_to_redeem: data.min_points_to_redeem || 100,
+          is_active: data.is_active ?? true,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching loyalty settings:", error);
+    }
+  };
 
   // Filter products when category changes (instant - no database call)
   useEffect(() => {
@@ -545,6 +582,12 @@ const ModernBilling = () => {
       }
 
       const afterCouponDiscount = subtotal - couponDiscountAmount;
+      
+      // Calculate loyalty discount
+      let loyaltyDiscountAmount = 0;
+      if (redeemLoyalty && loyaltySettings?.is_active && pointsToRedeem > 0) {
+        loyaltyDiscountAmount = pointsToRedeem * loyaltySettings.rupees_per_point_redeem;
+      }
 
       return {
         subtotal, // MRP subtotal
@@ -554,13 +597,15 @@ const ModernBilling = () => {
         productIGST: 0,
         subtotalWithProductTax: subtotal, // MRP already includes GST
         couponDiscountAmount, // Now applying coupon in MRP mode
+        loyaltyDiscountAmount,
+        pointsRedeemed: redeemLoyalty ? pointsToRedeem : 0,
         afterCouponDiscount,
         additionalTaxAmount: 0,
         totalSGST: effectiveSGST,
         totalCGST: effectiveCGST,
         totalIGST: 0,
         taxAmount: effectiveTaxAmount,
-        total: afterCouponDiscount, // MRP total minus coupon
+        total: Math.max(0, afterCouponDiscount - loyaltyDiscountAmount), // MRP total minus coupon minus loyalty
         gstNote: "MRP Inclusive – Taxes included in price",
       };
     }
@@ -587,7 +632,14 @@ const ModernBilling = () => {
     const totalCGST = productCGST + additionalCGST;
     const totalIGST = productIGST;
     const taxAmount = productTaxAmount + additionalGstAmount;
-    const total = afterCouponDiscount + additionalGstAmount;
+    
+    // Calculate loyalty discount
+    let loyaltyDiscountAmount = 0;
+    if (redeemLoyalty && loyaltySettings?.is_active && pointsToRedeem > 0) {
+      loyaltyDiscountAmount = pointsToRedeem * loyaltySettings.rupees_per_point_redeem;
+    }
+    
+    const total = afterCouponDiscount + additionalGstAmount - loyaltyDiscountAmount;
 
     // Check if any items have inclusive pricing to show appropriate note
     const hasInclusiveItems = cartItems.some((item) => item.is_inclusive);
@@ -601,6 +653,8 @@ const ModernBilling = () => {
       productIGST,
       subtotalWithProductTax,
       couponDiscountAmount,
+      loyaltyDiscountAmount,
+      pointsRedeemed: redeemLoyalty ? pointsToRedeem : 0,
       afterCouponDiscount,
       additionalTaxAmount: additionalGstAmount,
       additionalSGST,
@@ -609,7 +663,7 @@ const ModernBilling = () => {
       totalCGST,
       totalIGST,
       taxAmount,
-      total,
+      total: Math.max(0, total),
       gstNote:
         hasInclusiveItems && hasExclusiveItems
           ? "Some prices include GST, others have GST added extra"
@@ -2110,6 +2164,55 @@ const ModernBilling = () => {
                 )}
               </div>
 
+              {/* Loyalty Points Redemption */}
+              {loyaltySettings?.is_active && loyaltyPoints >= (loyaltySettings?.min_points_to_redeem || 100) && (
+                <div className="space-y-1 sm:space-y-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="redeem-loyalty"
+                      type="checkbox"
+                      checked={redeemLoyalty}
+                      onChange={(e) => {
+                        setRedeemLoyalty(e.target.checked);
+                        if (e.target.checked) {
+                          const maxRedeem = Math.min(loyaltyPoints, Math.floor(totals.subtotal / (loyaltySettings?.rupees_per_point_redeem || 1)));
+                          setPointsToRedeem(maxRedeem);
+                        } else {
+                          setPointsToRedeem(0);
+                        }
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="redeem-loyalty" className="text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer">
+                      🎁 Redeem Loyalty Points
+                    </Label>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Available: {loyaltyPoints} pts</span>
+                    <span>Min: {loyaltySettings?.min_points_to_redeem || 100} pts</span>
+                  </div>
+                  {redeemLoyalty && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Label className="text-xs">Points to redeem:</Label>
+                      <Input
+                        type="number"
+                        min={loyaltySettings?.min_points_to_redeem || 100}
+                        max={loyaltyPoints}
+                        value={pointsToRedeem}
+                        onChange={(e) => {
+                          const val = Math.min(loyaltyPoints, Math.max(0, parseInt(e.target.value) || 0));
+                          setPointsToRedeem(val);
+                        }}
+                        className="h-8 text-sm w-24"
+                      />
+                      <span className="text-sm font-bold text-green-600 ml-auto">
+                        -₹{(pointsToRedeem * (loyaltySettings?.rupees_per_point_redeem || 1)).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1 sm:space-y-2">
                 <Label htmlFor="gst" className="text-xs sm:text-sm">
                   Apply Additional GST %
@@ -2129,10 +2232,16 @@ const ModernBilling = () => {
                 )}
               </div>
 
-              <div className="border-t pt-3 sm:pt-4">
+              <div className="border-t pt-3 sm:pt-4 space-y-1">
+                {totals.loyaltyDiscountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-amber-600">
+                    <span>🎁 Loyalty Points ({totals.pointsRedeemed} pts)</span>
+                    <span>-₹{formatIndianNumber(Number(totals.loyaltyDiscountAmount.toFixed(2)))}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-base sm:text-lg">
                   <span>Grand Total:</span>
-                  <span>₹{formatIndianNumber(Number(totals.total.toFixed(2)))}</span>
+                  <span>₹{formatIndianNumber(Number(Math.max(0, totals.total).toFixed(2)))}</span>
                 </div>
               </div>
 
