@@ -100,13 +100,13 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
-    /* Prevent layout shifts during page transitions */
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
-  /* Prevent page flicker on navigation */
   #root {
     min-height: 100vh;
     display: flex;
@@ -114,7 +114,42 @@ All colors MUST be HSL.
   }
 }
 
+/* Smooth global transitions */
 @layer utilities {
+  /* Page transition animations */
+  .page-enter {
+    animation: pageEnter 0.3s ease-out forwards;
+  }
+  
+  @keyframes pageEnter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Stagger animation for list items */
+  .stagger-item {
+    opacity: 0;
+    animation: staggerIn 0.4s ease-out forwards;
+  }
+  
+  @keyframes staggerIn {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Scan animation */
   .animate-scan {
     animation: scan 2s ease-in-out infinite;
   }
@@ -129,12 +164,116 @@ All colors MUST be HSL.
     }
   }
   
+  /* Card hover with smooth transition */
   .card-hover {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    @apply transition-all duration-300 ease-out;
   }
   
   .card-hover:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px -10px hsl(var(--primary) / 0.2);
+    box-shadow: 0 12px 24px -10px hsl(var(--primary) / 0.15);
+  }
+  
+  .card-hover:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px -4px hsl(var(--primary) / 0.1);
+  }
+  
+  /* Smooth button press */
+  .btn-press {
+    @apply transition-transform duration-150 ease-out active:scale-[0.98];
+  }
+  
+  /* Fade in animation */
+  .fade-in {
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  /* Slide up animation */
+  .slide-up {
+    animation: slideUp 0.3s ease-out forwards;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Scale in animation */
+  .scale-in {
+    animation: scaleIn 0.2s ease-out forwards;
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* Smooth scrolling */
+  .smooth-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Glass effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-lg;
+  }
+  
+  /* Skeleton loading */
+  .skeleton {
+    @apply bg-muted animate-pulse rounded;
+  }
+  
+  /* Focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+  }
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/30;
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+  }
+  
+  .no-print {
+    display: none !important;
   }
 }

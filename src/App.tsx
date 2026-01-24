@@ -3,69 +3,107 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Suspense, lazy } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
+// Eagerly load critical pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import Inventory from "./pages/Inventory";
-import Invoices from "./pages/Invoices";
 import NotFound from "./pages/NotFound";
-import ManualBilling from "./pages/ManualBilling";
-import Customers from "./pages/Customers";
-import Analytics from "./pages/Analytics";
-import AdvancedReports from "./pages/AdvancedReports";
-import LowStocks from "./pages/LowStocks";
-import Profile from "./pages/Profile";
-import Categories from "./pages/Categories";
-import Counters from "./pages/Counters";
-import Coupons from "./pages/Coupons";
-import LimitedDiscounts from "./pages/LimitedDiscounts";
-import Barcodes from "./pages/Barcodes";
-import Templates from "./pages/Templates";
-import ModernBilling from "./pages/ModernBilling";
-import Kitchen from "./pages/Kitchen";
-import WaiterInterface from "./pages/WaiterInterface";
-import Purchases from "./pages/Purchases";
-import Expenses from "./pages/Expenses";
-import RestaurantTables from "./pages/RestaurantTables";
-import Suppliers from "./pages/Suppliers";
-import Audits from "./pages/Audits";
 
-const queryClient = new QueryClient();
+// Lazy load all other pages for code splitting
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Invoices = lazy(() => import("./pages/Invoices"));
+const ManualBilling = lazy(() => import("./pages/ManualBilling"));
+const ModernBilling = lazy(() => import("./pages/ModernBilling"));
+const Kitchen = lazy(() => import("./pages/Kitchen"));
+const WaiterInterface = lazy(() => import("./pages/WaiterInterface"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const AdvancedReports = lazy(() => import("./pages/AdvancedReports"));
+const LowStocks = lazy(() => import("./pages/LowStocks"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Categories = lazy(() => import("./pages/Categories"));
+const Counters = lazy(() => import("./pages/Counters"));
+const Coupons = lazy(() => import("./pages/Coupons"));
+const LimitedDiscounts = lazy(() => import("./pages/LimitedDiscounts"));
+const Barcodes = lazy(() => import("./pages/Barcodes"));
+const Templates = lazy(() => import("./pages/Templates"));
+const Purchases = lazy(() => import("./pages/Purchases"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const RestaurantTables = lazy(() => import("./pages/RestaurantTables"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Audits = lazy(() => import("./pages/Audits"));
+
+// Loading fallback with smooth animation
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <div className="fade-in">
+      <LoadingSpinner />
+    </div>
+  </div>
+);
+
+// Optimized QueryClient with better caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <TooltipProvider delayDuration={200}>
       <Toaster />
-      <Sonner />
+      <Sonner 
+        position="top-right" 
+        toastOptions={{
+          className: "slide-up",
+          duration: 3000,
+        }}
+      />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/manual-billing" element={<ManualBilling />} />
-          <Route path="/modern-billing" element={<ModernBilling />} />
-          <Route path="/kitchen" element={<Kitchen />} />
-          <Route path="/waiter" element={<WaiterInterface />} />
-          <Route path="/inventory" element={<Inventory />} />
-          <Route path="/low-stocks" element={<LowStocks />} />
-          <Route path="/invoices" element={<Invoices />} />
-          <Route path="/customers" element={<Customers />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/advanced-reports" element={<AdvancedReports />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/categories" element={<Categories />} />
-          <Route path="/counters" element={<Counters />} />
-          <Route path="/coupons" element={<Coupons />} />
-          <Route path="/limited-discounts" element={<LimitedDiscounts />} />
-          <Route path="/barcodes" element={<Barcodes />} />
-          <Route path="/templates" element={<Templates />} />
-          <Route path="/purchases" element={<Purchases />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/restaurant-tables" element={<RestaurantTables />} />
-          <Route path="/suppliers" element={<Suppliers />} />
-          <Route path="/audits" element={<Audits />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            {/* Critical paths - eagerly loaded */}
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            
+            {/* Lazy loaded routes */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/manual-billing" element={<ManualBilling />} />
+            <Route path="/modern-billing" element={<ModernBilling />} />
+            <Route path="/kitchen" element={<Kitchen />} />
+            <Route path="/waiter" element={<WaiterInterface />} />
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/low-stocks" element={<LowStocks />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/advanced-reports" element={<AdvancedReports />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/categories" element={<Categories />} />
+            <Route path="/counters" element={<Counters />} />
+            <Route path="/coupons" element={<Coupons />} />
+            <Route path="/limited-discounts" element={<LimitedDiscounts />} />
+            <Route path="/barcodes" element={<Barcodes />} />
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/purchases" element={<Purchases />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/restaurant-tables" element={<RestaurantTables />} />
+            <Route path="/suppliers" element={<Suppliers />} />
+            <Route path="/audits" element={<Audits />} />
+            
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
