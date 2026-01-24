@@ -41,6 +41,8 @@ interface CompactShoppingCartProps {
   inclusiveBillType?: string;
   isProcessing?: boolean;
   stockLimits?: { [id: string]: number };
+  loyaltyDiscount?: number;
+  pointsRedeemed?: number;
 }
 
 const CompactShoppingCart = ({ 
@@ -58,7 +60,9 @@ const CompactShoppingCart = ({
   billingMode = "exclusive",
   inclusiveBillType = "split",
   isProcessing = false,
-  stockLimits = {}
+  stockLimits = {},
+  loyaltyDiscount = 0,
+  pointsRedeemed = 0
 }: CompactShoppingCartProps) => {
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const totalDiscountSaved = items.reduce((sum, item) => {
@@ -72,10 +76,11 @@ const CompactShoppingCart = ({
   const showTax = billingMode === "exclusive" || (billingMode === "inclusive" && inclusiveBillType === "split");
   const subtotalWithProductTax = subtotal + productTaxAmount;
   const afterCouponDiscount = subtotalWithProductTax - couponDiscount;
-  const total = afterCouponDiscount + additionalGstAmount;
+  const afterLoyaltyDiscount = afterCouponDiscount - loyaltyDiscount;
+  const total = afterLoyaltyDiscount + additionalGstAmount;
 
   // Round off calculation
-  const roundedTotal = Math.round(total);
+  const roundedTotal = Math.round(Math.max(0, total));
   const roundOff = roundedTotal - total;
 
   return (
@@ -218,6 +223,16 @@ const CompactShoppingCart = ({
                 {couponCode || 'Coupon'}
               </span>
               <span>-{formatIndianCurrency(couponDiscount)}</span>
+            </div>
+          )}
+          
+          {/* Loyalty Points */}
+          {loyaltyDiscount > 0 && (
+            <div className="flex justify-between text-xs text-amber-600">
+              <span className="flex items-center gap-1">
+                🎁 Loyalty ({pointsRedeemed} pts)
+              </span>
+              <span>-{formatIndianCurrency(loyaltyDiscount)}</span>
             </div>
           )}
           

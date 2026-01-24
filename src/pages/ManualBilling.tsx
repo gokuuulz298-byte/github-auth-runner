@@ -42,6 +42,16 @@ const ManualBilling = () => {
   const [paymentMode, setPaymentMode] = useState<string>("cash");
   const [isParcel, setIsParcel] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  
+  // Loyalty redemption state
+  const [loyaltySettings, setLoyaltySettings] = useState<{
+    points_per_rupee: number;
+    rupees_per_point_redeem: number;
+    min_points_to_redeem: number;
+    is_active: boolean;
+  } | null>(null);
+  const [redeemLoyalty, setRedeemLoyalty] = useState<boolean>(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
 
   // Initialize counter session
   useEffect(() => {
@@ -68,7 +78,34 @@ const ManualBilling = () => {
     fetchCoupons();
     fetchProductDiscounts();
     fetchActiveTemplate();
+    fetchLoyaltySettings();
   }, []);
+  
+  const fetchLoyaltySettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('loyalty_settings')
+        .select('*')
+        .eq('created_by', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data) {
+        setLoyaltySettings({
+          points_per_rupee: Number(data.points_per_rupee) || 1,
+          rupees_per_point_redeem: Number(data.rupees_per_point_redeem) || 1,
+          min_points_to_redeem: data.min_points_to_redeem || 100,
+          is_active: data.is_active ?? true,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching loyalty settings:", error);
+    }
+  };
 
   const fetchCompanyProfile = async () => {
     try {
@@ -411,7 +448,14 @@ const ManualBilling = () => {
       const afterCouponDiscount = subtotal - couponDiscountAmount;
       const additionalGstRateNum = parseFloat(additionalGstRate) || 0;
       const additionalGstAmount = additionalGstRateNum > 0 ? (afterCouponDiscount * additionalGstRateNum / 100) : 0;
-      const total = afterCouponDiscount + additionalGstAmount;
+      
+      // Calculate loyalty discount
+      let loyaltyDiscountAmount = 0;
+      if (redeemLoyalty && loyaltySettings?.is_active && pointsToRedeem > 0) {
+        loyaltyDiscountAmount = pointsToRedeem * loyaltySettings.rupees_per_point_redeem;
+      }
+      
+      const total = afterCouponDiscount + additionalGstAmount - loyaltyDiscountAmount;
       
       return {
         subtotal,                            // MRP subtotal
@@ -421,6 +465,8 @@ const ManualBilling = () => {
         productIGST: 0,
         subtotalWithProductTax: subtotal,    // MRP already includes GST
         couponDiscountAmount,
+        loyaltyDiscountAmount,
+        pointsRedeemed: redeemLoyalty ? pointsToRedeem : 0,
         afterCouponDiscount,
         additionalTaxAmount: additionalGstAmount,
         additionalSGST: 0,
@@ -429,7 +475,7 @@ const ManualBilling = () => {
         totalCGST: 0,
         totalIGST: 0,
         taxAmount: additionalGstAmount,
-        total,                                // MRP + additional tax if any
+        total: Math.max(0, total),           // MRP + additional tax - loyalty discount
       };
     }
 
@@ -459,7 +505,14 @@ const ManualBilling = () => {
     const totalCGST = productCGST + additionalCGST;
     const totalIGST = productIGST;
     const taxAmount = productTaxAmount + additionalGstAmount;
-    const total = afterCouponDiscount + additionalGstAmount;
+    
+    // Calculate loyalty discount
+    let loyaltyDiscountAmount = 0;
+    if (redeemLoyalty && loyaltySettings?.is_active && pointsToRedeem > 0) {
+      loyaltyDiscountAmount = pointsToRedeem * loyaltySettings.rupees_per_point_redeem;
+    }
+    
+    const total = afterCouponDiscount + additionalGstAmount - loyaltyDiscountAmount;
 
     return {
       subtotal,
@@ -469,6 +522,8 @@ const ManualBilling = () => {
       productIGST,
       subtotalWithProductTax,
       couponDiscountAmount,
+      loyaltyDiscountAmount,
+      pointsRedeemed: redeemLoyalty ? pointsToRedeem : 0,
       afterCouponDiscount,
       additionalTaxAmount: additionalGstAmount,
       additionalSGST,
@@ -477,7 +532,7 @@ const ManualBilling = () => {
       totalCGST,
       totalIGST,
       taxAmount,
-      total,
+      total: Math.max(0, total),
     };
   };
 
@@ -1462,6 +1517,57 @@ const ManualBilling = () => {
               </CardContent>
             </Card>
 
+            {/* Loyalty Points Redemption */}
+            {loyaltySettings?.is_active && loyaltyPoints >= (loyaltySettings?.min_points_to_redeem || 100) && (
+              <Card className="shadow-sm border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20">
+                <CardContent className="p-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="redeem-loyalty"
+                      type="checkbox"
+                      checked={redeemLoyalty}
+                      onChange={(e) => {
+                        setRedeemLoyalty(e.target.checked);
+                        if (e.target.checked) {
+                          // Auto-set max redeemable points
+                          const maxRedeem = Math.min(loyaltyPoints, Math.floor(calculateTotals().subtotal / (loyaltySettings?.rupees_per_point_redeem || 1)));
+                          setPointsToRedeem(maxRedeem);
+                        } else {
+                          setPointsToRedeem(0);
+                        }
+                      }}
+                      className="h-3.5 w-3.5"
+                    />
+                    <Label htmlFor="redeem-loyalty" className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                      Redeem Loyalty Points
+                    </Label>
+                    <span className="text-[9px] text-muted-foreground ml-auto">
+                      Available: {loyaltyPoints} pts
+                    </span>
+                  </div>
+                  {redeemLoyalty && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={loyaltySettings?.min_points_to_redeem || 100}
+                        max={loyaltyPoints}
+                        value={pointsToRedeem}
+                        onChange={(e) => {
+                          const val = Math.min(loyaltyPoints, Math.max(0, parseInt(e.target.value) || 0));
+                          setPointsToRedeem(val);
+                        }}
+                        className="h-6 text-[10px] w-20"
+                      />
+                      <span className="text-[9px] text-muted-foreground">pts</span>
+                      <span className="text-[10px] font-semibold text-green-600 ml-auto">
+                        = ₹{(pointsToRedeem * (loyaltySettings?.rupees_per_point_redeem || 1)).toFixed(2)} off
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Search Products */}
             <Card className="shadow-sm">
               <CardHeader className="px-2 py-1.5">
@@ -1551,6 +1657,8 @@ const ManualBilling = () => {
                 couponDiscount={calculateTotals().couponDiscountAmount}
                 couponCode={selectedCoupon ? coupons.find(c => c.id === selectedCoupon)?.code : undefined}
                 additionalGstAmount={calculateTotals().additionalTaxAmount}
+                loyaltyDiscount={calculateTotals().loyaltyDiscountAmount}
+                pointsRedeemed={calculateTotals().pointsRedeemed}
                 isProcessing={isProcessing}
                 stockLimits={Object.fromEntries(products.map(p => [p.id, p.stock_quantity ?? Infinity]))}
               />
