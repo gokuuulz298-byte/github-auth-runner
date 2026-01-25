@@ -1482,7 +1482,7 @@ const ManualBilling = () => {
                   <div>
                     <Label htmlFor="customer-phone" className="text-[10px]">Phone</Label>
                     <Input id="customer-phone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Phone" className="h-7 text-xs mt-0.5" />
-                    {loyaltyPoints > 0 && <p className="text-[9px] text-green-600 font-medium">Pts: {loyaltyPoints}</p>}
+                    {customerPhone.length >= 10 && <p className="text-[9px] text-amber-600 font-medium">🎯 Pts: {loyaltyPoints}</p>}
                   </div>
                 </div>
               </CardContent>

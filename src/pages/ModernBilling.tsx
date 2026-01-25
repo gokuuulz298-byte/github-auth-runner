@@ -1981,8 +1981,10 @@ const ModernBilling = () => {
                   placeholder="Optional"
                   className="h-9 sm:h-10 text-xs sm:text-sm"
                 />
-                {loyaltyPoints > 0 && (
-                  <p className="text-xs text-muted-foreground">Available Points: {loyaltyPoints}</p>
+                {customerPhone.length >= 10 && (
+                  <p className="text-xs text-muted-foreground">
+                    🎯 Loyalty Points: <span className="font-semibold text-amber-600">{loyaltyPoints}</span>
+                  </p>
                 )}
               </div>
 
@@ -2164,9 +2166,9 @@ const ModernBilling = () => {
                 )}
               </div>
 
-              {/* Loyalty Points Redemption */}
-              {loyaltySettings?.is_active && loyaltyPoints >= (loyaltySettings?.min_points_to_redeem || 100) && (
-                <div className="space-y-1 sm:space-y-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+              {/* Loyalty Points Redemption - Show when customer has points and settings active */}
+              {loyaltySettings?.is_active && customerPhone.length >= 10 && loyaltyPoints >= (loyaltySettings?.min_points_to_redeem || 100) && (
+                <div className="space-y-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
                   <div className="flex items-center gap-2">
                     <input
                       id="redeem-loyalty"
@@ -2192,22 +2194,26 @@ const ModernBilling = () => {
                     <span>Min: {loyaltySettings?.min_points_to_redeem || 100} pts</span>
                   </div>
                   {redeemLoyalty && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Label className="text-xs">Points to redeem:</Label>
-                      <Input
-                        type="number"
+                    <div className="space-y-2 mt-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span>Redeem: {pointsToRedeem} pts</span>
+                        <span className="font-bold text-green-600">
+                          -₹{(pointsToRedeem * (loyaltySettings?.rupees_per_point_redeem || 1)).toFixed(2)}
+                        </span>
+                      </div>
+                      {/* Slider for partial redemption */}
+                      <input
+                        type="range"
                         min={loyaltySettings?.min_points_to_redeem || 100}
                         max={loyaltyPoints}
                         value={pointsToRedeem}
-                        onChange={(e) => {
-                          const val = Math.min(loyaltyPoints, Math.max(0, parseInt(e.target.value) || 0));
-                          setPointsToRedeem(val);
-                        }}
-                        className="h-8 text-sm w-24"
+                        onChange={(e) => setPointsToRedeem(parseInt(e.target.value))}
+                        className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
                       />
-                      <span className="text-sm font-bold text-green-600 ml-auto">
-                        -₹{(pointsToRedeem * (loyaltySettings?.rupees_per_point_redeem || 1)).toFixed(2)}
-                      </span>
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>{loyaltySettings?.min_points_to_redeem || 100}</span>
+                        <span>{loyaltyPoints}</span>
+                      </div>
                     </div>
                   )}
                 </div>
