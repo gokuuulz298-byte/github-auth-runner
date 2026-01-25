@@ -146,7 +146,7 @@ const Suppliers = () => {
     try {
       const { data, error } = await supabase
         .from('purchases')
-        .select('id, purchase_number, total_amount, status, created_at')
+        .select('id, purchase_number, total_amount, paid_amount, status, created_at')
         .eq('created_by', userId)
         .eq('supplier_name', supplierName)
         .order('created_at', { ascending: false });
@@ -154,10 +154,10 @@ const Suppliers = () => {
       if (error) throw error;
       setPurchaseHistory(data || []);
       
-      // Calculate pending amount (ordered but not received)
+      // Calculate pending amount (total - paid for non-cancelled orders)
       const pending = (data || [])
-        .filter(p => p.status === 'ordered' || p.status === 'pending')
-        .reduce((sum, p) => sum + (p.total_amount || 0), 0);
+        .filter(p => p.status !== 'cancelled')
+        .reduce((sum, p) => sum + ((p.total_amount || 0) - (Number(p.paid_amount) || 0)), 0);
       setPendingAmount(pending);
     } catch (error) {
       console.error(error);

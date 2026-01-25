@@ -35,6 +35,7 @@ const Expenses = lazy(() => import("./pages/Expenses"));
 const RestaurantTables = lazy(() => import("./pages/RestaurantTables"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Audits = lazy(() => import("./pages/Audits"));
+const Returns = lazy(() => import("./pages/Returns"));
 
 // Loading fallback with smooth animation
 const PageLoader = () => (
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/restaurant-tables" element={<RestaurantTables />} />
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/audits" element={<Audits />} />
+            <Route path="/returns" element={<Returns />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

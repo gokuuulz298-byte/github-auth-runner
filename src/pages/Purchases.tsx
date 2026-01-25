@@ -492,6 +492,11 @@ const Purchases = () => {
   };
 
   const handleDragStart = (e: React.DragEvent, purchase: Purchase) => {
+    // Prevent dragging received orders
+    if (purchase.status === 'received') {
+      e.preventDefault();
+      return;
+    }
     setDraggedPurchase(purchase);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -503,7 +508,9 @@ const Purchases = () => {
 
   const handleDrop = (e: React.DragEvent, status: string) => {
     e.preventDefault();
-    if (draggedPurchase && draggedPurchase.status !== status) {
+    // Prevent changing to received via drag (must use button)
+    // Prevent changing FROM received status
+    if (draggedPurchase && draggedPurchase.status !== status && draggedPurchase.status !== 'received' && status !== 'received') {
       handleStatusChange(draggedPurchase.id, status);
     }
     setDraggedPurchase(null);
@@ -862,9 +869,9 @@ const Purchases = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 py-4">
-        {/* Kanban Board */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <main className="container mx-auto px-2 py-4 overflow-hidden">
+        {/* Kanban Board - Fixed height with column-level scrolling */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" style={{ height: 'calc(100vh - 140px)' }}>
           {STATUS_COLUMNS.map(column => {
             const statusBgColor = 
               column.id === 'pending' ? 'bg-yellow-50 dark:bg-yellow-950/20' :
@@ -872,33 +879,37 @@ const Purchases = () => {
               column.id === 'received' ? 'bg-green-50 dark:bg-green-950/20' :
               column.id === 'cancelled' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-muted/30';
             
+            const isLockedColumn = column.id === 'received';
+            
             return (
             <div
               key={column.id}
-              className={`rounded-lg p-3 ${statusBgColor} border border-opacity-50 ${
+              className={`rounded-lg p-3 ${statusBgColor} border border-opacity-50 flex flex-col ${
                 column.id === 'pending' ? 'border-yellow-200 dark:border-yellow-800' :
                 column.id === 'ordered' ? 'border-blue-200 dark:border-blue-800' :
                 column.id === 'received' ? 'border-green-200 dark:border-green-800' :
                 column.id === 'cancelled' ? 'border-red-200 dark:border-red-800' : ''
               }`}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, column.id)}
+              onDragOver={!isLockedColumn ? handleDragOver : undefined}
+              onDrop={!isLockedColumn ? (e) => handleDrop(e, column.id) : undefined}
             >
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-3 flex-shrink-0">
                 <div className={`w-2 h-2 rounded-full ${column.color}`} />
                 <h3 className="font-semibold text-sm">{column.label}</h3>
+                {isLockedColumn && <Lock className="h-3 w-3 text-muted-foreground" />}
                 <Badge variant="secondary" className="ml-auto text-xs">
                   {getPurchasesByStatus(column.id).length}
                 </Badge>
               </div>
               
-              <div className="space-y-2 min-h-[200px]">
+              {/* Scrollable cards container */}
+              <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
                 {getPurchasesByStatus(column.id).map(purchase => (
                   <Card
                     key={purchase.id}
-                    draggable
+                    draggable={purchase.status !== 'received'}
                     onDragStart={(e) => handleDragStart(e, purchase)}
-                    className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-card"
+                    className={`hover:shadow-md transition-shadow bg-card ${purchase.status !== 'received' ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                     onClick={() => {
                       setSelectedPurchase(purchase);
                       setDetailDialogOpen(true);
@@ -917,7 +928,7 @@ const Purchases = () => {
                             {purchase.items_data.length} items
                           </p>
                         </div>
-                        <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        {purchase.status !== 'received' && <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
                       </div>
                       <div className="flex justify-between items-center mt-2 pt-2 border-t">
                         <div className="flex flex-col gap-0.5">

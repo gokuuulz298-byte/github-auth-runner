@@ -821,6 +821,72 @@ export type Database = {
         }
         Relationships: []
       }
+      returns: {
+        Row: {
+          amount_type: string
+          created_at: string
+          created_by: string
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          items_data: Json
+          notes: string | null
+          reason: string
+          reference_id: string
+          reference_number: string
+          reference_type: string
+          return_date: string
+          return_number: string
+          return_type: string
+          status: string
+          supplier_name: string | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          amount_type: string
+          created_at?: string
+          created_by: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_data?: Json
+          notes?: string | null
+          reason: string
+          reference_id: string
+          reference_number: string
+          reference_type: string
+          return_date?: string
+          return_number: string
+          return_type: string
+          status?: string
+          supplier_name?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          amount_type?: string
+          created_at?: string
+          created_by?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_data?: Json
+          notes?: string | null
+          reason?: string
+          reference_id?: string
+          reference_number?: string
+          reference_type?: string
+          return_date?: string
+          return_number?: string
+          return_type?: string
+          status?: string
+          supplier_name?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff: {
         Row: {
           allowed_modules: string[]
