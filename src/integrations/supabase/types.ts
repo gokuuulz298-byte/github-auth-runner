@@ -281,6 +281,68 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_movements: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          movement_type: string
+          notes: string | null
+          party_name: string | null
+          party_phone: string | null
+          product_id: string | null
+          product_name: string
+          quantity: number
+          reference_id: string | null
+          reference_number: string | null
+          reference_type: string
+          total_value: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          movement_type: string
+          notes?: string | null
+          party_name?: string | null
+          party_phone?: string | null
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type: string
+          total_value?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          party_name?: string | null
+          party_phone?: string | null
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string
+          total_value?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_sequences: {
         Row: {
           business_date: string

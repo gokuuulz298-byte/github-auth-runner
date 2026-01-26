@@ -22,6 +22,7 @@ import LoadingButton from "@/components/LoadingButton";
 import PrinterStatusIndicator from "@/components/PrinterStatusIndicator";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import WeightSelectionDialog from "@/components/WeightSelectionDialog";
 
 const ModernBilling = () => {
   const navigate = useNavigate();
@@ -65,6 +66,10 @@ const ModernBilling = () => {
   } | null>(null);
   const [redeemLoyalty, setRedeemLoyalty] = useState<boolean>(false);
   const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
+  
+  // Weight selection dialog state
+  const [weightDialogOpen, setWeightDialogOpen] = useState<boolean>(false);
+  const [selectedWeightProduct, setSelectedWeightProduct] = useState<any>(null);
 
   // Keyboard navigation handler - only active when toggle is enabled
   useEffect(() => {
@@ -1832,6 +1837,14 @@ const ModernBilling = () => {
                             return;
                           }
                           setSelectedProductIndex(index);
+                          
+                          // For weight-based products, show weight selection dialog
+                          if (product.price_type === 'weight') {
+                            setSelectedWeightProduct(product);
+                            setWeightDialogOpen(true);
+                            return;
+                          }
+                          
                           if (isInCart) {
                             // If already in cart, increment cart quantity
                             if (cartQty < stockQty) {
@@ -1878,6 +1891,27 @@ const ModernBilling = () => {
                         </div>
                         <CardContent className="p-2 space-y-1">
                           <h3 className="font-medium text-xs line-clamp-2 min-h-[2rem]">{product.name}</h3>
+                          
+                          {/* Quick weight buttons for weight-based products */}
+                          {product.price_type === 'weight' && !isOutOfStock && (
+                            <div className="flex gap-1 flex-wrap">
+                              {[0.25, 0.5, 0.75, 1].map((weight) => (
+                                <Button
+                                  key={weight}
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] font-medium"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddToCart(product, weight);
+                                  }}
+                                >
+                                  {weight}kg
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+                          
                           <div className="flex items-center justify-between gap-1">
                             <div className="flex flex-col">
                               {hasDiscount ? (
@@ -1891,7 +1925,7 @@ const ModernBilling = () => {
                                 </>
                               ) : (
                                 <span className="text-primary font-bold text-sm">
-                                  ₹{formatIndianNumber(originalPrice)}
+                                  ₹{formatIndianNumber(originalPrice)}{product.price_type === 'weight' ? '/kg' : ''}
                                 </span>
                               )}
                             </div>
@@ -2265,6 +2299,19 @@ const ModernBilling = () => {
           </div>
         </div>
       </div>
+      
+      {/* Weight Selection Dialog for weight-based products */}
+      <WeightSelectionDialog
+        open={weightDialogOpen}
+        onOpenChange={setWeightDialogOpen}
+        productName={selectedWeightProduct?.name || ''}
+        onConfirm={(weight) => {
+          if (selectedWeightProduct) {
+            handleAddToCart(selectedWeightProduct, weight);
+            setSelectedWeightProduct(null);
+          }
+        }}
+      />
     </div>
   );
 };
