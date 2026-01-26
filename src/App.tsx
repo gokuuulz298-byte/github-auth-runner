@@ -36,15 +36,7 @@ const RestaurantTables = lazy(() => import("./pages/RestaurantTables"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Audits = lazy(() => import("./pages/Audits"));
 const Returns = lazy(() => import("./pages/Returns"));
-
-// Loading fallback with smooth animation
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
-    <div className="fade-in">
-      <LoadingSpinner />
-    </div>
-  </div>
-);
+const InventoryMovements = lazy(() => import("./pages/InventoryMovements"));
 
 // Optimized QueryClient with better caching
 const queryClient = new QueryClient({
@@ -58,6 +50,13 @@ const queryClient = new QueryClient({
   },
 });
 
+// Minimal loading fallback - pages handle their own loading states
+const MinimalLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <LoadingSpinner size="lg" />
+  </div>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider delayDuration={200}>
@@ -70,7 +69,7 @@ const App = () => (
         }}
       />
       <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<MinimalLoader />}>
           <Routes>
             {/* Critical paths - eagerly loaded */}
             <Route path="/" element={<Index />} />
@@ -101,6 +100,7 @@ const App = () => (
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/audits" element={<Audits />} />
             <Route path="/returns" element={<Returns />} />
+            <Route path="/inventory-movements" element={<InventoryMovements />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

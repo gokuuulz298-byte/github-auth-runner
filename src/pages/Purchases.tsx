@@ -435,6 +435,24 @@ const Purchases = () => {
             .from('products')
             .update({ stock_quantity: newStock })
             .eq('id', item.id);
+            
+          // Record inventory movement for inflow
+          await supabase
+            .from('inventory_movements')
+            .insert({
+              product_id: item.id,
+              product_name: item.name,
+              movement_type: 'inflow',
+              quantity: item.quantity,
+              reference_type: 'purchase',
+              reference_id: purchase.id,
+              reference_number: purchase.purchase_number,
+              unit_price: item.unit_price,
+              total_value: item.unit_price * item.quantity,
+              party_name: purchase.supplier_name,
+              party_phone: purchase.supplier_phone,
+              created_by: user.id
+            });
         }
       }
 

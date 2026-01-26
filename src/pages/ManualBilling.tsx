@@ -254,38 +254,51 @@ const ManualBilling = () => {
     fetchCustomerDetails();
   }, [customerPhone]);
 
-  // Auto-search as user types
+  // Fetch all products initially and on search
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  
+  // Fetch all products on mount
   useEffect(() => {
-    const searchProducts = async () => {
-      if (!searchTerm) {
-        setProducts([]);
-        return;
-      }
-
+    const fetchAllProducts = async () => {
       try {
-        if (isOnline) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-          const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('created_by', user.id)
-            .eq('is_deleted', false)
-            .or(`name.ilike.%${searchTerm}%,barcode.ilike.%${searchTerm}%`)
-            .limit(10);
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('created_by', user.id)
+          .eq('is_deleted', false)
+          .order('name');
 
-          if (error) throw error;
-          setProducts(data || []);
-        }
+        if (error) throw error;
+        setAllProducts(data || []);
+        setProducts(data || []); // Show all products initially
       } catch (error) {
         console.error(error);
       }
     };
 
-    const debounceTimer = setTimeout(searchProducts, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm, isOnline]);
+    if (isOnline) {
+      fetchAllProducts();
+    }
+  }, [isOnline]);
+
+  // Filter products as user types (client-side for speed)
+  useEffect(() => {
+    if (!searchTerm) {
+      setProducts(allProducts);
+      return;
+    }
+
+    const searchLower = searchTerm.toLowerCase();
+    const filtered = allProducts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchLower) ||
+        (p.barcode && p.barcode.toLowerCase().includes(searchLower))
+    );
+    setProducts(filtered);
+  }, [searchTerm, allProducts]);
 
   const handleAddToCart = (product: any, customWeight?: string, customIgst?: string) => {
     const existingItem = cartItems.find(item => item.barcode === product.barcode);
