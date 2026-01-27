@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import LoadingButton from "@/components/LoadingButton";
+import { DeleteConfirmDialog } from "@/components/common";
 
 const Categories = () => {
   const navigate = useNavigate();
@@ -19,6 +21,8 @@ const Categories = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -69,15 +73,19 @@ const Categories = () => {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('categories')
-        .insert([{ name: newCategory.trim(), created_by: userId }]);
+        .insert([{ name: newCategory.trim(), created_by: userId }])
+        .select();
 
       if (error) throw error;
 
       toast.success("Category added successfully");
       setNewCategory("");
-      fetchCategories();
+      // Update state directly instead of refetching
+      if (data) {
+        setCategories(prev => [...prev, ...data].sort((a, b) => a.name.localeCompare(b.name)));
+      }
     } catch (error) {
       console.error(error);
       toast.error("Failed to add category");
@@ -86,23 +94,28 @@ const Categories = () => {
     }
   };
 
-  const handleDeleteCategory = async (id: string) => {
-    setDeletingId(id);
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    
+    setDeletingId(categoryToDelete);
     try {
       const { error } = await supabase
         .from('categories')
         .delete()
-        .eq('id', id);
+        .eq('id', categoryToDelete);
 
       if (error) throw error;
 
       toast.success("Category deleted successfully");
-      fetchCategories();
+      // Update state directly instead of refetching
+      setCategories(prev => prev.filter(c => c.id !== categoryToDelete));
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete category");
     } finally {
       setDeletingId(null);
+      setDeleteDialogOpen(false);
+      setCategoryToDelete(null);
     }
   };
 
@@ -145,17 +158,18 @@ const Categories = () => {
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
                     placeholder="Enter category name"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                    onKeyPress={(e) => e.key === 'Enter' && !isSubmitting && handleAddCategory()}
                     className="text-sm sm:text-base"
+                    disabled={isSubmitting}
                   />
-                  <Button 
+                  <LoadingButton 
                     onClick={handleAddCategory} 
                     className="shrink-0"
-                    disabled={isSubmitting}
+                    isLoading={isSubmitting}
                   >
                     <Plus className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">{isSubmitting ? 'Adding...' : 'Add'}</span>
-                  </Button>
+                    <span className="hidden sm:inline">Add</span>
+                  </LoadingButton>
                 </div>
               </div>
             </CardContent>
@@ -181,7 +195,10 @@ const Categories = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteCategory(category.id)}
+                        onClick={() => {
+                          setCategoryToDelete(category.id);
+                          setDeleteDialogOpen(true);
+                        }}
                         disabled={deletingId === category.id}
                       >
                         <Trash2 className={`h-4 w-4 text-destructive ${deletingId === category.id ? 'animate-pulse' : ''}`} />
@@ -194,6 +211,14 @@ const Categories = () => {
           </Card>
         </div>
       </main>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteCategory}
+        title="Delete Category"
+        description="Are you sure you want to delete this category? This action cannot be undone."
+      />
     </div>
   );
 };

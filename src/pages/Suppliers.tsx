@@ -307,7 +307,7 @@ const Suppliers = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 overflow-x-hidden">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
@@ -318,7 +318,7 @@ const Suppliers = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-6 overflow-hidden">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Panel - Supplier List */}
           <div className="flex-1 space-y-4">
@@ -554,9 +554,9 @@ const Suppliers = () => {
           </div>
 
           {/* Right Panel - Supplier Detail */}
-          <div className="lg:w-[450px]">
+          <div className="lg:w-[450px] max-h-[calc(100vh-140px)] overflow-y-auto">
             {selectedSupplier ? (
-              <Card className="sticky top-20">
+              <Card className="sticky top-0">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{selectedSupplier.name}</CardTitle>

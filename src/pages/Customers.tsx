@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Search } from "lucide-react";
+import { ArrowLeft, Plus, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import LoyaltySettingsCard from "@/components/LoyaltySettingsCard";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import LoadingButton from "@/components/LoadingButton";
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -19,6 +21,8 @@ const Customers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", email: "" });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!authLoading && userId) {
@@ -32,6 +36,7 @@ const Customers = () => {
   const fetchCustomers = async () => {
     if (!userId) return;
 
+    setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('customers')
@@ -46,6 +51,8 @@ const Customers = () => {
     } catch (error) {
       console.error(error);
       toast.error("Error fetching customers");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -119,27 +126,80 @@ const Customers = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('customers')
-        .insert([{ ...newCustomer, created_by: userId }]);
+        .insert([{ ...newCustomer, created_by: userId }])
+        .select();
 
       if (error) throw error;
 
       toast.success("Customer added successfully");
       setDialogOpen(false);
       setNewCustomer({ name: "", phone: "", email: "" });
-      fetchCustomers();
+      // Update state directly
+      if (data) {
+        setCustomers(prev => [...data, ...prev]);
+      }
     } catch (error) {
       console.error(error);
       toast.error("Error adding customer");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleExportCSV = () => {
+    if (customers.length === 0) {
+      toast.error("No customers to export");
+      return;
+    }
+
+    // Prepare CSV data
+    const headers = ['Name', 'Phone', 'Email', 'Loyalty Points', 'Total Spent', 'Orders'];
+    const rows = customers.map(customer => {
+      const loyalty = loyaltyData[customer.phone];
+      return [
+        customer.name,
+        customer.phone,
+        customer.email || '',
+        loyalty?.points || 0,
+        loyalty?.total_spent?.toFixed(2) || '0.00',
+        loyalty?.order_count || 0
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`Exported ${customers.length} customers`);
   };
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.phone.includes(searchTerm)
   );
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
+        <LoadingSpinner size="lg" text="Loading customers..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -149,49 +209,58 @@ const Customers = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-2xl font-bold">Customers</h1>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="ml-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Customer
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Customer</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={newCustomer.name}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone *</Label>
-                  <Input
-                    id="phone"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newCustomer.email}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                  />
-                </div>
-                <Button onClick={handleAddCustomer} className="w-full">
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="h-4 w-4 mr-1" />
+              Export CSV
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
                   Add Customer
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Customer</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Name *</Label>
+                    <Input
+                      id="name"
+                      value={newCustomer.name}
+                      onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Phone *</Label>
+                    <Input
+                      id="phone"
+                      value={newCustomer.phone}
+                      onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newCustomer.email}
+                      onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <LoadingButton onClick={handleAddCustomer} className="w-full" isLoading={isSubmitting}>
+                    Add Customer
+                  </LoadingButton>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </header>
 
@@ -201,7 +270,7 @@ const Customers = () => {
         
         <Card>
           <CardHeader className="px-4 sm:px-6">
-            <CardTitle className="text-lg sm:text-xl">Customer List</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Customer List ({filteredCustomers.length})</CardTitle>
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
             <div className="mb-4">
@@ -217,29 +286,33 @@ const Customers = () => {
             </div>
 
             <div className="space-y-2 max-h-[70vh] overflow-y-auto">
-              {filteredCustomers.map((customer) => {
-                const loyalty = loyaltyData[customer.phone];
-                return (
-                  <div key={customer.id} className="p-3 sm:p-4 bg-muted/50 rounded-lg">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm sm:text-base">{customer.name}</h4>
-                        <p className="text-xs sm:text-sm text-muted-foreground">Phone: {customer.phone}</p>
-                        {customer.email && (
-                          <p className="text-xs sm:text-sm text-muted-foreground truncate">Email: {customer.email}</p>
-                        )}
-                        {loyalty?.order_count > 0 && (
-                          <p className="text-xs text-muted-foreground">{loyalty.order_count} orders</p>
-                        )}
-                      </div>
-                      <div className="text-left sm:text-right">
-                        <p className="text-base sm:text-lg font-bold text-primary">{loyalty?.points || 0} pts</p>
-                        <p className="text-xs text-muted-foreground">₹{Number(loyalty?.total_spent || 0).toFixed(2)} spent</p>
+              {filteredCustomers.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No customers found</p>
+              ) : (
+                filteredCustomers.map((customer) => {
+                  const loyalty = loyaltyData[customer.phone];
+                  return (
+                    <div key={customer.id} className="p-3 sm:p-4 bg-muted/50 rounded-lg">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm sm:text-base">{customer.name}</h4>
+                          <p className="text-xs sm:text-sm text-muted-foreground">Phone: {customer.phone}</p>
+                          {customer.email && (
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">Email: {customer.email}</p>
+                          )}
+                          {loyalty?.order_count > 0 && (
+                            <p className="text-xs text-muted-foreground">{loyalty.order_count} orders</p>
+                          )}
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <p className="text-base sm:text-lg font-bold text-primary">{loyalty?.points || 0} pts</p>
+                          <p className="text-xs text-muted-foreground">₹{Number(loyalty?.total_spent || 0).toFixed(2)} spent</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>

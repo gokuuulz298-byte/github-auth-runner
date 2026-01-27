@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Building2, Settings, Lock, UserCog, UserCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import LoadingButton from "@/components/LoadingButton";
 import WaiterCard from "@/components/WaiterCard";
 import StaffCard from "@/components/StaffCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -296,7 +297,10 @@ const Profile = () => {
       setTimeout(() => setSettingsLoading(false), 300);
     }, [profile]);
 
+    const [isSaving, setIsSaving] = useState(false);
+
     const save = async () => {
+      setIsSaving(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Sign in required");
@@ -316,6 +320,8 @@ const Profile = () => {
       } catch (err: any) {
         console.error(err);
         toast.error(err.message || "Failed to save");
+      } finally {
+        setIsSaving(false);
       }
     };
 
@@ -582,9 +588,9 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        <Button onClick={save} className="w-full sm:w-auto">
+        <LoadingButton onClick={save} isLoading={isSaving} className="w-full sm:w-auto">
           Save All Settings
-        </Button>
+        </LoadingButton>
       </div>
     );
   };
