@@ -237,23 +237,27 @@ const Templates = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Deactivate all templates
+      // Deactivate all templates for this user only
       await supabase
         .from('bill_templates')
         .update({ is_active: false })
         .eq('created_by', user.id);
 
-      // Activate selected template
+      // Update the selected template - set created_by to current user if not already
       const { error } = await supabase
         .from('bill_templates')
-        .update({ is_active: true })
+        .update({ is_active: true, created_by: user.id })
         .eq('id', templateId);
 
       if (error) throw error;
 
       setActiveTemplateId(templateId);
       toast.success("Template activated successfully");
-      fetchTemplates();
+      // Update local state instead of refetching
+      setTemplates(prev => prev.map(t => ({
+        ...t,
+        is_active: t.id === templateId
+      })));
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "Failed to activate template");

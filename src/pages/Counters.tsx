@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import LoadingButton from "@/components/LoadingButton";
+import { DeleteConfirmDialog } from "@/components/common";
 
 const Counters = () => {
   const navigate = useNavigate();
@@ -19,6 +21,8 @@ const Counters = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [counterToDelete, setCounterToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -69,15 +73,19 @@ const Counters = () => {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('counters')
-        .insert([{ name: newCounter.trim(), created_by: userId }]);
+        .insert([{ name: newCounter.trim(), created_by: userId }])
+        .select();
 
       if (error) throw error;
 
       toast.success("Counter added successfully");
       setNewCounter("");
-      fetchCounters();
+      // Update state directly instead of refetching
+      if (data) {
+        setCounters(prev => [...prev, ...data].sort((a, b) => a.name.localeCompare(b.name)));
+      }
     } catch (error) {
       console.error(error);
       toast.error("Failed to add counter");
@@ -86,23 +94,28 @@ const Counters = () => {
     }
   };
 
-  const handleDeleteCounter = async (id: string) => {
-    setDeletingId(id);
+  const handleDeleteCounter = async () => {
+    if (!counterToDelete) return;
+    
+    setDeletingId(counterToDelete);
     try {
       const { error } = await supabase
         .from('counters')
         .delete()
-        .eq('id', id);
+        .eq('id', counterToDelete);
 
       if (error) throw error;
 
       toast.success("Counter deleted successfully");
-      fetchCounters();
+      // Update state directly instead of refetching
+      setCounters(prev => prev.filter(c => c.id !== counterToDelete));
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete counter");
     } finally {
       setDeletingId(null);
+      setDeleteDialogOpen(false);
+      setCounterToDelete(null);
     }
   };
 
@@ -145,17 +158,18 @@ const Counters = () => {
                     value={newCounter}
                     onChange={(e) => setNewCounter(e.target.value)}
                     placeholder="e.g., Counter 1"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddCounter()}
+                    onKeyPress={(e) => e.key === 'Enter' && !isSubmitting && handleAddCounter()}
                     className="text-sm sm:text-base"
+                    disabled={isSubmitting}
                   />
-                  <Button 
+                  <LoadingButton 
                     onClick={handleAddCounter} 
                     className="shrink-0"
-                    disabled={isSubmitting}
+                    isLoading={isSubmitting}
                   >
                     <Plus className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">{isSubmitting ? 'Adding...' : 'Add'}</span>
-                  </Button>
+                    <span className="hidden sm:inline">Add</span>
+                  </LoadingButton>
                 </div>
               </div>
             </CardContent>
@@ -181,7 +195,10 @@ const Counters = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteCounter(counter.id)}
+                        onClick={() => {
+                          setCounterToDelete(counter.id);
+                          setDeleteDialogOpen(true);
+                        }}
                         disabled={deletingId === counter.id}
                       >
                         <Trash2 className={`h-4 w-4 text-destructive ${deletingId === counter.id ? 'animate-pulse' : ''}`} />
@@ -194,6 +211,14 @@ const Counters = () => {
           </Card>
         </div>
       </main>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteCounter}
+        title="Delete Counter"
+        description="Are you sure you want to delete this counter? This action cannot be undone."
+      />
     </div>
   );
 };

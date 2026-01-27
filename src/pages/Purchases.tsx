@@ -101,6 +101,8 @@ const Purchases = () => {
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [isMarkingOrdered, setIsMarkingOrdered] = useState<boolean>(false);
+  const [isReceiving, setIsReceiving] = useState<boolean>(false);
 
   useEffect(() => {
     fetchPurchases();
@@ -378,6 +380,7 @@ const Purchases = () => {
       return;
     }
 
+    setIsCreating(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -404,10 +407,13 @@ const Purchases = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to create purchase order");
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const handleReceivePurchase = async (purchase: Purchase) => {
+    setIsReceiving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -462,6 +468,17 @@ const Purchases = () => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to receive purchase");
+    } finally {
+      setIsReceiving(false);
+    }
+  };
+
+  const handleMarkOrdered = async (purchaseId: string) => {
+    setIsMarkingOrdered(true);
+    try {
+      await handleStatusChange(purchaseId, 'ordered');
+    } finally {
+      setIsMarkingOrdered(false);
     }
   };
 
@@ -1068,32 +1085,35 @@ const Purchases = () => {
 
                 {selectedPurchase.status === 'pending' && (
                   <div className="flex gap-2">
-                    <Button 
+                    <LoadingButton 
                       variant="outline"
-                      onClick={() => handleStatusChange(selectedPurchase.id, 'ordered')}
+                      isLoading={isMarkingOrdered}
+                      onClick={() => handleMarkOrdered(selectedPurchase.id)}
                       className="flex-1"
                     >
                       <Truck className="h-4 w-4 mr-2" />
                       Mark Ordered
-                    </Button>
-                    <Button 
+                    </LoadingButton>
+                    <LoadingButton 
+                      isLoading={isReceiving}
                       onClick={() => handleReceivePurchase(selectedPurchase)} 
                       className="flex-1 bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle2 className="h-4 w-4 mr-2" />
                       Receive & Update Stock
-                    </Button>
+                    </LoadingButton>
                   </div>
                 )}
 
                 {selectedPurchase.status === 'ordered' && (
-                  <Button 
+                  <LoadingButton 
+                    isLoading={isReceiving}
                     onClick={() => handleReceivePurchase(selectedPurchase)} 
                     className="w-full bg-green-600 hover:bg-green-700"
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Receive & Update Stock
-                  </Button>
+                  </LoadingButton>
                 )}
               </TabsContent>
 
