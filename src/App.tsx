@@ -50,12 +50,8 @@ const queryClient = new QueryClient({
   },
 });
 
-// Minimal loading fallback - pages handle their own loading states
-const MinimalLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
-    <LoadingSpinner size="lg" />
-  </div>
-);
+// Minimal fallback - only shown for lazy-loaded routes
+const MinimalLoader = () => null; // Pages handle their own loading states
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

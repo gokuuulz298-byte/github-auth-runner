@@ -9,7 +9,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { PageLoader } from "@/components/common";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -730,11 +730,7 @@ const AdvancedReports = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
-        <LoadingSpinner size="lg" text="Loading reports..." />
-      </div>
-    );
+    return <PageLoader pageName="Advanced Reports" />;
   }
 
   return (
@@ -1486,7 +1482,7 @@ const AdvancedReports = () => {
               <CardContent>
                 {dayWiseLoading ? (
                   <div className="flex justify-center py-8">
-                    <LoadingSpinner size="md" text="Loading..." />
+                    <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
                   </div>
                 ) : dayWiseData ? (
                   <div className="space-y-4">

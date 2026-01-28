@@ -398,6 +398,214 @@ const Audits = () => {
         });
       });
 
+      // Fetch coupon updates
+      const { data: updatedCoupons } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('updated_at', start.toISOString())
+        .lte('updated_at', end.toISOString());
+
+      updatedCoupons?.forEach(coup => {
+        if (coup.updated_at && coup.updated_at !== coup.created_at) {
+          auditEntries.push({
+            id: `coup-upd-${coup.id}-${coup.updated_at}`,
+            module: 'coupons',
+            operation: 'update',
+            entity_id: coup.id,
+            entity_name: coup.code,
+            details: { type: coup.discount_type, value: coup.discount_value, is_active: coup.is_active },
+            user_id: user.id,
+            timestamp: coup.updated_at,
+          });
+        }
+      });
+
+      // Fetch customer updates
+      const { data: updatedCustomers } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('updated_at', start.toISOString())
+        .lte('updated_at', end.toISOString());
+
+      updatedCustomers?.forEach(cust => {
+        if (cust.updated_at && cust.updated_at !== cust.created_at) {
+          auditEntries.push({
+            id: `cust-upd-${cust.id}-${cust.updated_at}`,
+            module: 'customers',
+            operation: 'update',
+            entity_id: cust.id,
+            entity_name: cust.name,
+            details: { phone: cust.phone, email: cust.email },
+            user_id: user.id,
+            timestamp: cust.updated_at,
+          });
+        }
+      });
+
+      // Fetch expense updates
+      const { data: updatedExpenses } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('updated_at', start.toISOString())
+        .lte('updated_at', end.toISOString());
+
+      updatedExpenses?.forEach(exp => {
+        if (exp.updated_at && exp.updated_at !== exp.created_at) {
+          auditEntries.push({
+            id: `exp-upd-${exp.id}-${exp.updated_at}`,
+            module: 'expenses',
+            operation: 'update',
+            entity_id: exp.id,
+            entity_name: exp.category,
+            details: { amount: exp.amount, description: exp.description },
+            user_id: user.id,
+            timestamp: exp.updated_at,
+          });
+        }
+      });
+
+      // Fetch category updates
+      const { data: updatedCategories } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('updated_at', start.toISOString())
+        .lte('updated_at', end.toISOString());
+
+      updatedCategories?.forEach(cat => {
+        if (cat.updated_at && cat.updated_at !== cat.created_at) {
+          auditEntries.push({
+            id: `cat-upd-${cat.id}-${cat.updated_at}`,
+            module: 'categories',
+            operation: 'update',
+            entity_id: cat.id,
+            entity_name: cat.name,
+            details: {},
+            user_id: user.id,
+            timestamp: cat.updated_at,
+          });
+        }
+      });
+
+      // Fetch supplier updates and creates
+      const { data: suppliers } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
+
+      suppliers?.forEach(sup => {
+        auditEntries.push({
+          id: `sup-${sup.id}`,
+          module: 'suppliers',
+          operation: 'create',
+          entity_id: sup.id,
+          entity_name: sup.name,
+          details: { phone: sup.phone, gst: sup.gst_number },
+          user_id: user.id,
+          timestamp: sup.created_at!,
+          full_data: {
+            name: sup.name,
+            phone: sup.phone,
+            email: sup.email,
+            address: sup.address,
+            gst_number: sup.gst_number,
+          }
+        });
+      });
+
+      const { data: updatedSuppliers } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('updated_at', start.toISOString())
+        .lte('updated_at', end.toISOString());
+
+      updatedSuppliers?.forEach(sup => {
+        if (sup.updated_at && sup.updated_at !== sup.created_at) {
+          auditEntries.push({
+            id: `sup-upd-${sup.id}-${sup.updated_at}`,
+            module: 'suppliers',
+            operation: 'update',
+            entity_id: sup.id,
+            entity_name: sup.name,
+            details: { phone: sup.phone, gst: sup.gst_number },
+            user_id: user.id,
+            timestamp: sup.updated_at,
+          });
+        }
+      });
+
+      // Fetch staff updates
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('id, display_name, email, created_at, updated_at, is_active, allowed_modules')
+        .eq('created_by', user.id)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
+
+      staff?.forEach(s => {
+        auditEntries.push({
+          id: `staff-${s.id}`,
+          module: 'staff',
+          operation: 'create',
+          entity_id: s.id,
+          entity_name: s.display_name,
+          details: { email: s.email, modules: s.allowed_modules?.length || 0 },
+          user_id: user.id,
+          timestamp: s.created_at!,
+        });
+      });
+
+      const { data: updatedStaff } = await supabase
+        .from('staff')
+        .select('id, display_name, email, created_at, updated_at, is_active')
+        .eq('created_by', user.id)
+        .gte('updated_at', start.toISOString())
+        .lte('updated_at', end.toISOString());
+
+      updatedStaff?.forEach(s => {
+        if (s.updated_at && s.updated_at !== s.created_at) {
+          auditEntries.push({
+            id: `staff-upd-${s.id}-${s.updated_at}`,
+            module: 'staff',
+            operation: 'update',
+            entity_id: s.id,
+            entity_name: s.display_name,
+            details: { email: s.email, is_active: s.is_active },
+            user_id: user.id,
+            timestamp: s.updated_at,
+          });
+        }
+      });
+
+      // Fetch purchase updates (status changes)
+      const { data: updatedPurchases } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('created_by', user.id)
+        .gte('updated_at', start.toISOString())
+        .lte('updated_at', end.toISOString());
+
+      updatedPurchases?.forEach(pur => {
+        if (pur.updated_at && pur.updated_at !== pur.created_at) {
+          auditEntries.push({
+            id: `pur-upd-${pur.id}-${pur.updated_at}`,
+            module: 'purchases',
+            operation: 'update',
+            entity_id: pur.id,
+            entity_name: pur.purchase_number,
+            details: { status: pur.status, payment_status: pur.payment_status, paid: pur.paid_amount },
+            user_id: user.id,
+            timestamp: pur.updated_at,
+          });
+        }
+      });
+
       // Sort by timestamp descending
       auditEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setAudits(auditEntries);
