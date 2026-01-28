@@ -567,11 +567,15 @@ const ManualBilling = () => {
 
     setIsProcessing(true);
 
-    // Generate bill number in format: DDMMYY-XX
+    // Generate bill number with counter number for uniqueness
     const today = new Date();
     const dateStr = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
     
-    // Get today's bill count
+    // Get counter name for bill prefix
+    const counter = counters.find(c => c.id === selectedCounter);
+    const counterPrefix = counter ? counter.name.substring(0, 2).toUpperCase() : 'C1';
+    
+    // Get today's bill count per counter
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -581,11 +585,12 @@ const ManualBilling = () => {
         .from('invoices')
         .select('*', { count: 'exact', head: true })
         .eq('created_by', user.id)
+        .eq('counter_id', selectedCounter)
         .gte('created_at', startOfToday.toISOString());
       billCount = (count || 0) + 1;
     }
     
-    const billNumber = `${dateStr}-${String(billCount).padStart(2, '0')}`;
+    const billNumber = `${counterPrefix}-${dateStr}-${String(billCount).padStart(2, '0')}`;
     const totals = calculateTotals();
     
     // Use calculated totals
@@ -683,6 +688,7 @@ const ManualBilling = () => {
           toast.success(`Customer earned ${pointsEarned} loyalty points!`);
         }
 
+        // Update stock and log inventory movements (sales outflow)
         for (const item of cartItems) {
           const { data: product } = await supabase
             .from('products')
@@ -697,6 +703,24 @@ const ManualBilling = () => {
               .from('products')
               .update({ stock_quantity: Math.max(0, newQuantity) })
               .eq('id', item.id);
+            
+            // Log inventory movement (sales outflow)
+            await supabase
+              .from('inventory_movements')
+              .insert({
+                product_id: item.id,
+                product_name: item.name,
+                movement_type: 'outflow',
+                quantity: item.quantity,
+                reference_type: 'sale',
+                reference_id: null,
+                reference_number: billNumber,
+                unit_price: item.price,
+                total_value: item.price * item.quantity,
+                party_name: customerName || 'Walk-in',
+                party_phone: customerPhone || null,
+                created_by: user.id,
+              });
           }
         }
       } else {

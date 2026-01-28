@@ -726,7 +726,7 @@ const ModernBilling = () => {
 
       const billNumber = invoiceNumberData as string;
 
-      // Update stock quantities - fetch fresh data to avoid race conditions
+      // Update stock quantities and log inventory movements
       for (const item of cartItems) {
         const { data: product } = await supabase.from("products").select("stock_quantity").eq("id", item.id).single();
 
@@ -736,6 +736,24 @@ const ModernBilling = () => {
             .from("products")
             .update({ stock_quantity: Math.max(0, newStock) })
             .eq("id", item.id);
+          
+          // Log inventory movement (sales outflow)
+          await supabase
+            .from('inventory_movements')
+            .insert({
+              product_id: item.id,
+              product_name: item.name,
+              movement_type: 'outflow',
+              quantity: item.quantity,
+              reference_type: 'sale',
+              reference_id: null,
+              reference_number: billNumber,
+              unit_price: item.price,
+              total_value: item.price * item.quantity,
+              party_name: customerName || 'Walk-in',
+              party_phone: customerPhone || null,
+              created_by: user.id,
+            });
         }
       }
 

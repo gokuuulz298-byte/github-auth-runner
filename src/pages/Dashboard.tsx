@@ -10,8 +10,11 @@ import { toast } from "sonner";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { DashboardHeader, DashboardMenuGrid } from "@/components/dashboard";
 import { PageWrapper } from "@/components/layout";
+import WelcomeOnboarding, { checkOnboardingStatus } from "@/components/WelcomeOnboarding";
 
 const SCROLL_POSITION_KEY = 'dashboard_scroll_position';
+const COMPANY_CACHE_KEY = 'dashboard_company_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 interface LowStockProduct {
   id: string;
@@ -30,6 +33,14 @@ const Dashboard = () => {
   const [staffModules, setStaffModules] = useState<string[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [showLowStockPanel, setShowLowStockPanel] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Check for first-time user onboarding
+  useEffect(() => {
+    if (!authLoading && user && !checkOnboardingStatus()) {
+      setShowOnboarding(true);
+    }
+  }, [authLoading, user]);
 
   // Restore scroll position on mount
   useEffect(() => {
@@ -151,6 +162,17 @@ const Dashboard = () => {
   const fetchCompanyProfile = async () => {
     if (!userId) return;
     
+    // Check cache first
+    const cached = sessionStorage.getItem(COMPANY_CACHE_KEY);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        setCompanyName(data.company_name || '');
+        setBillingSettings(data.billing_settings);
+        return;
+      }
+    }
+    
     try {
       const { data, error } = await supabase
         .from('company_profiles')
@@ -161,6 +183,11 @@ const Dashboard = () => {
       if (!error && data) {
         setCompanyName(data.company_name);
         setBillingSettings(data.billing_settings);
+        // Cache the result
+        sessionStorage.setItem(COMPANY_CACHE_KEY, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
       }
     } catch (error) {
       console.error("Error fetching company profile:", error);
@@ -198,6 +225,14 @@ const Dashboard = () => {
 
   return (
     <PageWrapper>
+      {/* Welcome Onboarding for first-time users */}
+      {showOnboarding && (
+        <WelcomeOnboarding 
+          onComplete={() => setShowOnboarding(false)}
+          companyName={companyName}
+        />
+      )}
+      
       <DashboardHeader
         isStaff={isStaff}
         isAdmin={isAdmin}

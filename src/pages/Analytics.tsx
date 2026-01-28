@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart } from 'recharts';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { PageLoader } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 
@@ -300,11 +300,7 @@ const Analytics = () => {
   const dailyProfit = calculateDailyProfit();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
-        <LoadingSpinner size="lg" text="Loading analytics..." />
-      </div>
-    );
+    return <PageLoader pageName="Analytics" />;
   }
 
   return (
