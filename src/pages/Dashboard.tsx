@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { DashboardHeader, DashboardMenuGrid } from "@/components/dashboard";
 import { PageWrapper } from "@/components/layout";
-import WelcomeOnboarding, { checkOnboardingStatus } from "@/components/WelcomeOnboarding";
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 
 const SCROLL_POSITION_KEY = 'dashboard_scroll_position';
 const COMPANY_CACHE_KEY = 'dashboard_company_cache';
@@ -33,14 +33,6 @@ const Dashboard = () => {
   const [staffModules, setStaffModules] = useState<string[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [showLowStockPanel, setShowLowStockPanel] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
-  // Check for first-time user onboarding
-  useEffect(() => {
-    if (!authLoading && user && !checkOnboardingStatus()) {
-      setShowOnboarding(true);
-    }
-  }, [authLoading, user]);
 
   // Restore scroll position on mount
   useEffect(() => {
@@ -225,14 +217,6 @@ const Dashboard = () => {
 
   return (
     <PageWrapper>
-      {/* Welcome Onboarding for first-time users */}
-      {showOnboarding && (
-        <WelcomeOnboarding 
-          onComplete={() => setShowOnboarding(false)}
-          companyName={companyName}
-        />
-      )}
-      
       <DashboardHeader
         isStaff={isStaff}
         isAdmin={isAdmin}
