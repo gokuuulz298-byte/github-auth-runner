@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import GuidelinesDialog from "@/components/GuidelinesDialog";
 import LiveOrdersPanel from "@/components/LiveOrdersPanel";
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 
 interface LowStockProduct {
   id: string;
@@ -64,6 +65,9 @@ const DashboardHeader = memo(({
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Online Status Indicator */}
+          <OnlineStatusIndicator />
+
           {/* Low Stock Alert Button */}
           {isAdmin && lowStockProducts.length > 0 && (
             <Sheet open={showLowStockPanel} onOpenChange={setShowLowStockPanel}>

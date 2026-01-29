@@ -50,8 +50,12 @@ const queryClient = new QueryClient({
   },
 });
 
-// Minimal fallback - only shown for lazy-loaded routes
-const MinimalLoader = () => null; // Pages handle their own loading states
+// Route-level fallback - prevents white screen during lazy load
+const RouteLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <LoadingSpinner size="lg" text="Loading..." />
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -65,7 +69,7 @@ const App = () => (
         }}
       />
       <BrowserRouter>
-        <Suspense fallback={<MinimalLoader />}>
+        <Suspense fallback={<RouteLoader />}>
           <Routes>
             {/* Critical paths - eagerly loaded */}
             <Route path="/" element={<Index />} />

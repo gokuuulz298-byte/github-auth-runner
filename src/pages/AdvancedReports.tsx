@@ -471,7 +471,13 @@ const AdvancedReports = () => {
             existing.revenue += item.price * item.quantity;
             existing.salesCount += 1;
             if (product.buying_price) {
-              existing.profit += (item.price - product.buying_price) * item.quantity;
+              // Use base price (without tax) for profit calculation
+              const taxRate = item.tax_rate || product.tax_rate || 0;
+              const isInclusive = item.is_inclusive !== false;
+              const baseSellingPrice = isInclusive && taxRate > 0 
+                ? item.price / (1 + taxRate / 100)
+                : item.price;
+              existing.profit += (baseSellingPrice - product.buying_price) * item.quantity;
             }
             productMap.set(item.id, existing);
           }
@@ -544,7 +550,13 @@ const AdvancedReports = () => {
           items.forEach((item: any) => {
             const product = products.find(p => p.id === item.id);
             if (product && product.buying_price) {
-              trendData[dayIndex].profit += (item.price - product.buying_price) * item.quantity;
+              // Use base price (without tax) for profit calculation
+              const taxRate = item.tax_rate || product.tax_rate || 0;
+              const isInclusive = item.is_inclusive !== false;
+              const baseSellingPrice = isInclusive && taxRate > 0 
+                ? item.price / (1 + taxRate / 100)
+                : item.price;
+              trendData[dayIndex].profit += (baseSellingPrice - product.buying_price) * item.quantity;
             }
           });
         }
@@ -1026,19 +1038,29 @@ const AdvancedReports = () => {
 
         {/* Charts Section */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="products">Products</TabsTrigger>
-            <TabsTrigger value="profit">Profit</TabsTrigger>
-            <TabsTrigger value="expenses">Expenses</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
-            <TabsTrigger value="daywise" className="flex items-center gap-1">
-              <CalendarDays className="h-3 w-3" />
-              Day Wise
-            </TabsTrigger>
-            {isRestaurant && <TabsTrigger value="restaurant">Restaurant</TabsTrigger>}
-          </TabsList>
+          <div className="overflow-x-auto -mx-2 px-2 pb-2">
+            <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-10 gap-1">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="products">Products</TabsTrigger>
+              <TabsTrigger value="profit">Profit</TabsTrigger>
+              <TabsTrigger value="expenses">Expenses</TabsTrigger>
+              <TabsTrigger value="customers">Customers</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+              <TabsTrigger value="daywise" className="flex items-center gap-1">
+                <CalendarDays className="h-3 w-3" />
+                Day Wise
+              </TabsTrigger>
+              <TabsTrigger value="gst" className="flex items-center gap-1">
+                <Percent className="h-3 w-3" />
+                GST
+              </TabsTrigger>
+              <TabsTrigger value="margin" className="flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                Margins
+              </TabsTrigger>
+              {isRestaurant && <TabsTrigger value="restaurant">Restaurant</TabsTrigger>}
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1644,6 +1666,183 @@ const AdvancedReports = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* GST / Tax Reports Tab */}
+          <TabsContent value="gst" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Percent className="h-5 w-5 text-orange-500" />
+                    Tax Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Total Tax Collected</p>
+                      <p className="text-2xl font-bold text-orange-600">{formatIndianCurrency(metrics.totalTax)}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 border rounded-lg">
+                        <p className="text-xs text-muted-foreground">CGST</p>
+                        <p className="text-lg font-semibold">{formatIndianCurrency(metrics.totalTax / 2)}</p>
+                      </div>
+                      <div className="p-3 border rounded-lg">
+                        <p className="text-xs text-muted-foreground">SGST</p>
+                        <p className="text-lg font-semibold">{formatIndianCurrency(metrics.totalTax / 2)}</p>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">
+                      <Info className="h-3 w-3 inline mr-1" />
+                      Tax split shown is approximate (50/50). Actual split depends on individual product tax configurations.
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tax by Category</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {categoryRevenue.map((cat, index) => {
+                      // Estimate tax assuming ~12% average GST
+                      const estimatedTax = cat.value * 0.12;
+                      return (
+                        <div key={cat.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            <span className="font-medium">{cat.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-orange-600">~{formatIndianCurrency(estimatedTax)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {cat.value > 0 ? ((estimatedTax / metrics.totalTax) * 100).toFixed(1) : 0}% of total tax
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {categoryRevenue.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No category tax data available</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Tax Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={revenueTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" fontSize={12} />
+                    <YAxis tickFormatter={(value) => `₹${(value * 0.12 / 1000).toFixed(0)}k`} fontSize={12} />
+                    <Tooltip formatter={(value: number) => [`₹${(value * 0.12).toFixed(2)}`, 'Est. Tax']} />
+                    <Area type="monotone" dataKey="revenue" name="Tax (est.)" stroke="#f97316" fill="#fed7aa" />
+                  </AreaChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-muted-foreground mt-2 text-center">Estimated tax at ~12% of revenue</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Margin Analysis Tab */}
+          <TabsContent value="margin" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-500" />
+                    Profit Margin Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Overall Profit Margin</p>
+                      <p className="text-3xl font-bold text-green-600">{formatDecimal(metrics.profitMargin)}%</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Gross Profit: {formatIndianCurrency(metrics.totalProfit)} / Revenue: {formatIndianCurrency(metrics.totalRevenue)}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 border rounded-lg border-l-4 border-l-green-500">
+                        <p className="text-xs text-muted-foreground">High Margin</p>
+                        <p className="text-lg font-semibold text-green-600">&gt;30%</p>
+                        <p className="text-xs text-muted-foreground">Excellent</p>
+                      </div>
+                      <div className="p-3 border rounded-lg border-l-4 border-l-yellow-500">
+                        <p className="text-xs text-muted-foreground">Low Margin</p>
+                        <p className="text-lg font-semibold text-yellow-600">&lt;15%</p>
+                        <p className="text-xs text-muted-foreground">Needs attention</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Products by Margin</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {topProducts
+                      .filter(p => p.revenue > 0)
+                      .map((product, index) => {
+                        const margin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
+                        const marginClass = margin > 30 ? 'text-green-600' : margin > 15 ? 'text-yellow-600' : 'text-red-600';
+                        return (
+                          <div key={product.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-mono text-muted-foreground">#{index + 1}</span>
+                              <span className="font-medium truncate max-w-[150px]">{product.name}</span>
+                            </div>
+                            <div className="text-right">
+                              <p className={`font-bold ${marginClass}`}>{formatDecimal(margin)}%</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatIndianCurrency(product.profit)} profit
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {topProducts.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No margin data available</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue vs Profit Comparison</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={productPerformance}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" fontSize={10} angle={-45} textAnchor="end" height={80} />
+                    <YAxis tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} fontSize={12} />
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                    <Legend />
+                    <Bar dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="profit" name="Profit" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {isRestaurant && (
