@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Pencil, Trash2, Search, Package, Phone, Mail, MapPin, X, Eye, FileText, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatIndianCurrency } from "@/lib/numberFormat";
@@ -348,6 +348,9 @@ const Suppliers = () => {
                     <DialogTitle>
                       {editingSupplier ? "Edit Supplier" : "Add New Supplier"}
                     </DialogTitle>
+                    <DialogDescription>
+                      {editingSupplier ? "Update supplier details and product mappings." : "Add a new supplier and map products to them."}
+                    </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -429,30 +432,23 @@ const Suppliers = () => {
                           filteredProducts.map(product => {
                             const isSelected = selectedProducts.includes(product.id);
                             return (
-                              <div
+                              <label
                                 key={product.id}
+                                htmlFor={`product-${product.id}`}
                                 className={`flex items-center gap-2 py-1.5 px-2 hover:bg-muted rounded cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  toggleProduct(product.id);
-                                }}
                               >
                                 <Checkbox
+                                  id={`product-${product.id}`}
                                   checked={isSelected}
-                                  onCheckedChange={(checked) => {
-                                    // Prevent event bubbling
-                                    toggleProduct(product.id);
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
+                                  onCheckedChange={() => toggleProduct(product.id)}
                                 />
-                                <span className="text-sm flex-1">
+                                <span className="text-sm flex-1 pointer-events-none">
                                   {product.name}
                                 </span>
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs pointer-events-none">
                                   {formatIndianCurrency(product.buying_price || 0)}
                                 </Badge>
-                              </div>
+                              </label>
                             );
                           })
                         ) : (
