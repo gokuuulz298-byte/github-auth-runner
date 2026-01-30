@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Package, Truck, CheckCircle2, Clock, Search, X, Eye, Lock, GripVertical, Percent, Users, CreditCard, Wallet, History } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatIndianCurrency } from "@/lib/numberFormat";
@@ -18,6 +18,7 @@ import LoadingButton from "@/components/LoadingButton";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PurchaseItem {
   id: string;
@@ -64,10 +65,10 @@ interface Supplier {
 }
 
 const STATUS_COLUMNS = [
-  { id: 'pending', label: 'Pending', color: 'bg-yellow-500' },
-  { id: 'ordered', label: 'Ordered', color: 'bg-blue-500' },
-  { id: 'received', label: 'Received', color: 'bg-green-500' },
-  { id: 'cancelled', label: 'Cancelled', color: 'bg-red-500' },
+  { id: 'pending', label: 'Pending', color: 'bg-yellow-500', locked: false },
+  { id: 'ordered', label: 'Ordered', color: 'bg-blue-500', locked: false },
+  { id: 'received', label: 'Received', color: 'bg-green-500', locked: true },
+  { id: 'cancelled', label: 'Cancelled', color: 'bg-red-500', locked: false },
 ];
 
 const Purchases = () => {
@@ -119,7 +120,10 @@ const Purchases = () => {
   const fetchPurchases = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
 
       const { data, error } = await supabase
         .from('purchases')
@@ -221,7 +225,6 @@ const Purchases = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Insert payment record
       const { error: paymentError } = await supabase
         .from('purchase_payments')
         .insert({
@@ -234,9 +237,7 @@ const Purchases = () => {
 
       if (paymentError) throw paymentError;
 
-      // Update purchase paid_amount and payment_status
       const newPaidAmount = selectedPurchase.paid_amount + amount;
-      // Use tolerance for floating point comparison
       const isFullyPaid = Math.abs(newPaidAmount - selectedPurchase.total_amount) < 0.01 || newPaidAmount >= selectedPurchase.total_amount;
       const newPaymentStatus = isFullyPaid
         ? 'paid' 
@@ -259,11 +260,9 @@ const Purchases = () => {
       setNewPaymentNotes("");
       setNewPaymentMode("cash");
       
-      // Refresh data
       fetchPayments(selectedPurchase.id);
       fetchPurchases();
       
-      // Update selected purchase locally
       setSelectedPurchase({
         ...selectedPurchase,
         paid_amount: newPaidAmount,
@@ -442,7 +441,6 @@ const Purchases = () => {
             .update({ stock_quantity: newStock })
             .eq('id', item.id);
             
-          // Record inventory movement for inflow
           await supabase
             .from('inventory_movements')
             .insert({
@@ -496,30 +494,16 @@ const Purchases = () => {
 
       if (error) throw error;
 
-      // If received, update stock
       if (newStatus === 'received') {
         const purchase = purchases.find(p => p.id === purchaseId);
         if (purchase) {
-          for (const item of purchase.items_data) {
-            const { data: product } = await supabase
-              .from('products')
-              .select('stock_quantity')
-              .eq('id', item.id)
-              .single();
-
-            if (product) {
-              const newStock = (Number(product.stock_quantity) || 0) + item.quantity;
-              await supabase
-                .from('products')
-                .update({ stock_quantity: newStock })
-                .eq('id', item.id);
-            }
-          }
+          await handleReceivePurchase(purchase);
         }
+      } else {
+        fetchPurchases();
       }
-
+      
       toast.success(`Status updated to ${newStatus}`);
-      fetchPurchases();
     } catch (error) {
       console.error(error);
       toast.error("Failed to update status");
@@ -527,7 +511,7 @@ const Purchases = () => {
   };
 
   const handleDragStart = (e: React.DragEvent, purchase: Purchase) => {
-    // Prevent dragging received orders
+    // Prevent dragging from received status
     if (purchase.status === 'received') {
       e.preventDefault();
       return;
@@ -536,17 +520,31 @@ const Purchases = () => {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, status: string) => {
     e.preventDefault();
+    // Prevent dropping into received column or from received status
+    const column = STATUS_COLUMNS.find(c => c.id === status);
+    if (column?.locked || draggedPurchase?.status === 'received') {
+      e.dataTransfer.dropEffect = 'none';
+      return;
+    }
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent, status: string) => {
+  const handleDrop = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
-    // Prevent changing to received via drag (must use button)
-    // Prevent changing FROM received status
-    if (draggedPurchase && draggedPurchase.status !== status && draggedPurchase.status !== 'received' && status !== 'received') {
-      handleStatusChange(draggedPurchase.id, status);
+    if (!draggedPurchase) return;
+    
+    // Prevent dropping into received column or from received status
+    const column = STATUS_COLUMNS.find(c => c.id === newStatus);
+    if (column?.locked || draggedPurchase.status === 'received') {
+      toast.error("Cannot move orders from/to Received status");
+      setDraggedPurchase(null);
+      return;
+    }
+    
+    if (draggedPurchase.status !== newStatus) {
+      await handleStatusChange(draggedPurchase.id, newStatus);
     }
     setDraggedPurchase(null);
   };
@@ -585,17 +583,14 @@ const Purchases = () => {
     return matchesSearch;
   });
 
-  // Filter products based on selected supplier mapping or all products
   const getFilteredProducts = () => {
     const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
     let productsToShow = products;
     
-    // If supplier is selected and has mapped products, show only mapped ones
     if (selectedSupplier && selectedSupplier.mapped_products && selectedSupplier.mapped_products.length > 0) {
       productsToShow = products.filter(p => selectedSupplier.mapped_products.includes(p.id));
     }
     
-    // Apply search filter
     return productsToShow.filter(p =>
       p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
       p.barcode.includes(productSearch)
@@ -617,17 +612,17 @@ const Purchases = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 overflow-x-hidden">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="container mx-auto px-2 sm:px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-bold">Purchase Orders</h1>
+            <h1 className="text-lg sm:text-xl font-bold">Purchase Orders</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative w-48">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="relative w-32 sm:w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
@@ -640,12 +635,13 @@ const Purchases = () => {
               <DialogTrigger asChild>
                 <Button size="sm" onClick={() => { resetForm(); setDialogOpen(true); }}>
                   <Plus className="h-4 w-4 mr-1" />
-                  New PO
+                  <span className="hidden sm:inline">New PO</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create Purchase Order</DialogTitle>
+                  <DialogDescription>Add supplier details and products to create a new purchase order.</DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left - Supplier & Items */}
@@ -904,95 +900,84 @@ const Purchases = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 py-4 overflow-hidden">
-        {/* Kanban Board - Fixed height with column-level scrolling */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" style={{ height: 'calc(100vh - 140px)' }}>
-          {STATUS_COLUMNS.map(column => {
-            const statusBgColor = 
-              column.id === 'pending' ? 'bg-yellow-50 dark:bg-yellow-950/20' :
-              column.id === 'ordered' ? 'bg-blue-50 dark:bg-blue-950/20' :
-              column.id === 'received' ? 'bg-green-50 dark:bg-green-950/20' :
-              column.id === 'cancelled' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-muted/30';
-            
-            const isLockedColumn = column.id === 'received';
-            
-            return (
+      <main className="container mx-auto px-2 sm:px-4 py-4 overflow-hidden">
+        {/* Kanban Board */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          {STATUS_COLUMNS.map(column => (
             <div
               key={column.id}
-              className={`rounded-lg p-3 ${statusBgColor} border border-opacity-50 flex flex-col ${
-                column.id === 'pending' ? 'border-yellow-200 dark:border-yellow-800' :
-                column.id === 'ordered' ? 'border-blue-200 dark:border-blue-800' :
-                column.id === 'received' ? 'border-green-200 dark:border-green-800' :
-                column.id === 'cancelled' ? 'border-red-200 dark:border-red-800' : ''
-              }`}
-              onDragOver={!isLockedColumn ? handleDragOver : undefined}
-              onDrop={!isLockedColumn ? (e) => handleDrop(e, column.id) : undefined}
+              className="bg-card/50 rounded-lg border min-h-[calc(100vh-180px)]"
+              onDragOver={(e) => handleDragOver(e, column.id)}
+              onDrop={(e) => handleDrop(e, column.id)}
             >
-              <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                <div className={`w-2 h-2 rounded-full ${column.color}`} />
-                <h3 className="font-semibold text-sm">{column.label}</h3>
-                {isLockedColumn && <Lock className="h-3 w-3 text-muted-foreground" />}
-                <Badge variant="secondary" className="ml-auto text-xs">
+              <div className={`${column.color} text-white p-2 sm:p-3 rounded-t-lg flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-xs sm:text-sm">{column.label}</span>
+                  {column.locked && <Lock className="h-3 w-3" />}
+                </div>
+                <Badge variant="secondary" className="bg-white/20 text-white text-xs">
                   {getPurchasesByStatus(column.id).length}
                 </Badge>
               </div>
-              
-              {/* Scrollable cards container */}
-              <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
-                {getPurchasesByStatus(column.id).map(purchase => (
-                  <Card
-                    key={purchase.id}
-                    draggable={purchase.status !== 'received'}
-                    onDragStart={(e) => handleDragStart(e, purchase)}
-                    className={`hover:shadow-md transition-shadow bg-card ${purchase.status !== 'received' ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
-                    onClick={() => {
-                      setSelectedPurchase(purchase);
-                      setDetailDialogOpen(true);
-                    }}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-mono text-xs font-semibold text-primary truncate">
-                            {purchase.purchase_number}
-                          </p>
-                          <p className="text-sm font-medium truncate mt-1">
-                            {purchase.supplier_name || 'No supplier'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {purchase.items_data.length} items
-                          </p>
+              <ScrollArea className="h-[calc(100vh-240px)]">
+                <div className="p-2 space-y-2">
+                  {getPurchasesByStatus(column.id).map(purchase => (
+                    <Card
+                      key={purchase.id}
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${
+                        purchase.status === 'received' ? 'opacity-75' : ''
+                      } ${draggedPurchase?.id === purchase.id ? 'opacity-50' : ''}`}
+                      draggable={purchase.status !== 'received'}
+                      onDragStart={(e) => handleDragStart(e, purchase)}
+                      onClick={() => {
+                        setSelectedPurchase(purchase);
+                        setDetailDialogOpen(true);
+                      }}
+                    >
+                      <CardContent className="p-2 sm:p-3">
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-xs font-semibold truncate">{purchase.purchase_number}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {purchase.supplier_name || 'No supplier'}
+                            </p>
+                          </div>
+                          {purchase.status !== 'received' && (
+                            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 hidden sm:block" />
+                          )}
                         </div>
-                        {purchase.status !== 'received' && <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-                      </div>
-                      <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(purchase.created_at).toLocaleDateString()}
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs sm:text-sm font-semibold text-primary">
+                            {formatIndianCurrency(purchase.total_amount)}
                           </span>
-                          {getPaymentStatusBadge(purchase.payment_status)}
+                          <div className="hidden sm:block">
+                            {getPaymentStatusBadge(purchase.payment_status)}
+                          </div>
                         </div>
-                        <span className="font-semibold text-sm">
-                          {formatIndianCurrency(purchase.total_amount)}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(purchase.created_at).toLocaleDateString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {getPurchasesByStatus(column.id).length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-6">
+                      No orders
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
-          )})}
+          ))}
         </div>
       </main>
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              Purchase Order Details
-              {selectedPurchase?.status === 'received' && <Lock className="h-4 w-4 text-muted-foreground" />}
-            </DialogTitle>
+            <DialogTitle>Purchase Order Details</DialogTitle>
+            <DialogDescription>View and manage purchase order information.</DialogDescription>
           </DialogHeader>
           {selectedPurchase && (
             <Tabs defaultValue="details" className="w-full">
