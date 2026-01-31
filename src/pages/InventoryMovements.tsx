@@ -328,9 +328,9 @@ const InventoryMovements = () => {
               </CardContent>
             </Card>
 
-            {/* Movements Table */}
-            <Card>
-              <ScrollArea className="h-[calc(100vh-500px)]">
+            {/* Movements Table - Extended height */}
+            <Card className="flex-1">
+              <ScrollArea className="h-[calc(100vh-380px)]">
                 <Table>
                   <TableHeader className="sticky top-0 bg-card">
                     <TableRow>

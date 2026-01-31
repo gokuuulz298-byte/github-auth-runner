@@ -784,6 +784,20 @@ const Purchases = () => {
                                     </Button>
                                   </div>
                                 </div>
+                                {/* Quick Quantity Buttons */}
+                                <div className="flex items-center gap-1.5 mt-2">
+                                  {[10, 20, 30].map((addQty) => (
+                                    <Button
+                                      key={addQty}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 px-2 text-[10px] font-medium text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                                      onClick={() => handleUpdateQuantity(item.id, item.quantity + addQty)}
+                                    >
+                                      +{addQty}
+                                    </Button>
+                                  ))}
+                                </div>
                                 {/* Item Discount */}
                                 <div className="flex items-center gap-2 mt-2">
                                   <span className="text-xs text-muted-foreground">Discount:</span>

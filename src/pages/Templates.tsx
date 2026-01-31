@@ -185,19 +185,40 @@ const Templates = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Only fetch the active template first
+      const { data: activeData, error: activeError } = await supabase
         .from('bill_templates')
         .select('*')
-        .eq('created_by', user.id);
+        .eq('created_by', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (activeError && activeError.code !== 'PGRST116') throw activeError;
 
-      if (!data || data.length === 0) {
-        await initializeDefaultTemplates(user.id);
+      if (!activeData) {
+        // No active template, initialize with first default template only
+        await initializeSingleTemplate(user.id);
       } else {
-        setTemplates(data);
-        const active = data.find(t => t.is_active);
-        if (active) setActiveTemplateId(active.id);
+        // Load all default templates for display, but only store the active one in DB
+        const activeTemplateData = activeData.template_data as { layout?: string } || {};
+        const templatesForDisplay = defaultTemplates.map((template, index) => ({
+          id: index === 0 ? activeData.id : `default-${index}`,
+          name: template.name,
+          description: template.description,
+          template_data: template.template_data,
+          is_active: activeTemplateData.layout === template.template_data.layout,
+          created_by: user.id,
+        }));
+        
+        // Update the active template ID based on matching layout
+        const activeIdx = defaultTemplates.findIndex(t => t.template_data.layout === activeTemplateData.layout);
+        if (activeIdx >= 0) {
+          templatesForDisplay[activeIdx].id = activeData.id;
+          templatesForDisplay[activeIdx].is_active = true;
+        }
+        
+        setTemplates(templatesForDisplay as Template[]);
+        setActiveTemplateId(activeData.id);
       }
     } catch (error: any) {
       console.error(error);
@@ -205,29 +226,40 @@ const Templates = () => {
     }
   };
 
-  const initializeDefaultTemplates = async (userId: string) => {
+  const initializeSingleTemplate = async (userId: string) => {
     try {
-      const templatesToInsert = defaultTemplates.map((template, index) => ({
-        ...template,
-        created_by: userId,
-        is_active: index === 0
-      }));
-
+      // Only insert the first template as active
+      const firstTemplate = defaultTemplates[0];
       const { data, error } = await supabase
         .from('bill_templates')
-        .insert(templatesToInsert)
-        .select();
+        .insert([{
+          name: firstTemplate.name,
+          description: firstTemplate.description,
+          template_data: firstTemplate.template_data,
+          created_by: userId,
+          is_active: true
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      setTemplates(data);
-      if (data && data.length > 0) {
-        setActiveTemplateId(data[0].id);
-      }
-      toast.success("Default templates initialized");
+      // Display all templates in UI, but only one is in DB
+      const templatesForDisplay = defaultTemplates.map((template, index) => ({
+        id: index === 0 ? data.id : `default-${index}`,
+        name: template.name,
+        description: template.description,
+        template_data: template.template_data,
+        is_active: index === 0,
+        created_by: userId,
+      }));
+      
+      setTemplates(templatesForDisplay as Template[]);
+      setActiveTemplateId(data.id);
+      toast.success("Template initialized");
     } catch (error: any) {
       console.error(error);
-      toast.error(error.message || "Failed to initialize templates");
+      toast.error(error.message || "Failed to initialize template");
     }
   };
 
@@ -237,23 +269,45 @@ const Templates = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Deactivate all templates for this user only
-      await supabase
-        .from('bill_templates')
-        .update({ is_active: false })
-        .eq('created_by', user.id);
+      // Find the selected template from our display list
+      const selectedTemplate = templates.find(t => t.id === templateId);
+      if (!selectedTemplate) throw new Error("Template not found");
 
-      // Update the selected template - set created_by to current user if not already
-      const { error } = await supabase
-        .from('bill_templates')
-        .update({ is_active: true, created_by: user.id })
-        .eq('id', templateId);
+      // Check if this is a virtual template (not in DB yet)
+      const isVirtualTemplate = templateId.startsWith('default-');
+      
+      if (isVirtualTemplate) {
+        // Update the existing active template with new data instead of creating new row
+        const { error } = await supabase
+          .from('bill_templates')
+          .update({ 
+            name: selectedTemplate.name,
+            description: selectedTemplate.description,
+            template_data: selectedTemplate.template_data,
+            is_active: true 
+          })
+          .eq('created_by', user.id)
+          .eq('is_active', true);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Template already in DB, just make sure it's active
+        await supabase
+          .from('bill_templates')
+          .update({ is_active: false })
+          .eq('created_by', user.id);
+
+        const { error } = await supabase
+          .from('bill_templates')
+          .update({ is_active: true })
+          .eq('id', templateId);
+
+        if (error) throw error;
+      }
 
       setActiveTemplateId(templateId);
       toast.success("Template activated successfully");
-      // Update local state instead of refetching
+      // Update local state
       setTemplates(prev => prev.map(t => ({
         ...t,
         is_active: t.id === templateId
