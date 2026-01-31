@@ -44,6 +44,7 @@ const Analytics = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [counters, setCounters] = useState<any[]>([]);
   const [selectedCounter, setSelectedCounter] = useState<string>("all");
+  const [dailyLoading, setDailyLoading] = useState(false);
 
   useEffect(() => {
     fetchCounters();
@@ -74,7 +75,12 @@ const Analytics = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedDate, selectedCounter]);
+  }, [selectedCounter]);
+
+  // Separate effect for date changes - only refresh daily data without full page loader
+  useEffect(() => {
+    fetchDailyData();
+  }, [selectedDate]);
 
   const fetchCounters = async () => {
     try {
@@ -185,6 +191,7 @@ const Analytics = () => {
   };
 
   const fetchDailyData = async () => {
+    setDailyLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -209,6 +216,8 @@ const Analytics = () => {
       setDailyInvoices((invoices || []) as Invoice[]);
     } catch (error) {
       console.error(error);
+    } finally {
+      setDailyLoading(false);
     }
   };
 

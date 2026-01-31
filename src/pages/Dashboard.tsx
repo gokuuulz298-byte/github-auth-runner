@@ -49,7 +49,8 @@ const Dashboard = () => {
   // Memoized menu items
   const allMenuItems = useMemo(() => [
     { icon: ShoppingCart, label: "Modern Billing", path: "/modern-billing", id: "modern-billing", color: "from-blue-500 to-indigo-500", description: "Visual product grid with categories" },
-    { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", id: "manual-billing", color: "from-purple-500 to-pink-500", description: "Create bills by searching products" },
+    // Manual Billing card temporarily hidden per user request
+    // { icon: ShoppingCart, label: "Manual Billing", path: "/manual-billing", id: "manual-billing", color: "from-purple-500 to-pink-500", description: "Create bills by searching products" },
     { icon: Package, label: "Inventory", path: "/inventory", id: "inventory", color: "from-green-500 to-emerald-500", description: "Manage your product catalog" },
     { icon: AlertTriangle, label: "Low Stocks", path: "/low-stocks", id: "low-stocks", color: "from-yellow-500 to-orange-500", description: "Monitor products with low inventory" },
     { icon: FileText, label: "Invoices", path: "/invoices", id: "invoices", color: "from-orange-500 to-amber-500", description: "View billing history" },

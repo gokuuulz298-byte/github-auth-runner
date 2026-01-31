@@ -104,6 +104,7 @@ const AdvancedReports = () => {
     netProfit: 0,
     purchaseCount: 0,
     pendingPurchases: 0,
+    receivedPurchases: 0,
   });
 
   // Charts Data
@@ -153,8 +154,10 @@ const AdvancedReports = () => {
   }, [timeRange, selectedCounter]);
 
   useEffect(() => {
-    fetchDayWiseData();
-  }, [dayWiseDate]);
+    if (products.length > 0) {
+      fetchDayWiseData();
+    }
+  }, [dayWiseDate, products]);
 
   const fetchProducts = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -695,6 +698,7 @@ const AdvancedReports = () => {
       const totalPurchasesPaid = (purchases || []).reduce((sum, pur) => sum + parseFloat(pur.paid_amount?.toString() || '0'), 0);
       const purchaseCount = (purchases || []).length;
       const pendingPurchases = (purchases || []).filter(p => p.status === 'pending' || p.status === 'ordered').length;
+      const receivedPurchases = (purchases || []).filter(p => p.status === 'received').length;
       
       // Net Profit = Gross Profit - Expenses
       // (PO costs are already reflected in buying_price margin, so we don't subtract again)
@@ -720,6 +724,7 @@ const AdvancedReports = () => {
         netProfit,
         purchaseCount,
         pendingPurchases,
+        receivedPurchases,
       });
 
       setTopProducts(topProductsList);
@@ -871,9 +876,9 @@ const AdvancedReports = () => {
             />
 
             <AnalyticsKPICard
-              title="PURCHASES PAID"
-              value={`₹${metrics.totalPurchases.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-              subtitle={`${metrics.purchaseCount} orders (${metrics.pendingPurchases} pending)`}
+              title="TOTAL PURCHASES"
+              value={`${metrics.receivedPurchases}`}
+              subtitle={`${metrics.purchaseCount} total POs (${metrics.pendingPurchases} pending)`}
               icon={Truck}
               colorScheme="cyan"
             />

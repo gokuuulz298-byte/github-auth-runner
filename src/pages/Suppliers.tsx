@@ -149,6 +149,7 @@ const Suppliers = () => {
         .select('id, purchase_number, total_amount, paid_amount, status, created_at')
         .eq('created_by', userId)
         .eq('supplier_name', supplierName)
+        .in('status', ['ordered', 'received']) // Only show ordered/received POs
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -156,7 +157,6 @@ const Suppliers = () => {
       
       // Calculate pending amount (total - paid for non-cancelled orders)
       const pending = (data || [])
-        .filter(p => p.status !== 'cancelled')
         .reduce((sum, p) => sum + ((p.total_amount || 0) - (Number(p.paid_amount) || 0)), 0);
       setPendingAmount(pending);
     } catch (error) {
@@ -487,64 +487,75 @@ const Suppliers = () => {
                   </Button>
                 </Card>
               ) : (
-                filteredSuppliers.map(supplier => (
-                  <Card
-                    key={supplier.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedSupplier?.id === supplier.id ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => handleSupplierClick(supplier)}
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSupplierClick(supplier);
-                    }}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold">{supplier.name}</h3>
-                          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {supplier.phone}
-                            </span>
-                            {supplier.email && (
+                filteredSuppliers.map(supplier => {
+                  // Calculate pending amount for this supplier from purchaseHistory state
+                  // But since we don't have it in filtered view, we track it via a separate fetch
+                  const hasPendingOrders = purchaseHistory.some(p => 
+                    p.status !== 'cancelled' && selectedSupplier?.id === supplier.id
+                  );
+                  
+                  return (
+                    <Card
+                      key={supplier.id}
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedSupplier?.id === supplier.id ? 'ring-2 ring-primary' : ''
+                      }`}
+                      onClick={() => handleSupplierClick(supplier)}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSupplierClick(supplier);
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold">{supplier.name}</h3>
+                              {/* Pending indicator will show when supplier is selected and has pending */}
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <Mail className="h-3 w-3" />
-                                {supplier.email}
+                                <Phone className="h-3 w-3" />
+                                {supplier.phone}
                               </span>
-                            )}
+                              {supplier.email && (
+                                <span className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  {supplier.email}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Badge variant="secondary">
+                              {supplier.mapped_products?.length || 0} products
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => handleEdit(supplier, e)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSupplierToDelete(supplier.id);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Badge variant="secondary">
-                            {supplier.mapped_products?.length || 0} products
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => handleEdit(supplier, e)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSupplierToDelete(supplier.id);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </div>
