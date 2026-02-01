@@ -456,7 +456,7 @@ const InventoryMovements = () => {
 
             {/* Stock Table */}
             <Card>
-              <ScrollArea className="h-[calc(100vh-320px)]">
+              <ScrollArea className="h-[calc(100vh-450px)]">
                 <Table>
                   <TableHeader className="sticky top-0 bg-card">
                     <TableRow>

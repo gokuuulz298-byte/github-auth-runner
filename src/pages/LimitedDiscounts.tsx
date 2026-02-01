@@ -69,7 +69,6 @@ const LimitedDiscounts = () => {
         .from('products')
         .select('*')
         .eq('created_by', user.id)
-        .eq('is_deleted', false) // Exclude deleted products
         .order('name');
 
       if (error) throw error;
