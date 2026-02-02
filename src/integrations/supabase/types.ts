@@ -666,6 +666,7 @@ export type Database = {
           image_url: string | null
           is_deleted: boolean | null
           is_inclusive: boolean | null
+          is_raw_material: boolean | null
           low_stock_threshold: number | null
           name: string
           price: number
@@ -690,6 +691,7 @@ export type Database = {
           image_url?: string | null
           is_deleted?: boolean | null
           is_inclusive?: boolean | null
+          is_raw_material?: boolean | null
           low_stock_threshold?: number | null
           name: string
           price: number
@@ -714,6 +716,7 @@ export type Database = {
           image_url?: string | null
           is_deleted?: boolean | null
           is_inclusive?: boolean | null
+          is_raw_material?: boolean | null
           low_stock_threshold?: number | null
           name?: string
           price?: number
@@ -857,6 +860,10 @@ export type Database = {
           created_by: string
           current_order_id: string | null
           id: string
+          notes: string | null
+          position_x: number | null
+          position_y: number | null
+          shape: string | null
           status: string | null
           table_number: string
           updated_at: string | null
@@ -867,6 +874,10 @@ export type Database = {
           created_by: string
           current_order_id?: string | null
           id?: string
+          notes?: string | null
+          position_x?: number | null
+          position_y?: number | null
+          shape?: string | null
           status?: string | null
           table_number: string
           updated_at?: string | null
@@ -877,6 +888,10 @@ export type Database = {
           created_by?: string
           current_order_id?: string | null
           id?: string
+          notes?: string | null
+          position_x?: number | null
+          position_y?: number | null
+          shape?: string | null
           status?: string | null
           table_number?: string
           updated_at?: string | null

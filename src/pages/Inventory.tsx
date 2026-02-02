@@ -52,6 +52,7 @@ const Inventory = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [billingSettings, setBillingSettings] = useState<BillingSettings | null>(null);
+  const [viewType, setViewType] = useState<"products" | "raw_materials">("products");
 
   const [formData, setFormData] = useState({
     barcode: "",
@@ -70,6 +71,7 @@ const Inventory = () => {
     price_type: "fixed",
     unit: "piece",
     image_url: "",
+    is_raw_material: false,
   });
   const [isTranslating, setIsTranslating] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -117,6 +119,12 @@ const Inventory = () => {
   useEffect(() => {
     let filtered = products;
     
+    // Filter by view type (Products vs Raw Materials)
+    filtered = filtered.filter(product => {
+      const isRaw = (product as any).is_raw_material || false;
+      return viewType === "raw_materials" ? isRaw : !isRaw;
+    });
+    
     // Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter(product => product.category === selectedCategory);
@@ -131,11 +139,15 @@ const Inventory = () => {
     }
     
     setFilteredProducts(filtered);
-  }, [searchQuery, products, selectedCategory]);
+  }, [searchQuery, products, selectedCategory, viewType]);
 
   const getCategoryCount = (category: string) => {
-    if (category === "All") return products.length;
-    return products.filter(p => p.category === category).length;
+    const typeFiltered = products.filter(p => {
+      const isRaw = (p as any).is_raw_material || false;
+      return viewType === "raw_materials" ? isRaw : !isRaw;
+    });
+    if (category === "All") return typeFiltered.length;
+    return typeFiltered.filter(p => p.category === category).length;
   };
 
   const fetchCategories = async () => {
@@ -239,6 +251,7 @@ const Inventory = () => {
         unit: formData.unit,
         image_url: formData.image_url || null,
         created_by: userId,
+        is_raw_material: formData.is_raw_material || viewType === "raw_materials",
       };
 
       if (editingProduct) {
@@ -302,6 +315,7 @@ const Inventory = () => {
       price_type: product.price_type || "fixed",
       unit: (product as any).unit || "piece",
       image_url: (product as any).image_url || "",
+      is_raw_material: (product as any).is_raw_material || false,
     });
     setSelectedBarcode(product.barcode);
     setDialogOpen(true);
@@ -356,6 +370,7 @@ const Inventory = () => {
       price_type: "fixed",
       unit: "piece",
       image_url: "",
+      is_raw_material: viewType === "raw_materials",
     });
     setEditingProduct(null);
     setSelectedBarcode("");
@@ -508,14 +523,35 @@ const Inventory = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+        <div className="container mx-auto px-4 py-3 flex items-center gap-2 sm:gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Inventory Management</h1>
+          <h1 className="text-lg sm:text-2xl font-bold">Inventory</h1>
+          
+          {/* Products / Raw Materials Switcher */}
+          <div className="flex border rounded-lg p-1 bg-muted/50 ml-2">
+            <Button
+              variant={viewType === "products" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewType("products")}
+              className="h-7 px-3 text-xs"
+            >
+              Products
+            </Button>
+            <Button
+              variant={viewType === "raw_materials" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewType("raw_materials")}
+              className="h-7 px-3 text-xs"
+            >
+              Raw Materials
+            </Button>
+          </div>
+          
           {!isOnline && (
             <span className="ml-auto bg-warning text-warning-foreground px-3 py-1 rounded-full text-sm">
-              Offline Mode
+              Offline
             </span>
           )}
         </div>
@@ -540,13 +576,13 @@ const Inventory = () => {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Add Product
+                Add {viewType === "raw_materials" ? "Raw Material" : "Product"}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
-                  {editingProduct ? "Edit Product" : "Add New Product"}
+                  {editingProduct ? "Edit Item" : `Add New ${viewType === "raw_materials" ? "Raw Material" : "Product"}`}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -896,7 +932,9 @@ const Inventory = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>Products ({filteredProducts.length})</CardTitle>
+            <CardTitle>
+              {viewType === "raw_materials" ? "Raw Materials" : "Products"} ({filteredProducts.length})
+            </CardTitle>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
