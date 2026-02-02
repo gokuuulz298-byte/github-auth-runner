@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt, ChefHat, Users } from "lucide-react";
+import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt, ChefHat, Users, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -28,6 +28,7 @@ interface Staff {
   allowed_modules: string[];
   is_active: boolean;
   show_in_bill: boolean;
+  auth_user_id?: string;
 }
 
 interface StaffCardProps {
@@ -69,6 +70,7 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -97,34 +99,102 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase.from("staff").insert({
-        created_by: user.id,
-        email: formData.email.toLowerCase().trim(),
-        password_hash: formData.password, // In production, hash this
-        display_name: formData.display_name,
-        allowed_modules: formData.allowed_modules,
-        show_in_bill: formData.show_in_bill,
-      });
+      const emailLower = formData.email.toLowerCase().trim();
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Email already exists");
-        } else {
-          throw error;
-        }
+      // Check if email already exists in staff table (for this admin)
+      const { data: existingStaff } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('email', emailLower)
+        .maybeSingle();
+
+      if (existingStaff) {
+        toast.error("A staff member with this email already exists");
+        setIsSubmitting(false);
         return;
       }
 
-      toast.success("Staff member added successfully");
+      // Create Supabase auth user for staff
+      // Note: We use the admin's supabase client to create the user
+      // The user will be able to login with these credentials
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: emailLower,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
+          data: {
+            display_name: formData.display_name,
+            role: 'staff',
+            parent_user_id: user.id
+          }
+        }
+      });
+
+      if (authError) {
+        if (authError.message.includes('already registered')) {
+          toast.error("This email is already registered. Please use a different email.");
+        } else {
+          toast.error(authError.message);
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Insert into staff table with auth_user_id
+      const { error: staffError } = await supabase.from("staff").insert({
+        created_by: user.id,
+        email: emailLower,
+        password_hash: formData.password, // Store for reference (hashed by auth)
+        display_name: formData.display_name,
+        allowed_modules: formData.allowed_modules,
+        show_in_bill: formData.show_in_bill,
+        auth_user_id: authData.user?.id || null,
+      });
+
+      if (staffError) {
+        if (staffError.code === "23505") {
+          toast.error("A staff member with this email already exists");
+        } else {
+          throw staffError;
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Create user_roles entry
+      if (authData.user?.id) {
+        await supabase.from('user_roles').insert({
+          user_id: authData.user.id,
+          role: 'staff',
+          parent_user_id: user.id
+        });
+      }
+
+      toast.success("Staff member added successfully! They can now login with their email and password.");
       resetForm();
       onRefresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to add staff member");
+      toast.error(error.message || "Failed to add staff member");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -134,6 +204,7 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const updateData: any = {
         email: formData.email.toLowerCase().trim(),
@@ -151,31 +222,55 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
         .update(updateData)
         .eq("id", id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("A staff member with this email already exists");
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       toast.success("Staff member updated successfully");
       resetForm();
       onRefresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to update staff member");
+      toast.error(error.message || "Failed to update staff member");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
 
+    setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("staff").delete().eq("id", deleteId);
+      // Get staff info first
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('auth_user_id')
+        .eq('id', deleteId)
+        .single();
 
+      // Delete from staff table
+      const { error } = await supabase.from("staff").delete().eq("id", deleteId);
       if (error) throw error;
+
+      // Delete user_roles entry if exists
+      if (staffData?.auth_user_id) {
+        await supabase.from('user_roles').delete().eq('user_id', staffData.auth_user_id);
+      }
 
       toast.success("Staff member deleted successfully");
       setDeleteId(null);
       onRefresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to delete staff member");
+      toast.error(error.message || "Failed to delete staff member");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -277,7 +372,13 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="john@example.com"
                   className="h-9"
+                  disabled={!!editingId}
                 />
+                {isAdding && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Staff will login using this email
+                  </p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <Label className="text-xs">Password {editingId ? "(leave blank to keep current)" : "*"}</Label>
@@ -286,7 +387,7 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
                     type={showPassword["form"] ? "text" : "password"}
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder={editingId ? "••••••••" : "Enter password"}
+                    placeholder={editingId ? "••••••••" : "Min 6 characters"}
                     className="h-9 pr-8"
                   />
                   <Button
@@ -393,11 +494,21 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
               <Button
                 size="sm"
                 onClick={() => (editingId ? handleUpdate(editingId) : handleAdd())}
+                disabled={isSubmitting}
               >
-                <Check className="h-3 w-3 mr-1" />
-                {editingId ? "Update" : "Add"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    {editingId ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3 mr-1" />
+                    {editingId ? "Update" : "Add"}
+                  </>
+                )}
               </Button>
-              <Button size="sm" variant="outline" onClick={resetForm}>
+              <Button size="sm" variant="outline" onClick={resetForm} disabled={isSubmitting}>
                 <X className="h-3 w-3 mr-1" />
                 Cancel
               </Button>
@@ -479,35 +590,47 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    className="h-8 w-8"
                     onClick={() => setDeleteId(member.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
-
-        {/* Delete Confirmation */}
-        <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete this staff member? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this staff member? This action cannot be undone.
+              The staff member will no longer be able to access the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete} 
+              className="bg-destructive text-destructive-foreground"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

@@ -17,6 +17,7 @@ import {
 import GuidelinesDialog from "@/components/GuidelinesDialog";
 import LiveOrdersPanel from "@/components/LiveOrdersPanel";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import CompanyBadge from "@/components/CompanyBadge";
 
 interface LowStockProduct {
   id: string;
@@ -53,11 +54,12 @@ const DashboardHeader = memo(({
   return (
     <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-20">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           <ShoppingCart className="h-6 w-6 text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold">Eduvanca Billing</h1>
+          <h1 className="text-xl sm:text-2xl font-bold hidden sm:block">Eduvanca Billing</h1>
+          <CompanyBadge />
           {isStaff && (
-            <Badge variant="secondary" className="ml-2 gap-1">
+            <Badge variant="secondary" className="gap-1">
               <UserCog className="h-3 w-3" />
               Staff
             </Badge>
