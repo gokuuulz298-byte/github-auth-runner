@@ -587,7 +587,7 @@ const Inventory = () => {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="barcode">Barcode</Label>
+                  <Label htmlFor="barcode">Barcode / SKU</Label>
                   <Input
                     id="barcode"
                     value={formData.barcode}
@@ -600,7 +600,7 @@ const Inventory = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="name">Product Name</Label>
+                  <Label htmlFor="name">{viewType === "raw_materials" ? "Material" : "Product"} Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -609,140 +609,171 @@ const Inventory = () => {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="tamil_name">Tamil Name (தமிழ் பெயர்)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="tamil_name"
-                      value={formData.tamil_name}
-                      onChange={(e) => setFormData({ ...formData, tamil_name: e.target.value })}
-                      placeholder="தமிழில் பெயர் உள்ளிடவும்"
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={transliterateToTamil}
-                      disabled={isTranslating || !formData.name.trim()}
-                      className="whitespace-nowrap"
-                    >
-                      {isTranslating ? "Converting..." : "Auto Transliterate"}
-                    </Button>
+                {/* Tamil Name - only for products */}
+                {viewType === "products" && (
+                  <div>
+                    <Label htmlFor="tamil_name">Tamil Name (தமிழ் பெயர்)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="tamil_name"
+                        value={formData.tamil_name}
+                        onChange={(e) => setFormData({ ...formData, tamil_name: e.target.value })}
+                        placeholder="தமிழில் பெயர் உள்ளிடவும்"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={transliterateToTamil}
+                        disabled={isTranslating || !formData.name.trim()}
+                        className="whitespace-nowrap"
+                      >
+                        {isTranslating ? "Converting..." : "Auto Transliterate"}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      For bilingual bills - enter Tamil name or use Auto Transliterate (phonetic: milk = மில்க்)
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    For bilingual bills - enter Tamil name or use Auto Transliterate (phonetic: milk = மில்க்)
-                  </p>
-                </div>
+                )}
 
-                <div>
-                  <Label htmlFor="image">Product Image (Max 2MB)</Label>
-                  <div className="relative">
-                    <Input
-                      id="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 2 * 1024 * 1024) {
-                            toast.error("Image size must be less than 2MB");
-                            e.target.value = "";
-                            return;
+                {/* Image - only for products */}
+                {viewType === "products" && (
+                  <div>
+                    <Label htmlFor="image">Product Image (Max 2MB)</Label>
+                    <div className="relative">
+                      <Input
+                        id="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 2 * 1024 * 1024) {
+                              toast.error("Image size must be less than 2MB");
+                              e.target.value = "";
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFormData({ ...formData, image_url: reader.result as string });
+                            };
+                            reader.readAsDataURL(file);
                           }
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setFormData({ ...formData, image_url: reader.result as string });
-                          };
-                          reader.readAsDataURL(file);
+                        }}
+                      />
+                      {formData.image_url && (
+                        <div className="relative inline-block mt-2">
+                          <img src={formData.image_url} alt="Preview" className="w-20 h-20 object-cover rounded" />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-5 w-5"
+                            onClick={() => setFormData({ ...formData, image_url: "" })}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Optional: Upload image for modern billing view
+                    </p>
+                  </div>
+                )}
+
+                {/* Category - only for products */}
+                {viewType === "products" && (
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Price Type - only for products */}
+                {viewType === "products" && (
+                  <div>
+                    <Label htmlFor="price_type">Price Type</Label>
+                    <Select
+                      value={formData.price_type}
+                      onValueChange={(value) => {
+                        if (value === 'weight') {
+                          setFormData({ ...formData, price_type: value, unit: 'kg' });
+                        } else {
+                          setFormData({ ...formData, price_type: value });
                         }
                       }}
-                    />
-                    {formData.image_url && (
-                      <div className="relative inline-block mt-2">
-                        <img src={formData.image_url} alt="Preview" className="w-20 h-20 object-cover rounded" />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute -top-2 -right-2 h-5 w-5"
-                          onClick={() => setFormData({ ...formData, image_url: "" })}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixed Price</SelectItem>
+                        <SelectItem value="weight">Weight Based (per kg)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Optional: Upload image for modern billing view
-                  </p>
-                </div>
+                )}
 
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.name}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="price_type">Price Type</Label>
-                  <Select
-                    value={formData.price_type}
-                    onValueChange={(value) => {
-                      // If weight based, auto-set unit to kg
-                      if (value === 'weight') {
-                        setFormData({ ...formData, price_type: value, unit: 'kg' });
-                      } else {
-                        setFormData({ ...formData, price_type: value });
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fixed">Fixed Price</SelectItem>
-                      <SelectItem value="weight">Weight Based (per kg)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                {/* Price Fields - different for raw materials */}
+                {viewType === "raw_materials" ? (
+                  // Raw Materials - only buying price needed (no selling price)
                   <div>
-                    <Label htmlFor="buying_price">Buying Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
+                    <Label htmlFor="buying_price">Purchase Price (₹)</Label>
                     <Input
                       id="buying_price"
                       type="number"
                       step="0.01"
                       value={formData.buying_price}
-                      onChange={(e) => setFormData({ ...formData, buying_price: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, buying_price: e.target.value, price: e.target.value })}
                       required
                     />
+                    <p className="text-xs text-muted-foreground mt-1">Cost price for internal tracking</p>
                   </div>
-                  <div>
-                    <Label htmlFor="price">Selling Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      required
-                    />
+                ) : (
+                  // Products - both prices
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="buying_price">Buying Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
+                      <Input
+                        id="buying_price"
+                        type="number"
+                        step="0.01"
+                        value={formData.buying_price}
+                        onChange={(e) => setFormData({ ...formData, buying_price: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="price">Selling Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Stock and Low Stock Alert */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="stock">Stock Quantity</Label>
@@ -756,7 +787,7 @@ const Inventory = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="low_stock">Low Stock Alert Threshold</Label>
+                    <Label htmlFor="low_stock">Low Stock Alert</Label>
                     <Input
                       id="low_stock"
                       type="number"
@@ -764,17 +795,18 @@ const Inventory = () => {
                       onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
                       placeholder="10"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Alert when stock falls below</p>
                   </div>
                 </div>
+
+                {/* Unit */}
                 <div>
-                  <Label htmlFor="unit">Unit {formData.price_type === 'weight' && <span className="text-xs text-muted-foreground">(Auto: kg for weight-based)</span>}</Label>
+                  <Label htmlFor="unit">Unit</Label>
                   <Select
                     value={formData.unit}
                     onValueChange={(value) => setFormData({ ...formData, unit: value })}
-                    disabled={formData.price_type === 'weight'}
+                    disabled={viewType === "products" && formData.price_type === 'weight'}
                   >
-                    <SelectTrigger id="unit" className={formData.price_type === 'weight' ? 'bg-muted' : ''}>
+                    <SelectTrigger id="unit">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -791,118 +823,118 @@ const Inventory = () => {
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="hsn">HSN Code</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="hsn"
-                      value={formData.hsn_code}
-                      onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
-                      placeholder="e.g., 1234567"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fetchHsnGst(formData.hsn_code)}
-                      className="whitespace-nowrap"
-                    >
-                      Fetch GST
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => {
-                        if (formData.hsn_code) {
-                          window.open(`https://cleartax.in/s/gst-hsn-lookup?query=${formData.hsn_code}`, '_blank');
-                        } else {
-                          toast.error("Please enter HSN code first");
-                        }
-                      }}
-                      className="whitespace-nowrap"
-                    >
-                      Search
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    "Fetch GST" auto-fills rates, "Search" opens lookup website
-                  </p>
-                </div>
+                {/* HSN, Tax fields - only for products */}
+                {viewType === "products" && (
+                  <>
+                    <div>
+                      <Label htmlFor="hsn">HSN Code</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="hsn"
+                          value={formData.hsn_code}
+                          onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
+                          placeholder="e.g., 1234567"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fetchHsnGst(formData.hsn_code)}
+                          className="whitespace-nowrap"
+                        >
+                          Fetch GST
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            if (formData.hsn_code) {
+                              window.open(`https://cleartax.in/s/gst-hsn-lookup?query=${formData.hsn_code}`, '_blank');
+                            } else {
+                              toast.error("Please enter HSN code first");
+                            }
+                          }}
+                          className="whitespace-nowrap"
+                        >
+                          Search
+                        </Button>
+                      </div>
+                    </div>
 
-                <div>
-                  <Label htmlFor="product_tax">Product Tax (%)</Label>
-                  <Input
-                    id="product_tax"
-                    type="number"
-                    step="0.01"
-                    value={formData.product_tax}
-                    onChange={(e) => {
-                      const taxVal = e.target.value;
-                      setFormData({ ...formData, product_tax: taxVal });
-                      // Auto-split tax equally into CGST and SGST
-                      if (taxVal) {
-                        const totalTax = parseFloat(taxVal) || 0;
-                        const halfTax = (totalTax / 2).toFixed(2);
-                        setFormData(prev => ({
-                          ...prev,
-                          product_tax: taxVal,
-                          cgst: halfTax,
-                          sgst: halfTax
-                        }));
-                      }
-                    }}
-                    placeholder="Auto-splits into CGST+SGST"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Enter total tax % - it will auto-split equally into CGST and SGST
-                  </p>
-                </div>
+                    <div>
+                      <Label htmlFor="product_tax">Product Tax (%)</Label>
+                      <Input
+                        id="product_tax"
+                        type="number"
+                        step="0.01"
+                        value={formData.product_tax}
+                        onChange={(e) => {
+                          const taxVal = e.target.value;
+                          if (taxVal) {
+                            const totalTax = parseFloat(taxVal) || 0;
+                            const halfTax = (totalTax / 2).toFixed(2);
+                            setFormData(prev => ({
+                              ...prev,
+                              product_tax: taxVal,
+                              cgst: halfTax,
+                              sgst: halfTax
+                            }));
+                          } else {
+                            setFormData({ ...formData, product_tax: taxVal });
+                          }
+                        }}
+                        placeholder="Auto-splits into CGST+SGST"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="cgst">CGST (%)</Label>
-                    <Input
-                      id="cgst"
-                      type="number"
-                      step="0.01"
-                      value={formData.cgst}
-                      onChange={(e) => {
-                        const cgstVal = e.target.value;
-                        setFormData({ ...formData, cgst: cgstVal });
-                        // Auto calculate product_tax if both cgst and sgst are provided
-                        if (cgstVal && formData.sgst) {
-                          const total = (parseFloat(cgstVal) || 0) + (parseFloat(formData.sgst) || 0);
-                          setFormData(prev => ({ ...prev, cgst: cgstVal, product_tax: total.toString() }));
-                        }
-                      }}
-                      placeholder="e.g., 9"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="sgst">SGST (%)</Label>
-                    <Input
-                      id="sgst"
-                      type="number"
-                      step="0.01"
-                      value={formData.sgst}
-                      onChange={(e) => {
-                        const sgstVal = e.target.value;
-                        setFormData({ ...formData, sgst: sgstVal });
-                        // Auto calculate product_tax if both cgst and sgst are provided
-                        if (sgstVal && formData.cgst) {
-                          const total = (parseFloat(formData.cgst) || 0) + (parseFloat(sgstVal) || 0);
-                          setFormData(prev => ({ ...prev, sgst: sgstVal, product_tax: total.toString() }));
-                        }
-                      }}
-                      placeholder="e.g., 9"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground -mt-2">
-                  If CGST + SGST are entered, total tax will be auto-calculated (e.g., 9% + 9% = 18%)
-                </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="cgst">CGST (%)</Label>
+                        <Input
+                          id="cgst"
+                          type="number"
+                          step="0.01"
+                          value={formData.cgst}
+                          onChange={(e) => {
+                            const cgstVal = e.target.value;
+                            if (cgstVal && formData.sgst) {
+                              const total = (parseFloat(cgstVal) || 0) + (parseFloat(formData.sgst) || 0);
+                              setFormData(prev => ({ ...prev, cgst: cgstVal, product_tax: total.toString() }));
+                            } else {
+                              setFormData({ ...formData, cgst: cgstVal });
+                            }
+                          }}
+                          placeholder="e.g., 9"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="sgst">SGST (%)</Label>
+                        <Input
+                          id="sgst"
+                          type="number"
+                          step="0.01"
+                          value={formData.sgst}
+                          onChange={(e) => {
+                            const sgstVal = e.target.value;
+                            if (sgstVal && formData.cgst) {
+                              const total = (parseFloat(formData.cgst) || 0) + (parseFloat(sgstVal) || 0);
+                              setFormData(prev => ({ ...prev, sgst: sgstVal, product_tax: total.toString() }));
+                            } else {
+                              setFormData({ ...formData, sgst: sgstVal });
+                            }
+                          }}
+                          placeholder="e.g., 9"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingProduct ? "Update Product" : "Add Product"}
+                  {editingProduct 
+                    ? `Update ${viewType === "raw_materials" ? "Material" : "Product"}` 
+                    : `Add ${viewType === "raw_materials" ? "Material" : "Product"}`
+                  }
                 </Button>
               </form>
             </DialogContent>
@@ -971,27 +1003,30 @@ const Inventory = () => {
                   <TableRow>
                     <TableHead>Barcode</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Selling Price (MRP)</TableHead>
-                    <TableHead>Buying Price</TableHead>
-                    <TableHead className="flex items-center gap-1">
-                      Profit
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="h-3 w-3 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {taxMode === 'inclusive' 
-                              ? 'Base Price (excl. tax) − Buying Price' 
-                              : 'Selling Price − Buying Price'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableHead>
-                    <TableHead>Margin %</TableHead>
+                    {viewType === "products" && <TableHead>Category</TableHead>}
+                    {viewType === "products" && <TableHead>Selling Price (MRP)</TableHead>}
+                    <TableHead>{viewType === "raw_materials" ? "Purchase Price" : "Buying Price"}</TableHead>
+                    {viewType === "products" && (
+                      <TableHead className="flex items-center gap-1">
+                        Profit
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {taxMode === 'inclusive' 
+                                ? 'Base Price (excl. tax) − Buying Price' 
+                                : 'Selling Price − Buying Price'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableHead>
+                    )}
+                    {viewType === "products" && <TableHead>Margin %</TableHead>}
                     <TableHead>Stock</TableHead>
-                    <TableHead>Tax Rate</TableHead>
+                    {viewType === "raw_materials" && <TableHead>Stock Value</TableHead>}
+                    {viewType === "products" && <TableHead>Tax Rate</TableHead>}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1000,56 +1035,64 @@ const Inventory = () => {
                     <TableRow key={product.id}>
                       <TableCell className="font-mono">{product.barcode}</TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.category || '-'}</TableCell>
-                      <TableCell>
-                        ₹{product.price.toFixed(2)}
-                        {product.price_type === 'weight' && '/kg'}
-                      </TableCell>
+                      {viewType === "products" && <TableCell>{product.category || '-'}</TableCell>}
+                      {viewType === "products" && (
+                        <TableCell>
+                          ₹{product.price.toFixed(2)}
+                          {product.price_type === 'weight' && '/kg'}
+                        </TableCell>
+                      )}
                       <TableCell>₹{((product as any).buying_price || 0).toFixed(2)}</TableCell>
-                      <TableCell>
-                        {/* Profit calculation based on tax mode */}
-                        {(() => {
-                          const taxRate = product.tax_rate || 0;
-                          const buyingPrice = (product as any).buying_price || 0;
-                          // For inclusive: Base price = MRP / (1 + Tax%)
-                          // For exclusive: Base price = Selling Price directly
-                          const basePrice = taxMode === 'inclusive' && taxRate > 0 
-                            ? product.price / (1 + taxRate / 100) 
-                            : product.price;
-                          const profit = basePrice - buyingPrice;
-                          const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
-                          return (
-                            <span className={profitColor}>
-                              ₹{profit.toFixed(2)}
-                            </span>
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell>
-                        {/* Profit Margin % = (Profit / Buying Price) × 100 */}
-                        {(() => {
-                          const taxRate = product.tax_rate || 0;
-                          const buyingPrice = (product as any).buying_price || 0;
-                          const basePrice = taxMode === 'inclusive' && taxRate > 0 
-                            ? product.price / (1 + taxRate / 100) 
-                            : product.price;
-                          const profit = basePrice - buyingPrice;
-                          
-                          if (buyingPrice <= 0) return <span className="text-muted-foreground">-</span>;
-                          
-                          const margin = (profit / buyingPrice) * 100;
-                          const marginColor = margin >= 20 ? 'text-green-600' : margin >= 0 ? 'text-amber-600' : 'text-red-600';
-                          return (
-                            <span className={marginColor}>
-                              {margin.toFixed(1)}%
-                            </span>
-                          );
-                        })()}
-                      </TableCell>
+                      {viewType === "products" && (
+                        <TableCell>
+                          {/* Profit calculation based on tax mode */}
+                          {(() => {
+                            const taxRate = product.tax_rate || 0;
+                            const buyingPrice = (product as any).buying_price || 0;
+                            const basePrice = taxMode === 'inclusive' && taxRate > 0 
+                              ? product.price / (1 + taxRate / 100) 
+                              : product.price;
+                            const profit = basePrice - buyingPrice;
+                            const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
+                            return (
+                              <span className={profitColor}>
+                                ₹{profit.toFixed(2)}
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
+                      )}
+                      {viewType === "products" && (
+                        <TableCell>
+                          {(() => {
+                            const taxRate = product.tax_rate || 0;
+                            const buyingPrice = (product as any).buying_price || 0;
+                            const basePrice = taxMode === 'inclusive' && taxRate > 0 
+                              ? product.price / (1 + taxRate / 100) 
+                              : product.price;
+                            const profit = basePrice - buyingPrice;
+                            
+                            if (buyingPrice <= 0) return <span className="text-muted-foreground">-</span>;
+                            
+                            const margin = (profit / buyingPrice) * 100;
+                            const marginColor = margin >= 20 ? 'text-green-600' : margin >= 0 ? 'text-amber-600' : 'text-red-600';
+                            return (
+                              <span className={marginColor}>
+                                {margin.toFixed(1)}%
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
+                      )}
                       <TableCell>
                         {product.stock_quantity} {(product as any).unit || 'piece'}
                       </TableCell>
-                      <TableCell>{product.tax_rate}%</TableCell>
+                      {viewType === "raw_materials" && (
+                        <TableCell className="font-medium text-blue-600">
+                          ₹{((product.stock_quantity || 0) * ((product as any).buying_price || 0)).toFixed(2)}
+                        </TableCell>
+                      )}
+                      {viewType === "products" && <TableCell>{product.tax_rate}%</TableCell>}
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
@@ -1073,8 +1116,8 @@ const Inventory = () => {
                   ))}
                   {filteredProducts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        No products found
+                      <TableCell colSpan={viewType === "raw_materials" ? 6 : 10} className="text-center py-8 text-muted-foreground">
+                        No {viewType === "raw_materials" ? "raw materials" : "products"} found
                       </TableCell>
                     </TableRow>
                   )}

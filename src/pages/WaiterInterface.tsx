@@ -13,12 +13,14 @@ import { ArrowLeft, Plus, Minus, Send, UtensilsCrossed, Package, LogOut, Clipboa
 import { toast } from "sonner";
 import { formatIndianNumber, formatIndianCurrency } from "@/lib/numberFormat";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface CartItem {
   id: string;
   name: string;
   price: number;
   quantity: number;
+  isNew?: boolean; // Track new items when editing
 }
 
 interface LiveOrder {
@@ -51,6 +53,13 @@ interface KitchenOrderItem {
   status: string;
 }
 
+interface ItemStatus {
+  id: string;
+  name: string;
+  quantity: number;
+  status: string;
+}
+
 const WaiterInterface = () => {
   const navigate = useNavigate();
   const { userId, user, loading: authLoading, isWaiter, signOut } = useAuthContext();
@@ -72,6 +81,8 @@ const WaiterInterface = () => {
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<LiveOrder | null>(null);
   const [viewMode, setViewMode] = useState<'order' | 'tables' | 'live-orders'>('order');
+  const [existingOrderItems, setExistingOrderItems] = useState<CartItem[]>([]); // Track existing items when editing
+  const [orderItemStatuses, setOrderItemStatuses] = useState<ItemStatus[]>([]); // Track kitchen statuses
 
   useEffect(() => {
     if (!authLoading && userId) {
@@ -207,7 +218,7 @@ const WaiterInterface = () => {
     if (existingItem) {
       setCartItems(cartItems.map(item =>
         item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: item.quantity + 1, isNew: activeOrderId ? true : item.isNew }
           : item
       ));
     } else {
@@ -216,6 +227,7 @@ const WaiterInterface = () => {
         name: product.name,
         price: Number(product.price),
         quantity: 1,
+        isNew: activeOrderId ? true : false, // Mark as new if editing an order
       }]);
     }
     toast.success(`${product.name} added`);
@@ -238,7 +250,12 @@ const WaiterInterface = () => {
   const sendToKitchen = async () => {
     if (!userId || !user) return;
 
-    if (cartItems.length === 0) {
+    // For editing, check if there are new items to send
+    const newItems = activeOrderId 
+      ? cartItems.filter(item => item.isNew)
+      : cartItems;
+
+    if (newItems.length === 0 && !activeOrderId) {
       toast.error("Add items to send to kitchen");
       return;
     }
@@ -250,65 +267,50 @@ const WaiterInterface = () => {
 
     try {
       const waiterName = waiterInfo?.display_name || user.email?.split('@')[0] || 'Waiter';
-      
-      // For live_orders, don't set waiter_id FK - it references waiters table
-      // Instead just store the waiter name
-      const orderData = {
-        created_by: userId,
-        waiter_id: waiterInfo?.id !== user.id ? waiterInfo?.id : null, // Only set if it's a valid waiter record
-        waiter_name: waiterName,
-        order_type: isParcel ? 'takeaway' : 'dine-in',
-        table_number: isParcel ? null : tableNumber,
-        items_data: cartItems as any,
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
-        status: 'active',
-        total_amount: calculateTotal(),
-        notes: notes || null,
-      };
 
       if (activeOrderId) {
-        // Add to existing order
-        const { data: existingOrder } = await supabase
+        // Update existing order with merged items (existing + new)
+        const mergedItems = cartItems.map(({ isNew, ...item }) => item); // Remove isNew flag
+        const newTotal = mergedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+        await supabase
           .from('live_orders')
-          .select('items_data, total_amount')
-          .eq('id', activeOrderId)
-          .single();
+          .update({
+            items_data: mergedItems as any,
+            total_amount: newTotal,
+            notes: notes || null
+          })
+          .eq('id', activeOrderId);
 
-        if (existingOrder) {
-          const existingItems = (existingOrder.items_data as unknown as CartItem[]) || [];
-          const mergedItems = [...existingItems];
-          
-          cartItems.forEach(newItem => {
-            const existing = mergedItems.find(item => item.id === newItem.id);
-            if (existing) {
-              existing.quantity += newItem.quantity;
-            } else {
-              mergedItems.push(newItem);
-            }
-          });
-
-          const newTotal = mergedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-          await supabase
-            .from('live_orders')
-            .update({
-              items_data: mergedItems as any,
-              total_amount: newTotal,
-              notes: notes || null
-            })
-            .eq('id', activeOrderId);
-
-          toast.success("Items added to order!");
+        // Only send new items to kitchen
+        if (newItems.length > 0) {
+          await supabase.from('kitchen_orders').insert([{
+            created_by: userId,
+            bill_number: `W-${Date.now().toString().slice(-6)}`,
+            order_type: isParcel ? 'takeaway' : 'dine-in',
+            items_data: newItems.map(({ isNew, ...item }) => item) as any,
+            customer_name: customerName || (tableNumber ? `Table ${tableNumber}` : 'Takeaway'),
+            status: 'pending',
+            total_amount: newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            notes: `Waiter: ${waiterName} (Additional)${notes ? ` | ${notes}` : ''}`,
+            item_statuses: newItems.map(item => ({
+              id: item.id,
+              name: item.name,
+              quantity: item.quantity,
+              status: 'pending'
+            })),
+          }]);
         }
+
+        toast.success("Order updated successfully!");
       } else {
-        // Create new order without waiter_id FK constraint issue
+        // Create new order
         const insertData: any = {
           created_by: userId,
           waiter_name: waiterName,
           order_type: isParcel ? 'takeaway' : 'dine-in',
           table_number: isParcel ? null : tableNumber,
-          items_data: cartItems as any,
+          items_data: cartItems.map(({ isNew, ...item }) => item) as any,
           customer_name: customerName || null,
           customer_phone: customerPhone || null,
           status: 'active',
@@ -338,29 +340,31 @@ const WaiterInterface = () => {
             .eq('table_number', tableNumber);
         }
 
+        // Send to kitchen_orders
+        await supabase.from('kitchen_orders').insert([{
+          created_by: userId,
+          bill_number: `W-${Date.now().toString().slice(-6)}`,
+          order_type: isParcel ? 'takeaway' : 'dine-in',
+          items_data: cartItems.map(({ isNew, ...item }) => item) as any,
+          customer_name: customerName || (tableNumber ? `Table ${tableNumber}` : 'Takeaway'),
+          status: 'pending',
+          total_amount: calculateTotal(),
+          notes: `Waiter: ${waiterName}${notes ? ` | ${notes}` : ''}`,
+          item_statuses: cartItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            status: 'pending'
+          })),
+        }]);
+
         toast.success("Order sent to kitchen!");
       }
 
-      // Send to kitchen_orders with waiter name
-      await supabase.from('kitchen_orders').insert([{
-        created_by: userId,
-        bill_number: `W-${Date.now().toString().slice(-6)}`,
-        order_type: isParcel ? 'takeaway' : 'dine-in',
-        items_data: cartItems as any,
-        customer_name: customerName || (tableNumber ? `Table ${tableNumber}` : 'Takeaway'),
-        status: 'pending',
-        total_amount: calculateTotal(),
-        notes: `Waiter: ${waiterName}${notes ? ` | ${notes}` : ''}`,
-        item_statuses: cartItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          status: 'pending'
-        })),
-      }]);
-
       setCartItems([]);
+      setExistingOrderItems([]);
       setNotes("");
+      setActiveOrderId(null);
       fetchLiveOrders();
       fetchTables();
     } catch (error) {
@@ -371,6 +375,7 @@ const WaiterInterface = () => {
 
   const clearOrder = () => {
     setCartItems([]);
+    setExistingOrderItems([]);
     setActiveOrderId(null);
     setTableNumber("");
     setCustomerName("");
@@ -436,7 +441,13 @@ const WaiterInterface = () => {
   };
 
   const loadOrderForEditing = (order: LiveOrder) => {
-    setCartItems(order.items_data || []);
+    // Store existing items and mark them as NOT new
+    const itemsWithStatus = (order.items_data || []).map(item => ({
+      ...item,
+      isNew: false
+    }));
+    setCartItems(itemsWithStatus);
+    setExistingOrderItems(order.items_data || []);
     setActiveOrderId(order.id);
     setTableNumber(order.table_number || '');
     setCustomerName(order.customer_name || '');
@@ -445,6 +456,7 @@ const WaiterInterface = () => {
     setIsParcel(order.order_type === 'takeaway');
     setSelectedOrder(null);
     setViewMode('order');
+    toast.info("Order loaded. Add new items and send to kitchen.");
   };
 
   if (authLoading) {
