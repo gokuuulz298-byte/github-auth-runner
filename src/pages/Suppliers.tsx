@@ -55,6 +55,7 @@ const Suppliers = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistory[]>([]);
   const [pendingAmount, setPendingAmount] = useState<number>(0);
+  const [supplierPendingAmounts, setSupplierPendingAmounts] = useState<{[key: string]: number}>({});
   
   // Form state
   const [formData, setFormData] = useState({
@@ -76,6 +77,7 @@ const Suppliers = () => {
     if (!authLoading && userId) {
       fetchSuppliers();
       fetchProducts();
+      fetchAllPendingAmounts();
     }
   }, [authLoading, userId]);
 
@@ -142,6 +144,28 @@ const Suppliers = () => {
     }
   };
 
+  const fetchAllPendingAmounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('purchases')
+        .select('supplier_name, total_amount, paid_amount')
+        .eq('created_by', userId)
+        .in('status', ['ordered', 'received']);
+
+      if (error) throw error;
+      
+      const pendingBySupplier: {[key: string]: number} = {};
+      (data || []).forEach(p => {
+        const name = p.supplier_name || '';
+        const pending = (p.total_amount || 0) - (Number(p.paid_amount) || 0);
+        pendingBySupplier[name] = (pendingBySupplier[name] || 0) + pending;
+      });
+      setSupplierPendingAmounts(pendingBySupplier);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const fetchPurchaseHistory = async (supplierName: string) => {
     try {
       const { data, error } = await supabase
@@ -149,13 +173,12 @@ const Suppliers = () => {
         .select('id, purchase_number, total_amount, paid_amount, status, created_at')
         .eq('created_by', userId)
         .eq('supplier_name', supplierName)
-        .in('status', ['ordered', 'received']) // Only show ordered/received POs
+        .in('status', ['ordered', 'received'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setPurchaseHistory(data || []);
       
-      // Calculate pending amount (total - paid for non-cancelled orders)
       const pending = (data || [])
         .reduce((sum, p) => sum + ((p.total_amount || 0) - (Number(p.paid_amount) || 0)), 0);
       setPendingAmount(pending);
@@ -527,6 +550,11 @@ const Suppliers = () => {
                             </div>
                           </div>
                           <div className="flex gap-1">
+                            {supplierPendingAmounts[supplier.name] > 0 && (
+                              <Badge variant="destructive" className="text-xs">
+                                ₹{supplierPendingAmounts[supplier.name].toFixed(0)} pending
+                              </Badge>
+                            )}
                             <Badge variant="secondary">
                               {supplier.mapped_products?.length || 0} products
                             </Badge>
