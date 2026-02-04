@@ -1081,6 +1081,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           password: string
+          password_hash: string | null
           updated_at: string | null
           username: string
         }
@@ -1092,6 +1093,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           password: string
+          password_hash?: string | null
           updated_at?: string | null
           username: string
         }
@@ -1103,6 +1105,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           password?: string
+          password_hash?: string | null
           updated_at?: string | null
           username?: string
         }
@@ -1113,6 +1116,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_waiter: {
+        Args: {
+          p_created_by: string
+          p_display_name: string
+          p_password: string
+          p_username: string
+        }
+        Returns: string
+      }
       generate_invoice_number: {
         Args: { p_counter_id: string; p_store_id: string }
         Returns: string
@@ -1124,6 +1136,27 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      update_waiter: {
+        Args: {
+          p_display_name: string
+          p_password: string
+          p_username: string
+          p_waiter_id: string
+        }
+        Returns: boolean
+      }
+      verify_waiter_login: {
+        Args: {
+          p_parent_user_id: string
+          p_password: string
+          p_username: string
+        }
+        Returns: {
+          display_name: string
+          is_active: boolean
+          waiter_id: string
+        }[]
       }
     }
     Enums: {
