@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode, Info, Loader2, X } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode, Info, Loader2, X, ArrowUpDown } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import StockAdjustmentDialog from "@/components/StockAdjustmentDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,6 +54,8 @@ const Inventory = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [billingSettings, setBillingSettings] = useState<BillingSettings | null>(null);
   const [viewType, setViewType] = useState<"products" | "raw_materials">("products");
+  const [stockAdjustProduct, setStockAdjustProduct] = useState<any>(null);
+  const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     barcode: "",
@@ -1094,6 +1097,25 @@ const Inventory = () => {
                       )}
                       {viewType === "products" && <TableCell>{product.tax_rate}%</TableCell>}
                       <TableCell className="text-right">
+                        {viewType === "raw_materials" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setStockAdjustProduct({
+                                id: product.id,
+                                name: product.name,
+                                stock_quantity: product.stock_quantity,
+                                buying_price: (product as any).buying_price,
+                                unit: (product as any).unit,
+                              });
+                              setStockAdjustOpen(true);
+                            }}
+                            title="Adjust Stock"
+                          >
+                            <ArrowUpDown className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1144,6 +1166,15 @@ const Inventory = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Stock Adjustment Dialog for Raw Materials */}
+      <StockAdjustmentDialog
+        open={stockAdjustOpen}
+        onOpenChange={setStockAdjustOpen}
+        product={stockAdjustProduct}
+        userId={userId}
+        onSuccess={fetchProducts}
+      />
     </div>
   );
 };

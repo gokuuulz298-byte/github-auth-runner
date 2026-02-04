@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { UserCircle, Plus, Trash2, Edit2, Eye, EyeOff, Check, X } from "lucide-react";
+import { UserCircle, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,7 @@ interface Waiter {
   username: string;
   display_name: string;
   is_active: boolean;
+  auth_user_id?: string;
 }
 
 interface WaiterCardProps {
@@ -35,30 +36,71 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
+    email: "",
     password: "",
     display_name: "",
   });
 
   const resetForm = () => {
-    setFormData({ username: "", password: "", display_name: "" });
+    setFormData({ username: "", email: "", password: "", display_name: "" });
     setIsAdding(false);
     setEditingId(null);
   };
 
   const handleAdd = async () => {
-    if (!formData.username || !formData.password || !formData.display_name) {
-      toast.error("Please fill all fields");
+    if (!formData.username || !formData.password || !formData.display_name || !formData.email) {
+      toast.error("Please fill all fields including email");
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Use secure RPC function that hashes password server-side
-      const { error } = await supabase.rpc('create_waiter', {
+      const emailLower = formData.email.toLowerCase().trim();
+
+      // 1. Create Supabase Auth user for waiter
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: emailLower,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
+          data: {
+            display_name: formData.display_name,
+            role: 'waiter',
+            parent_user_id: user.id
+          }
+        }
+      });
+
+      if (authError) {
+        if (authError.message.includes('already registered')) {
+          toast.error("This email is already registered. Please use a different email.");
+        } else {
+          toast.error(authError.message);
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 2. Use secure RPC function that hashes password server-side
+      const { data: waiterId, error } = await supabase.rpc('create_waiter', {
         p_username: formData.username,
         p_password: formData.password,
         p_display_name: formData.display_name,
@@ -67,19 +109,37 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
 
       if (error) {
         if (error.code === "23505") {
-          toast.error("Username already exists");
+          toast.error("Username already exists for this account");
         } else {
           throw error;
         }
+        setIsSubmitting(false);
         return;
       }
 
-      toast.success("Waiter added successfully");
+      // 3. Update waiter record with auth_user_id
+      if (authData.user?.id && waiterId) {
+        await supabase
+          .from('waiters')
+          .update({ auth_user_id: authData.user.id })
+          .eq('id', waiterId);
+
+        // 4. Create user_roles entry for waiter
+        await supabase.from('user_roles').insert({
+          user_id: authData.user.id,
+          role: 'waiter',
+          parent_user_id: user.id
+        });
+      }
+
+      toast.success("Waiter added successfully! They can now login with their email.");
       resetForm();
       onRefresh();
     } catch (error) {
       console.error(error);
       toast.error("Failed to add waiter");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -145,6 +205,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
     setEditingId(waiter.id);
     setFormData({
       username: waiter.username,
+      email: "", // Email can't be changed after creation
       password: "", // Password must be re-entered for security
       display_name: waiter.display_name,
     });
@@ -162,10 +223,10 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
           {!isAdding && !editingId && (
             <Button
               size="sm"
-              onClick={() => {
-                setIsAdding(true);
-                setFormData({ username: "", password: "", display_name: "" });
-              }}
+            onClick={() => {
+              setIsAdding(true);
+              setFormData({ username: "", email: "", password: "", display_name: "" });
+            }}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
               <Plus className="h-4 w-4 mr-1" />
@@ -181,34 +242,53 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
             <h4 className="font-medium text-sm">
               {isAdding ? "Add New Waiter" : "Edit Waiter"}
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Display Name</Label>
+                <Label className="text-xs">Display Name *</Label>
                 <Input
                   value={formData.display_name}
                   onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                   placeholder="John Doe"
                   className="h-9"
+                  disabled={isSubmitting}
                 />
               </div>
               <div>
-                <Label className="text-xs">Username</Label>
+                <Label className="text-xs">Username (for quick login) *</Label>
                 <Input
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="john123"
                   className="h-9"
+                  disabled={isSubmitting}
                 />
               </div>
-              <div>
-                <Label className="text-xs">Password</Label>
+              {isAdding && (
+                <div className="sm:col-span-2">
+                  <Label className="text-xs">Email (for device login) *</Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="waiter@example.com"
+                    className="h-9"
+                    disabled={isSubmitting}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Waiter can login directly on their device using this email
+                  </p>
+                </div>
+              )}
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Password *</Label>
                 <div className="relative">
                   <Input
                     type={showPassword["form"] ? "text" : "password"}
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="••••••"
+                    placeholder={editingId ? "Enter new password" : "Min 6 characters"}
                     className="h-9 pr-8"
+                    disabled={isSubmitting}
                   />
                   <Button
                     type="button"
@@ -216,6 +296,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
                     size="icon"
                     className="absolute right-0 top-0 h-9 w-9"
                     onClick={() => setShowPassword({ ...showPassword, form: !showPassword["form"] })}
+                    disabled={isSubmitting}
                   >
                     {showPassword["form"] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                   </Button>
@@ -226,11 +307,21 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
               <Button
                 size="sm"
                 onClick={() => (editingId ? handleUpdate(editingId) : handleAdd())}
+                disabled={isSubmitting}
               >
-                <Check className="h-3 w-3 mr-1" />
-                {editingId ? "Update" : "Add"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    {editingId ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3 mr-1" />
+                    {editingId ? "Update" : "Add Waiter"}
+                  </>
+                )}
               </Button>
-              <Button size="sm" variant="outline" onClick={resetForm}>
+              <Button size="sm" variant="outline" onClick={resetForm} disabled={isSubmitting}>
                 <X className="h-3 w-3 mr-1" />
                 Cancel
               </Button>

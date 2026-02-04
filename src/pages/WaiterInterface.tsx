@@ -173,6 +173,7 @@ const WaiterInterface = () => {
       .select('*')
       .eq('category', category)
       .eq('is_deleted', false)
+      .neq('is_raw_material', true) // Exclude raw materials from waiter interface
       .order('name');
 
     if (error) {
