@@ -3,15 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Monitor, ChefHat, Lock, Eye, EyeOff, UserCircle, ArrowLeft } from "lucide-react";
+import { Monitor, ChefHat, Lock, Eye, EyeOff, UserCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-
-interface Waiter {
-  id: string;
-  username: string;
-  password: string;
-  display_name: string;
-}
+import { supabase } from "@/integrations/supabase/client";
 
 interface InterfaceSelectorProps {
   open: boolean;
@@ -20,7 +14,7 @@ interface InterfaceSelectorProps {
   billingPassword?: string;
   kitchenPassword?: string;
   securityEnabled: boolean;
-  waiters?: Waiter[];
+  parentUserId?: string; // Required for server-side waiter auth
   enableWaiters?: boolean;
 }
 
@@ -31,7 +25,7 @@ const InterfaceSelector = ({
   billingPassword,
   kitchenPassword,
   securityEnabled,
-  waiters = [],
+  parentUserId,
   enableWaiters = false,
 }: InterfaceSelectorProps) => {
   const [selectedInterface, setSelectedInterface] = useState<'billing' | 'kitchen' | 'waiter' | null>(null);
@@ -40,6 +34,7 @@ const InterfaceSelector = ({
   const [waiterPassword, setWaiterPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState<'select' | 'password' | 'waiter-login'>('select');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   if (!open) return null;
 
@@ -74,19 +69,58 @@ const InterfaceSelector = ({
     }
   };
 
-  const handleWaiterLogin = () => {
-    const waiter = waiters.find(w => 
-      w.username === waiterUsername && w.password === waiterPassword
-    );
+  // Server-side waiter authentication
+  const handleWaiterLogin = async () => {
+    if (!parentUserId) {
+      toast.error("Authentication configuration error");
+      return;
+    }
 
-    if (waiter) {
-      onSelect('waiter', { id: waiter.id, name: waiter.display_name });
+    if (!waiterUsername.trim() || !waiterPassword.trim()) {
+      toast.error("Please enter username and password");
+      return;
+    }
+
+    setIsAuthenticating(true);
+    
+    try {
+      // Call secure server-side RPC function to verify credentials
+      const { data, error } = await supabase.rpc('verify_waiter_login', {
+        p_username: waiterUsername.trim(),
+        p_password: waiterPassword,
+        p_parent_user_id: parentUserId,
+      });
+
+      if (error) {
+        console.error('Waiter auth error:', error);
+        toast.error("Authentication failed");
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        toast.error("Invalid waiter credentials");
+        return;
+      }
+
+      const waiter = data[0];
+      
+      if (!waiter.is_active) {
+        toast.error("This waiter account is inactive");
+        return;
+      }
+
+      // Successfully authenticated - proceed with waiter interface
+      onSelect('waiter', { id: waiter.waiter_id, name: waiter.display_name });
       setStep('select');
       setWaiterUsername("");
       setWaiterPassword("");
       setSelectedInterface(null);
-    } else {
-      toast.error("Invalid waiter credentials");
+      
+    } catch (error) {
+      console.error('Waiter login error:', error);
+      toast.error("Login failed. Please try again.");
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -234,6 +268,7 @@ const InterfaceSelector = ({
                     placeholder="Enter username"
                     autoFocus
                     className="h-12 text-lg"
+                    disabled={isAuthenticating}
                   />
                 </div>
 
@@ -246,8 +281,9 @@ const InterfaceSelector = ({
                       value={waiterPassword}
                       onChange={(e) => setWaiterPassword(e.target.value)}
                       placeholder="Enter password"
-                      onKeyDown={(e) => e.key === 'Enter' && handleWaiterLogin()}
+                      onKeyDown={(e) => e.key === 'Enter' && !isAuthenticating && handleWaiterLogin()}
                       className="h-12 text-lg pr-12"
+                      disabled={isAuthenticating}
                     />
                     <Button
                       type="button"
@@ -255,6 +291,7 @@ const InterfaceSelector = ({
                       size="icon"
                       className="absolute right-2 top-1/2 -translate-y-1/2"
                       onClick={() => setShowPassword(!showPassword)}
+                      disabled={isAuthenticating}
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </Button>
@@ -262,12 +299,28 @@ const InterfaceSelector = ({
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <Button variant="outline" onClick={handleBack} className="flex-1 h-12">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleBack} 
+                    className="flex-1 h-12"
+                    disabled={isAuthenticating}
+                  >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back
                   </Button>
-                  <Button onClick={handleWaiterLogin} className="flex-1 h-12 bg-indigo-600 hover:bg-indigo-700">
-                    Login
+                  <Button 
+                    onClick={handleWaiterLogin} 
+                    className="flex-1 h-12 bg-indigo-600 hover:bg-indigo-700"
+                    disabled={isAuthenticating}
+                  >
+                    {isAuthenticating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Login'
+                    )}
                   </Button>
                 </div>
               </div>

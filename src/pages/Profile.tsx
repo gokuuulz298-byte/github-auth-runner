@@ -55,7 +55,6 @@ interface BillingSettings {
 interface Waiter {
   id: string;
   username: string;
-  password: string;
   display_name: string;
   is_active: boolean;
 }
@@ -104,9 +103,10 @@ const Profile = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Only select non-sensitive fields - never fetch passwords
       const { data, error } = await supabase
         .from('waiters')
-        .select('*')
+        .select('id, username, display_name, is_active, created_by, auth_user_id, created_at, updated_at')
         .eq('created_by', user.id)
         .order('display_name');
 

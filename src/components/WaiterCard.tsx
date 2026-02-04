@@ -21,7 +21,6 @@ import {
 interface Waiter {
   id: string;
   username: string;
-  password: string;
   display_name: string;
   is_active: boolean;
 }
@@ -58,11 +57,12 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase.from("waiters").insert({
-        created_by: user.id,
-        username: formData.username,
-        password: formData.password,
-        display_name: formData.display_name,
+      // Use secure RPC function that hashes password server-side
+      const { error } = await supabase.rpc('create_waiter', {
+        p_username: formData.username,
+        p_password: formData.password,
+        p_display_name: formData.display_name,
+        p_created_by: user.id,
       });
 
       if (error) {
@@ -90,14 +90,13 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
     }
 
     try {
-      const { error } = await supabase
-        .from("waiters")
-        .update({
-          username: formData.username,
-          password: formData.password,
-          display_name: formData.display_name,
-        })
-        .eq("id", id);
+      // Use secure RPC function that hashes password server-side
+      const { error } = await supabase.rpc('update_waiter', {
+        p_waiter_id: id,
+        p_username: formData.username,
+        p_password: formData.password,
+        p_display_name: formData.display_name,
+      });
 
       if (error) throw error;
 
@@ -146,7 +145,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
     setEditingId(waiter.id);
     setFormData({
       username: waiter.username,
-      password: waiter.password,
+      password: "", // Password must be re-entered for security
       display_name: waiter.display_name,
     });
     setIsAdding(false);
