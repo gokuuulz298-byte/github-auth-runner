@@ -269,6 +269,7 @@ const ModernBilling = () => {
         .select("*")
         .eq("created_by", user.id)
         .eq("is_deleted", false)
+        .neq("is_raw_material", true) // Exclude raw materials from billing
         .order("name");
 
       if (error) throw error;

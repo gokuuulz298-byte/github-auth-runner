@@ -467,6 +467,9 @@ const Suppliers = () => {
                                 />
                                 <span className="text-sm flex-1 pointer-events-none">
                                   {product.name}
+                                  {product.is_raw_material && (
+                                    <span className="ml-1.5 text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">Raw</span>
+                                  )}
                                 </span>
                                 <Badge variant="outline" className="text-xs pointer-events-none">
                                   {formatIndianCurrency(product.buying_price || 0)}

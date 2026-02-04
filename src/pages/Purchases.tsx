@@ -725,10 +725,15 @@ const Purchases = () => {
                               className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
                               onClick={() => handleAddProduct(product)}
                             >
-                              <div>
+                              <div className="flex items-center gap-2">
                                 <p className="text-sm font-medium">{product.name}</p>
-                                <p className="text-xs text-muted-foreground">{product.barcode}</p>
+                                {product.is_raw_material && (
+                                  <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200">
+                                    Raw Material
+                                  </Badge>
+                                )}
                               </div>
+                              <p className="text-xs text-muted-foreground">{product.barcode}</p>
                               <div className="text-right">
                                 <p className="text-sm font-semibold">{formatIndianCurrency(product.buying_price || product.price)}</p>
                                 <Plus className="h-4 w-4 text-primary ml-auto" />
