@@ -60,6 +60,12 @@ interface ItemStatus {
   status: string;
 }
 
+interface KitchenOrderStatus {
+  bill_number: string;
+  status: string;
+  item_statuses: ItemStatus[] | null;
+}
+
 const WaiterInterface = () => {
   const navigate = useNavigate();
   const { userId, user, loading: authLoading, isWaiter, signOut } = useAuthContext();
@@ -83,6 +89,7 @@ const WaiterInterface = () => {
   const [viewMode, setViewMode] = useState<'order' | 'tables' | 'live-orders'>('order');
   const [existingOrderItems, setExistingOrderItems] = useState<CartItem[]>([]); // Track existing items when editing
   const [orderItemStatuses, setOrderItemStatuses] = useState<ItemStatus[]>([]); // Track kitchen statuses
+  const [kitchenStatuses, setKitchenStatuses] = useState<Map<string, KitchenOrderStatus>>(new Map());
 
   useEffect(() => {
     if (!authLoading && userId) {
@@ -103,9 +110,12 @@ const WaiterInterface = () => {
     }
   }, [selectedCategory, userId]);
 
-  // Realtime subscription for live orders
+  // Realtime subscription for live orders and kitchen statuses
   useEffect(() => {
     if (!userId) return;
+
+    // Initial fetch of kitchen statuses
+    fetchKitchenStatuses();
 
     const channel = supabase
       .channel('waiter-live-orders')
@@ -114,6 +124,7 @@ const WaiterInterface = () => {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kitchen_orders' }, () => {
         fetchLiveOrders();
+        fetchKitchenStatuses(); // Fetch updated kitchen statuses
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, () => {
         fetchTables();
@@ -124,6 +135,28 @@ const WaiterInterface = () => {
       supabase.removeChannel(channel);
     };
   }, [userId]);
+
+  const fetchKitchenStatuses = async () => {
+    if (!userId) return;
+    
+    // Fetch all kitchen orders to get their item statuses
+    const { data, error } = await supabase
+      .from('kitchen_orders')
+      .select('bill_number, status, item_statuses')
+      .neq('status', 'delivered');
+    
+    if (!error && data) {
+      const statusMap = new Map<string, KitchenOrderStatus>();
+      data.forEach((ko) => {
+        statusMap.set(ko.bill_number, {
+          bill_number: ko.bill_number,
+          status: ko.status || 'pending',
+          item_statuses: (ko.item_statuses as unknown) as ItemStatus[] | null
+        });
+      });
+      setKitchenStatuses(statusMap);
+    }
+  };
 
   const fetchWaiterInfo = async () => {
     if (!user?.id) return;
