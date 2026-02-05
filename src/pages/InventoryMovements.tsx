@@ -49,9 +49,12 @@ const InventoryMovements = () => {
   const navigate = useNavigate();
   const { userId, loading: authLoading } = useAuthContext();
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [rawMaterialMovements, setRawMaterialMovements] = useState<InventoryMovement[]>([]);
   const [products, setProducts] = useState<ProductStock[]>([]);
+  const [rawMaterials, setRawMaterials] = useState<ProductStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [rawMaterialSearchTerm, setRawMaterialSearchTerm] = useState("");
   const [movementTypeFilter, setMovementTypeFilter] = useState<string>("all");
   const [referenceTypeFilter, setReferenceTypeFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<string>("7d");
@@ -60,8 +63,13 @@ const InventoryMovements = () => {
 
   useEffect(() => {
     if (!authLoading && userId) {
-      fetchMovements();
-      fetchProducts();
+      // Parallel fetch for faster loading
+      Promise.all([
+        fetchMovements(),
+        fetchRawMaterialMovements(),
+        fetchProducts(),
+        fetchRawMaterials()
+      ]).finally(() => setLoading(false));
     }
   }, [authLoading, userId, dateRange]);
 
@@ -78,36 +86,87 @@ const InventoryMovements = () => {
 
   const fetchMovements = async () => {
     try {
-      setLoading(true);
       const { start, end } = getDateRange();
       
+      // Fetch retail product movements only (join with products to exclude raw materials)
       const { data, error } = await supabase
         .from('inventory_movements')
-        .select('*')
-        .eq('created_by', userId)
+        .select('*, products!inner(is_raw_material)')
+        .eq('products.is_raw_material', false)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Fallback if inner join fails - use filter
+        const { data: allData } = await supabase
+          .from('inventory_movements')
+          .select('*')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
+          .order('created_at', { ascending: false });
+        setMovements((allData || []) as InventoryMovement[]);
+        return;
+      }
       setMovements((data || []) as InventoryMovement[]);
     } catch (error) {
       console.error(error);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchRawMaterialMovements = async () => {
+    try {
+      const { start, end } = getDateRange();
+      
+      // Fetch raw material movements using filter on product name or join
+      const { data, error } = await supabase
+        .from('inventory_movements')
+        .select('*, products!inner(is_raw_material)')
+        .eq('products.is_raw_material', true)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        // If join fails, still set empty
+        setRawMaterialMovements([]);
+        return;
+      }
+      setRawMaterialMovements((data || []) as InventoryMovement[]);
+    } catch (error) {
+      console.error(error);
     }
   };
 
   const fetchProducts = async () => {
     try {
+      // RLS handles filtering - exclude raw materials from retail inventory
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, barcode, category, stock_quantity, buying_price, price, low_stock_threshold, unit')
+        .select('id, name, barcode, category, stock_quantity, buying_price, price, low_stock_threshold, unit, is_raw_material')
         .eq('is_deleted', false)
+        .neq('is_raw_material', true) // Exclude raw materials from stock summary/valuation
         .order('name');
 
       if (error) throw error;
       setProducts((data || []) as ProductStock[]);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchRawMaterials = async () => {
+    try {
+      // Fetch raw materials only
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, barcode, category, stock_quantity, buying_price, price, low_stock_threshold, unit, is_raw_material')
+        .eq('is_deleted', false)
+        .eq('is_raw_material', true)
+        .order('name');
+
+      if (error) throw error;
+      setRawMaterials((data || []) as ProductStock[]);
     } catch (error) {
       console.error(error);
     }
@@ -137,7 +196,26 @@ const InventoryMovements = () => {
     outflowValue: movements.filter(m => m.movement_type === 'outflow').reduce((sum, m) => sum + m.total_value, 0),
   };
 
-  // Stock summary calculations
+  // Raw materials stats
+  const rawMaterialStats = {
+    totalInflow: rawMaterialMovements.filter(m => m.movement_type === 'inflow').reduce((sum, m) => sum + m.quantity, 0),
+    totalOutflow: rawMaterialMovements.filter(m => m.movement_type === 'outflow').reduce((sum, m) => sum + m.quantity, 0),
+    inflowValue: rawMaterialMovements.filter(m => m.movement_type === 'inflow').reduce((sum, m) => sum + m.total_value, 0),
+    outflowValue: rawMaterialMovements.filter(m => m.movement_type === 'outflow').reduce((sum, m) => sum + m.total_value, 0),
+    totalItems: rawMaterials.length,
+    totalStockValue: rawMaterials.reduce((sum, p) => sum + (Number(p.stock_quantity || 0) * Number(p.buying_price || p.price || 0)), 0),
+  };
+
+  // Filter raw material movements
+  const filteredRawMaterialMovements = rawMaterialMovements.filter(m => {
+    const matchesSearch = !rawMaterialSearchTerm || 
+      m.product_name.toLowerCase().includes(rawMaterialSearchTerm.toLowerCase()) ||
+      m.reference_number?.toLowerCase().includes(rawMaterialSearchTerm.toLowerCase());
+    const matchesType = movementTypeFilter === "all" || m.movement_type === movementTypeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  // Stock summary calculations - retail products only
   const stockStats = {
     totalProducts: products.length,
     totalStock: products.reduce((sum, p) => sum + Number(p.stock_quantity || 0), 0),
@@ -195,10 +273,14 @@ const InventoryMovements = () => {
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="overflow-x-auto -mx-2 px-2 pb-2">
-            <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-3 gap-1">
+            <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-4 gap-1">
               <TabsTrigger value="ledger" className="flex items-center gap-2">
                 <RotateCcw className="h-4 w-4" />
-                Movement Ledger
+                Retail Ledger
+              </TabsTrigger>
+              <TabsTrigger value="raw-materials" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Raw Materials
               </TabsTrigger>
               <TabsTrigger value="summary" className="flex items-center gap-2">
                 <Warehouse className="h-4 w-4" />
@@ -383,6 +465,158 @@ const InventoryMovements = () => {
                   </TableBody>
                 </Table>
               </ScrollArea>
+            </Card>
+          </TabsContent>
+
+          {/* Raw Materials Tab */}
+          <TabsContent value="raw-materials" className="space-y-4">
+            {/* Raw Materials Summary Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white border-0 shadow-lg">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-100">Raw Materials</p>
+                      <p className="text-2xl font-bold">{rawMaterialStats.totalItems}</p>
+                    </div>
+                    <Package className="h-8 w-8 text-purple-200" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-100">Total Inflow</p>
+                      <p className="text-2xl font-bold">+{rawMaterialStats.totalInflow.toFixed(2)}</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-green-200" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-red-500 to-rose-600 text-white border-0 shadow-lg">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-100">Total Outflow</p>
+                      <p className="text-2xl font-bold">-{rawMaterialStats.totalOutflow.toFixed(2)}</p>
+                    </div>
+                    <TrendingDown className="h-8 w-8 text-red-200" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0 shadow-lg">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-amber-100">Stock Value</p>
+                      <p className="text-lg font-bold">{formatIndianCurrency(rawMaterialStats.totalStockValue)}</p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-amber-200" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Search */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search raw material movements..."
+                    value={rawMaterialSearchTerm}
+                    onChange={(e) => setRawMaterialSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Raw Material Movements Table */}
+            <Card className="flex-1">
+              <ScrollArea className="h-[calc(100vh-480px)]">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card">
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Raw Material</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Value</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRawMaterialMovements.length > 0 ? (
+                      filteredRawMaterialMovements.map((movement, idx) => (
+                        <TableRow key={movement.id} className="stagger-item" style={{ animationDelay: `${idx * 20}ms` }}>
+                          <TableCell className="text-sm">
+                            {format(new Date(movement.created_at), "dd MMM, HH:mm")}
+                          </TableCell>
+                          <TableCell className="font-medium">{movement.product_name}</TableCell>
+                          <TableCell>{getMovementBadge(movement.movement_type)}</TableCell>
+                          <TableCell>{getReferenceBadge(movement.reference_type)}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            <span className={movement.movement_type === 'inflow' ? 'text-green-600' : movement.movement_type === 'outflow' ? 'text-red-600' : ''}>
+                              {movement.movement_type === 'inflow' ? '+' : movement.movement_type === 'outflow' ? '-' : ''}
+                              {movement.quantity.toFixed(2)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatIndianCurrency(movement.total_value)}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-32 truncate">
+                            {movement.notes || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-12">
+                          <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                          <p className="text-muted-foreground">No raw material movements found</p>
+                          <p className="text-sm text-muted-foreground/70">Record stock adjustments from Inventory → Raw Materials</p>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </Card>
+
+            {/* Current Raw Material Stock */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Current Raw Material Stock</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48">
+                  <div className="space-y-2">
+                    {rawMaterials.map((rm) => (
+                      <div key={rm.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <div>
+                          <p className="font-medium">{rm.name}</p>
+                          <p className="text-xs text-muted-foreground">{rm.category || 'Uncategorized'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">{Number(rm.stock_quantity).toFixed(2)} {rm.unit}</p>
+                          <p className="text-xs text-muted-foreground">
+                            @ {formatIndianCurrency(rm.buying_price || rm.price)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {rawMaterials.length === 0 && (
+                      <p className="text-center text-muted-foreground py-4">No raw materials found</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
             </Card>
           </TabsContent>
 
