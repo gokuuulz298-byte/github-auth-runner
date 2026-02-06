@@ -39,32 +39,24 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
-    email: "",
     password: "",
     display_name: "",
   });
 
   const resetForm = () => {
-    setFormData({ username: "", email: "", password: "", display_name: "" });
+    setFormData({ username: "", password: "", display_name: "" });
     setIsAdding(false);
     setEditingId(null);
   };
 
   const handleAdd = async () => {
-    if (!formData.username || !formData.password || !formData.display_name || !formData.email) {
-      toast.error("Please fill all fields including email");
+    if (!formData.username || !formData.password || !formData.display_name) {
+      toast.error("Please fill all required fields");
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      toast.error("Please enter a valid email address");
+    if (formData.password.length < 4) {
+      toast.error("Password must be at least 4 characters");
       return;
     }
 
@@ -73,33 +65,8 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const emailLower = formData.email.toLowerCase().trim();
-
-      // 1. Create Supabase Auth user for waiter
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: emailLower,
-        password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth`,
-          data: {
-            display_name: formData.display_name,
-            role: 'waiter',
-            parent_user_id: user.id
-          }
-        }
-      });
-
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          toast.error("This email is already registered. Please use a different email.");
-        } else {
-          toast.error(authError.message);
-        }
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 2. Use secure RPC function that hashes password server-side
+      // Use secure RPC function that hashes password server-side
+      // No Supabase Auth account is created - waiters only login via username/password
       const { data: waiterId, error } = await supabase.rpc('create_waiter', {
         p_username: formData.username,
         p_password: formData.password,
@@ -117,22 +84,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
         return;
       }
 
-      // 3. Update waiter record with auth_user_id
-      if (authData.user?.id && waiterId) {
-        await supabase
-          .from('waiters')
-          .update({ auth_user_id: authData.user.id })
-          .eq('id', waiterId);
-
-        // 4. Create user_roles entry for waiter
-        await supabase.from('user_roles').insert({
-          user_id: authData.user.id,
-          role: 'waiter',
-          parent_user_id: user.id
-        });
-      }
-
-      toast.success("Waiter added successfully! They can now login with their email.");
+      toast.success("Waiter added successfully! They can login using the Interface Selector.");
       resetForm();
       onRefresh();
     } catch (error) {
@@ -205,7 +157,6 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
     setEditingId(waiter.id);
     setFormData({
       username: waiter.username,
-      email: "", // Email can't be changed after creation
       password: "", // Password must be re-entered for security
       display_name: waiter.display_name,
     });
@@ -225,7 +176,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
               size="sm"
             onClick={() => {
               setIsAdding(true);
-              setFormData({ username: "", email: "", password: "", display_name: "" });
+              setFormData({ username: "", password: "", display_name: "" });
             }}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
@@ -263,22 +214,6 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
                   disabled={isSubmitting}
                 />
               </div>
-              {isAdding && (
-                <div className="sm:col-span-2">
-                  <Label className="text-xs">Email (for device login) *</Label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="waiter@example.com"
-                    className="h-9"
-                    disabled={isSubmitting}
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Waiter can login directly on their device using this email
-                  </p>
-                </div>
-              )}
               <div className="sm:col-span-2">
                 <Label className="text-xs">Password *</Label>
                 <div className="relative">

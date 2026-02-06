@@ -700,9 +700,12 @@ const AdvancedReports = () => {
       const pendingPurchases = (purchases || []).filter(p => p.status === 'pending' || p.status === 'ordered').length;
       const receivedPurchases = (purchases || []).filter(p => p.status === 'received').length;
       
-      // Net Profit = Gross Profit - Expenses
-      // (PO costs are already reflected in buying_price margin, so we don't subtract again)
-      const netProfit = grossProfit - totalExpenses;
+      // Net Profit calculation:
+      // - Restaurant mode: Revenue - Expenses - Purchases (no cost price tracking)
+      // - Retail mode: Gross Profit - Expenses (cost price is tracked)
+      const netProfit = isRestaurant 
+        ? totalRevenue - totalExpenses - totalPurchasesPaid
+        : grossProfit - totalExpenses;
 
       setMetrics({
         totalRevenue,
@@ -840,13 +843,16 @@ const AdvancedReports = () => {
               trend={{ value: metrics.growthRate, isPositive: metrics.growthRate >= 0 }}
             />
             
-            <AnalyticsKPICard
-              title="GROSS PROFIT"
-              value={`₹${metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-              subtitle={`${metrics.profitMargin.toFixed(1)}% margin`}
-              icon={TrendingUp}
-              colorScheme="green"
-            />
+            {/* Only show Gross Profit when NOT in restaurant mode */}
+            {!isRestaurant && (
+              <AnalyticsKPICard
+                title="GROSS PROFIT"
+                value={`₹${metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                subtitle={`${metrics.profitMargin.toFixed(1)}% margin`}
+                icon={TrendingUp}
+                colorScheme="green"
+              />
+            )}
 
             <AnalyticsKPICard
               title="TOTAL ORDERS"

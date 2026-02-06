@@ -6,10 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp, UtensilsCrossed, User } from "lucide-react";
+import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp } from "lucide-react";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
-
-type LoginMode = 'admin' | 'waiter';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -20,7 +18,6 @@ const Auth = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMode, setLoginMode] = useState<LoginMode>('admin');
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -29,20 +26,7 @@ const Auth = () => {
         setUser(session?.user ?? null);
         
         if (session) {
-          // Check role and redirect accordingly
-          setTimeout(async () => {
-            const { data: roleData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id)
-              .maybeSingle();
-            
-            if (roleData?.role === 'waiter') {
-              navigate("/waiter");
-            } else {
-              navigate("/dashboard");
-            }
-          }, 0);
+          navigate("/dashboard");
         }
       }
     );
@@ -52,19 +36,7 @@ const Auth = () => {
       setUser(session?.user ?? null);
       
       if (session) {
-        // Check role on initial load
-        supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .maybeSingle()
-          .then(({ data: roleData }) => {
-            if (roleData?.role === 'waiter') {
-              navigate("/waiter");
-            } else {
-              navigate("/dashboard");
-            }
-          });
+        navigate("/dashboard");
       }
     });
 
@@ -75,7 +47,7 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
@@ -86,35 +58,7 @@ const Auth = () => {
       return;
     }
 
-    // Check if user is trying to login with correct mode
-    if (data.user) {
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .maybeSingle();
-
-      const userRole = roleData?.role || 'admin';
-
-      if (loginMode === 'waiter' && userRole !== 'waiter') {
-        toast.error("This account is not a waiter account. Please use Admin/Staff login.");
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      if (loginMode === 'admin' && userRole === 'waiter') {
-        toast.error("Waiter accounts must use the Waiter login option.");
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      toast.success("Logged in successfully!");
-      
-      // Navigation will be handled by onAuthStateChange
-    }
-
+    toast.success("Logged in successfully!");
     setLoading(false);
   };
 
@@ -254,112 +198,69 @@ const Auth = () => {
           </CardHeader>
           <CardContent className="pt-4">
             {!showForgotPassword ? (
-              <>
-                {/* Login Mode Switcher */}
-                <div className="flex border rounded-lg p-1 bg-gray-100 mb-6">
-                  <button
-                    type="button"
-                    onClick={() => setLoginMode('admin')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
-                      loginMode === 'admin'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <User className="h-4 w-4" />
-                    Admin / Staff
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLoginMode('waiter')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
-                      loginMode === 'waiter'
-                        ? 'bg-white text-purple-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <UtensilsCrossed className="h-4 w-4" />
-                    Waiter
-                  </button>
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-gray-700 font-medium">
+                    Email Address
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                  />
                 </div>
-
-                <form onSubmit={handleLogin} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-gray-700 font-medium">
-                      Email Address
-                    </Label>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                  <div className="relative">
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
-                    </div>
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className={`w-full h-12 font-semibold text-base ${
-                      loginMode === 'waiter' 
-                        ? 'bg-purple-600 hover:bg-purple-700' 
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    } text-white`}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      <>
-                        {loginMode === 'waiter' ? (
-                          <>
-                            <UtensilsCrossed className="mr-2 h-5 w-5" />
-                            Sign In as Waiter
-                          </>
-                        ) : (
-                          "Sign In"
-                        )}
-                      </>
-                    )}
-                  </Button>
-                  <div className="text-center space-y-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      Forgot your password?
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
-                    <p className="text-sm text-gray-500">
-                      Contact your administrator to create an account
-                    </p>
                   </div>
-                </form>
-              </>
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 font-semibold text-base bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+                <div className="text-center space-y-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                  >
+                    Forgot your password?
+                  </button>
+                  <p className="text-sm text-gray-500">
+                    Contact your administrator to create an account
+                  </p>
+                </div>
+              </form>
             ) : (
               <form onSubmit={handleForgotPassword} className="space-y-5">
                 <div className="space-y-2">
