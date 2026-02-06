@@ -39,6 +39,7 @@ interface BillingSettings {
     mode: "inclusive" | "exclusive";
     inclusiveBillType: "split" | "nosplit";
   };
+  isRestaurant?: boolean;
 }
 
 const Inventory = () => {
@@ -53,6 +54,7 @@ const Inventory = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [billingSettings, setBillingSettings] = useState<BillingSettings | null>(null);
+  const [isRestaurant, setIsRestaurant] = useState(false);
   const [viewType, setViewType] = useState<"products" | "raw_materials">("products");
   const [stockAdjustProduct, setStockAdjustProduct] = useState<any>(null);
   const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
@@ -98,7 +100,9 @@ const Inventory = () => {
         .maybeSingle();
       
       if (data?.billing_settings) {
-        setBillingSettings(data.billing_settings as BillingSettings);
+        const settings = data.billing_settings as BillingSettings;
+        setBillingSettings(settings);
+        setIsRestaurant(settings.isRestaurant || false);
       }
     } catch (error) {
       console.error(error);
@@ -749,19 +753,8 @@ const Inventory = () => {
                     <p className="text-xs text-muted-foreground mt-1">Cost price for internal tracking</p>
                   </div>
                 ) : (
-                  // Products - both prices
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="buying_price">Buying Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
-                      <Input
-                        id="buying_price"
-                        type="number"
-                        step="0.01"
-                        value={formData.buying_price}
-                        onChange={(e) => setFormData({ ...formData, buying_price: e.target.value })}
-                        required
-                      />
-                    </div>
+                  // Products - hide buying price in restaurant mode
+                  isRestaurant ? (
                     <div>
                       <Label htmlFor="price">Selling Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
                       <Input
@@ -773,7 +766,32 @@ const Inventory = () => {
                         required
                       />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="buying_price">Buying Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
+                        <Input
+                          id="buying_price"
+                          type="number"
+                          step="0.01"
+                          value={formData.buying_price}
+                          onChange={(e) => setFormData({ ...formData, buying_price: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="price">Selling Price (₹{formData.price_type === 'weight' ? '/kg' : ''})</Label>
+                        <Input
+                          id="price"
+                          type="number"
+                          step="0.01"
+                          value={formData.price}
+                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                  )
                 )}
 
                 {/* Stock and Low Stock Alert */}
