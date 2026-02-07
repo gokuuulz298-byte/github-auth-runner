@@ -1026,8 +1026,12 @@ const Inventory = () => {
                     <TableHead>Name</TableHead>
                     {viewType === "products" && <TableHead>Category</TableHead>}
                     {viewType === "products" && <TableHead>Selling Price (MRP)</TableHead>}
-                    <TableHead>{viewType === "raw_materials" ? "Purchase Price" : "Buying Price"}</TableHead>
-                    {viewType === "products" && (
+                    {/* Hide Buying Price in restaurant mode for products */}
+                    {(viewType === "raw_materials" || !isRestaurant) && (
+                      <TableHead>{viewType === "raw_materials" ? "Purchase Price" : "Buying Price"}</TableHead>
+                    )}
+                    {/* Hide Profit column in restaurant mode */}
+                    {viewType === "products" && !isRestaurant && (
                       <TableHead className="flex items-center gap-1">
                         Profit
                         <TooltipProvider>
@@ -1044,7 +1048,8 @@ const Inventory = () => {
                         </TooltipProvider>
                       </TableHead>
                     )}
-                    {viewType === "products" && <TableHead>Margin %</TableHead>}
+                    {/* Hide Margin column in restaurant mode */}
+                    {viewType === "products" && !isRestaurant && <TableHead>Margin %</TableHead>}
                     <TableHead>Stock</TableHead>
                     {viewType === "raw_materials" && <TableHead>Stock Value</TableHead>}
                     {viewType === "products" && <TableHead>Tax Rate</TableHead>}
@@ -1063,10 +1068,13 @@ const Inventory = () => {
                           {product.price_type === 'weight' && '/kg'}
                         </TableCell>
                       )}
-                      <TableCell>₹{((product as any).buying_price || 0).toFixed(2)}</TableCell>
-                      {viewType === "products" && (
+                      {/* Hide Buying Price in restaurant mode for products */}
+                      {(viewType === "raw_materials" || !isRestaurant) && (
+                        <TableCell>₹{((product as any).buying_price || 0).toFixed(2)}</TableCell>
+                      )}
+                      {/* Hide Profit column in restaurant mode */}
+                      {viewType === "products" && !isRestaurant && (
                         <TableCell>
-                          {/* Profit calculation based on tax mode */}
                           {(() => {
                             const taxRate = product.tax_rate || 0;
                             const buyingPrice = (product as any).buying_price || 0;
@@ -1083,7 +1091,8 @@ const Inventory = () => {
                           })()}
                         </TableCell>
                       )}
-                      {viewType === "products" && (
+                      {/* Hide Margin column in restaurant mode */}
+                      {viewType === "products" && !isRestaurant && (
                         <TableCell>
                           {(() => {
                             const taxRate = product.tax_rate || 0;
@@ -1156,7 +1165,7 @@ const Inventory = () => {
                   ))}
                   {filteredProducts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={viewType === "raw_materials" ? 6 : 10} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={viewType === "raw_materials" ? 6 : (isRestaurant ? 7 : 10)} className="text-center py-8 text-muted-foreground">
                         No {viewType === "raw_materials" ? "raw materials" : "products"} found
                       </TableCell>
                     </TableRow>

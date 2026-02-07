@@ -547,9 +547,43 @@ const WaiterInterface = () => {
     );
   }
 
-  // Live Orders View
+  // Live Orders View with Kitchen Status
   if (viewMode === 'live-orders') {
     const myOrders = liveOrders.filter(o => waiterInfo && o.waiter_name === waiterInfo.display_name);
+    
+    const getItemKitchenStatus = (orderId: string, itemId: string) => {
+      // Find kitchen order by matching order id in notes or bill_number
+      for (const [billNumber, ks] of kitchenStatuses) {
+        const itemStatus = ks.item_statuses?.find((is: ItemStatus) => is.id === itemId);
+        if (itemStatus) return itemStatus.status;
+      }
+      return 'pending';
+    };
+
+    const getOrderKitchenStatus = (order: LiveOrder) => {
+      // Check all items
+      const items = order.items_data || [];
+      let hasPreparing = false;
+      let allReady = true;
+      
+      for (const item of items) {
+        const status = getItemKitchenStatus(order.id, item.id);
+        if (status !== 'ready') allReady = false;
+        if (status === 'preparing') hasPreparing = true;
+      }
+      
+      if (allReady && items.length > 0) return 'ready';
+      if (hasPreparing) return 'preparing';
+      return 'pending';
+    };
+
+    const getStatusBadge = (status: string) => {
+      switch (status) {
+        case 'ready': return <Badge className="bg-green-500">🍽️ Ready</Badge>;
+        case 'preparing': return <Badge className="bg-blue-500">👨‍🍳 Preparing</Badge>;
+        default: return <Badge className="bg-orange-500">⏳ Pending</Badge>;
+      }
+    };
     
     return (
       <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -574,58 +608,79 @@ const WaiterInterface = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {myOrders.map((order) => (
-                <Card key={order.id}>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-bold text-lg">
-                          {order.table_number ? `Table ${order.table_number}` : 'Takeaway'}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">{order.customer_name || 'Guest'}</p>
-                        {order.customer_phone && (
-                          <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
-                        )}
-                      </div>
-                      <Badge>{order.status}</Badge>
-                    </div>
-                    
-                    <div className="space-y-2 mb-4 border rounded-lg p-3 bg-muted/30">
-                      {(order.items_data || []).map((item: CartItem, idx: number) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span>{item.quantity}× {item.name}</span>
-                          <span>₹{formatIndianNumber(item.price * item.quantity)}</span>
+              {myOrders.map((order) => {
+                const overallStatus = getOrderKitchenStatus(order);
+                
+                return (
+                  <Card key={order.id} className={`border-l-4 ${
+                    overallStatus === 'ready' ? 'border-l-green-500' :
+                    overallStatus === 'preparing' ? 'border-l-blue-500' : 'border-l-orange-500'
+                  }`}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-bold text-lg">
+                            {order.table_number ? `Table ${order.table_number}` : 'Takeaway'}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{order.customer_name || 'Guest'}</p>
+                          {order.customer_phone && (
+                            <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                    
-                    <div className="flex justify-between items-center pt-2 border-t mb-4">
-                      <span className="font-bold">Total</span>
-                      <span className="font-bold text-green-600">{formatIndianCurrency(order.total_amount)}</span>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => loadOrderForEditing(order)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Items
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                        onClick={() => completeOrder(order)}
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Complete
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        {getStatusBadge(overallStatus)}
+                      </div>
+                      
+                      {/* Items with individual status */}
+                      <div className="space-y-2 mb-4 border rounded-lg p-3 bg-muted/30">
+                        {(order.items_data || []).map((item: CartItem, idx: number) => {
+                          const itemStatus = getItemKitchenStatus(order.id, item.id);
+                          return (
+                            <div key={idx} className={`flex justify-between items-center text-sm p-2 rounded ${
+                              itemStatus === 'ready' ? 'bg-green-100 dark:bg-green-900/30' :
+                              itemStatus === 'preparing' ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{item.quantity}× {item.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">₹{formatIndianNumber(item.price * item.quantity)}</span>
+                                {itemStatus === 'ready' && <Badge className="bg-green-500 text-xs">✓</Badge>}
+                                {itemStatus === 'preparing' && <Badge className="bg-blue-500 text-xs">🔥</Badge>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      <div className="flex justify-between items-center pt-2 border-t mb-4">
+                        <span className="font-bold">Total</span>
+                        <span className="font-bold text-green-600">{formatIndianCurrency(order.total_amount)}</span>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => loadOrderForEditing(order)}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Items
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          onClick={() => completeOrder(order)}
+                          disabled={overallStatus !== 'ready'}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          {overallStatus === 'ready' ? 'Complete' : 'Waiting...'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </ScrollArea>
