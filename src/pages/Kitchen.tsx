@@ -4,9 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ChefHat, Clock, CheckCircle2, Truck, RefreshCw, UtensilsCrossed, Volume2, VolumeX, User, MapPin, Timer, Utensils } from "lucide-react";
+import { ArrowLeft, ChefHat, Clock, CheckCircle2, Truck, RefreshCw, UtensilsCrossed, Volume2, VolumeX, User, MapPin, Timer, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -33,29 +32,15 @@ interface KitchenOrder {
   item_statuses: ItemStatus[] | null;
 }
 
-interface LiveOrder {
-  id: string;
-  table_number: string | null;
-  waiter_name: string | null;
-  items_data: any[];
-  status: string;
-  order_type: string;
-  notes: string | null;
-  created_at: string;
-}
-
 const Kitchen = () => {
   const navigate = useNavigate();
   const { userId, loading: authLoading, user } = useAuthContext();
   const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>([]);
-  const [liveOrders, setLiveOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<KitchenOrder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Create audio element for notification sound
   useEffect(() => {
     audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleVN0m8nP1sFVJyNNkMPPtrxxPCYuTXyftaxpQzxMg6q+oXlON0Jkl7a9q4dgSVBxmaW5spBxZW2EpKOilodwYnCIqLS5rpSCe4SWpKWgkX9xZnSJnKStqJqRh4SOkpOQhnxuaHWLnqessJyVkpGTk5OMhH55d4OSnJ+gnJmYl5eWlZSSj4uJiYyPkpSTkpGQj4+OjYyLioqKi4yNjo+PkJCQkJCQkJCQkJCQkJCQkJCQkA==');
     audioRef.current.volume = 0.8;
@@ -70,7 +55,7 @@ const Kitchen = () => {
 
   useEffect(() => {
     if (!authLoading && userId) {
-      fetchAllOrders();
+      fetchOrders();
     } else if (!authLoading && !user) {
       navigate('/auth');
       return;
@@ -84,14 +69,7 @@ const Kitchen = () => {
           playNotificationSound();
           toast.success("🔔 New kitchen order!", { duration: 5000 });
         }
-        fetchAllOrders();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_orders' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          playNotificationSound();
-          toast.success("🔔 New live order!", { duration: 5000 });
-        }
-        fetchAllOrders();
+        fetchOrders();
       })
       .subscribe();
 
@@ -100,49 +78,23 @@ const Kitchen = () => {
     };
   }, [authLoading, userId, user, soundEnabled]);
 
-  const fetchAllOrders = async () => {
+  const fetchOrders = async () => {
     if (!userId) return;
     
     try {
-      // Fetch kitchen orders (RLS handles filtering)
-      const [kitchenRes, liveRes] = await Promise.all([
-        supabase
-          .from('kitchen_orders')
-          .select('*')
-          .neq('status', 'delivered')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('live_orders')
-          .select('*')
-          .neq('status', 'completed')
-          .order('created_at', { ascending: false })
-      ]);
+      const { data, error } = await supabase
+        .from('kitchen_orders')
+        .select('*')
+        .neq('status', 'delivered')
+        .order('created_at', { ascending: true }); // Oldest first for FIFO
 
-      if (kitchenRes.error) throw kitchenRes.error;
-      if (liveRes.error) throw liveRes.error;
-      
-      setKitchenOrders((kitchenRes.data || []) as unknown as KitchenOrder[]);
-      setLiveOrders((liveRes.data || []) as unknown as LiveOrder[]);
+      if (error) throw error;
+      setKitchenOrders((data || []) as unknown as KitchenOrder[]);
     } catch (error) {
       console.error(error);
       toast.error("Failed to fetch orders");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const updateKitchenOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('kitchen_orders')
-        .update({ status: newStatus })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      toast.success(`Order marked as ${newStatus}`);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to update status");
     }
   };
 
@@ -175,37 +127,45 @@ const Kitchen = () => {
 
       if (error) throw error;
       
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, item_statuses: updatedStatuses });
-      }
+      // Optimistic update
+      setKitchenOrders(prev => prev.map(o => 
+        o.id === orderId 
+          ? { ...o, item_statuses: updatedStatuses, status: allReady ? 'ready' : anyPreparing ? 'preparing' : 'pending' }
+          : o
+      ));
     } catch (error) {
       console.error(error);
       toast.error("Failed to update item status");
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-orange-500';
-      case 'preparing': return 'bg-blue-500';
-      case 'ready': return 'bg-green-500';
-      case 'delivered': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+  const markOrderDelivered = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('kitchen_orders')
+        .update({ status: 'delivered' })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order marked as delivered");
+      fetchOrders();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update status");
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'preparing': return <ChefHat className="h-4 w-4" />;
-      case 'ready': return <CheckCircle2 className="h-4 w-4" />;
-      case 'delivered': return <Truck className="h-4 w-4" />;
-      default: return null;
+      case 'pending': return 'bg-orange-500 text-white';
+      case 'preparing': return 'bg-blue-500 text-white';
+      case 'ready': return 'bg-green-500 text-white';
+      default: return 'bg-gray-500 text-white';
     }
   };
 
   const parseOrderInfo = (notes: string | null) => {
-    const info = { waiter: null as string | null, table: null as string | null };
+    const info = { waiter: null as string | null, table: null as string | null, isAdditional: false };
     if (!notes) return info;
     
     const waiterMatch = notes.match(/Waiter:\s*([^|]+)/);
@@ -214,39 +174,36 @@ const Kitchen = () => {
     const tableMatch = notes.match(/Table:\s*([^|]+)/);
     if (tableMatch) info.table = tableMatch[1].trim();
     
+    if (notes.includes('(Additional)')) info.isAdditional = true;
+    
     return info;
   };
 
   const getTimeSince = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    return `${Math.floor(mins / 60)}h ${mins % 60}m ago`;
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   };
 
-  // Combine and filter orders
-  const allOrders = [
-    ...kitchenOrders.map(o => ({ ...o, source: 'kitchen' as const })),
-    ...liveOrders.filter(lo => !kitchenOrders.some(ko => ko.bill_number === lo.id)).map(o => ({ 
-      ...o, 
-      source: 'live' as const,
-      bill_number: o.id.substring(0, 8),
-      total_amount: 0,
-      item_statuses: null
-    }))
-  ];
+  const getTimeUrgency = (dateStr: string) => {
+    const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+    if (mins > 15) return 'urgent';
+    if (mins > 8) return 'warning';
+    return 'normal';
+  };
 
   const filteredOrders = filter === 'all' 
-    ? allOrders 
-    : allOrders.filter(o => o.status === filter);
+    ? kitchenOrders 
+    : kitchenOrders.filter(o => o.status === filter);
 
-  const pendingCount = allOrders.filter(o => o.status === 'pending').length;
-  const preparingCount = allOrders.filter(o => o.status === 'preparing').length;
-  const readyCount = allOrders.filter(o => o.status === 'ready').length;
+  const pendingCount = kitchenOrders.filter(o => o.status === 'pending').length;
+  const preparingCount = kitchenOrders.filter(o => o.status === 'preparing').length;
+  const readyCount = kitchenOrders.filter(o => o.status === 'ready').length;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
       </div>
     );
@@ -270,7 +227,7 @@ const Kitchen = () => {
               <div className="flex items-center gap-3">
                 <UtensilsCrossed className="h-7 w-7" />
                 <div>
-                  <h1 className="text-xl font-bold">Kitchen Display System</h1>
+                  <h1 className="text-xl font-bold">Kitchen Display</h1>
                   <p className="text-orange-100 text-xs">Real-time order tracking</p>
                 </div>
               </div>
@@ -284,7 +241,7 @@ const Kitchen = () => {
               >
                 {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </Button>
-              <Button onClick={fetchAllOrders} variant="secondary" size="sm" className="gap-2">
+              <Button onClick={fetchOrders} variant="secondary" size="sm" className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 Refresh
               </Button>
@@ -304,7 +261,7 @@ const Kitchen = () => {
               className="gap-2 whitespace-nowrap"
             >
               All Orders
-              <Badge variant="secondary" className="ml-1">{allOrders.length}</Badge>
+              <Badge variant="secondary" className="ml-1">{kitchenOrders.length}</Badge>
             </Button>
             <Button
               variant={filter === 'pending' ? 'default' : 'outline'}
@@ -352,140 +309,141 @@ const Kitchen = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredOrders.map((order) => {
               const orderInfo = parseOrderInfo(order.notes);
-              const tableNumber = (order as any).table_number || orderInfo.table;
-              const waiterName = (order as any).waiter_name || orderInfo.waiter;
               const items = order.items_data || [];
-              const itemStatuses = (order as KitchenOrder).item_statuses;
+              const itemStatuses = order.item_statuses || items.map((item: any) => ({
+                id: item.id,
+                name: item.name,
+                quantity: item.quantity,
+                status: 'pending'
+              }));
+              const timeUrgency = getTimeUrgency(order.created_at);
               
               return (
                 <Card 
                   key={order.id} 
-                  className={`overflow-hidden transition-all duration-300 cursor-pointer border-2 ${
+                  className={`overflow-hidden transition-all duration-300 border-2 ${
                     order.status === 'pending' 
-                      ? 'border-orange-500 shadow-orange-500/30 shadow-lg animate-pulse' 
+                      ? 'border-orange-500 shadow-orange-500/30 shadow-lg' 
                       : order.status === 'preparing'
                       ? 'border-blue-500 shadow-blue-500/20 shadow-md'
                       : order.status === 'ready'
                       ? 'border-green-500 shadow-green-500/20 shadow-md'
                       : 'border-slate-600'
-                  } bg-slate-800 hover:bg-slate-700/80`}
-                  onClick={() => order.source === 'kitchen' && setSelectedOrder(order as KitchenOrder)}
+                  } bg-slate-800`}
                 >
                   {/* Order Header */}
-                  <CardHeader className={`py-2 px-3 ${getStatusColor(order.status)} text-white`}>
+                  <CardHeader className={`py-2 px-3 ${getStatusBadgeClass(order.status)}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {getStatusIcon(order.status)}
+                        {order.status === 'pending' && <Clock className="h-4 w-4" />}
+                        {order.status === 'preparing' && <ChefHat className="h-4 w-4" />}
+                        {order.status === 'ready' && <CheckCircle2 className="h-4 w-4" />}
                         <span className="font-bold text-sm uppercase">{order.status}</span>
+                        {orderInfo.isAdditional && (
+                          <Badge className="bg-purple-600 text-xs">+ADD</Badge>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className={`flex items-center gap-1 text-xs ${
+                        timeUrgency === 'urgent' ? 'text-red-200' : 
+                        timeUrgency === 'warning' ? 'text-yellow-200' : 'text-white/80'
+                      }`}>
+                        {timeUrgency === 'urgent' && <Flame className="h-3 w-3" />}
                         <Timer className="h-3 w-3" />
-                        <span className="text-xs">{getTimeSince(order.created_at)}</span>
+                        <span>{getTimeSince(order.created_at)}</span>
                       </div>
                     </div>
                   </CardHeader>
                   
                   <CardContent className="p-3 space-y-3">
-                    {/* Table & Waiter Info */}
-                    <div className="flex items-center justify-between">
-                      {tableNumber && (
+                    {/* Table & Order Info */}
+                    <div className="flex items-center justify-between gap-2">
+                      {order.customer_name?.includes('Table') ? (
                         <div className="flex items-center gap-2 bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded">
                           <MapPin className="h-4 w-4" />
-                          <span className="font-bold">Table {tableNumber}</span>
+                          <span className="font-bold text-sm">{order.customer_name}</span>
                         </div>
+                      ) : (
+                        <span className="text-sm text-slate-300">{order.customer_name || 'Walk-in'}</span>
                       )}
                       {order.order_type === 'takeaway' && (
-                        <Badge className="bg-amber-500 text-white">🥡 TAKEAWAY</Badge>
+                        <Badge className="bg-amber-500 text-white text-xs">🥡 TAKEAWAY</Badge>
                       )}
                     </div>
                     
-                    {waiterName && (
-                      <div className="flex items-center gap-2 text-slate-300 text-sm">
-                        <User className="h-4 w-4 text-indigo-400" />
-                        <span>Waiter: <span className="font-medium">{waiterName}</span></span>
+                    {orderInfo.waiter && (
+                      <div className="flex items-center gap-2 text-slate-300 text-xs">
+                        <User className="h-3 w-3 text-indigo-400" />
+                        <span>Waiter: <span className="font-medium">{orderInfo.waiter}</span></span>
                       </div>
                     )}
 
                     {/* Order Number */}
                     <div className="text-center py-1 border-y border-slate-600">
-                      <span className="text-xs text-slate-400">Order #</span>
+                      <span className="text-xs text-slate-400">Ticket #</span>
                       <p className="font-mono font-bold text-white">{order.bill_number}</p>
                     </div>
 
-                    {/* Items List with Per-Item Status */}
-                    <div className="space-y-2">
-                      {items.slice(0, 5).map((item: any, idx: number) => {
-                        const itemStatus = itemStatuses?.find((s: ItemStatus) => s.id === item.id);
-                        const status = itemStatus?.status || 'pending';
-                        
-                        return (
-                          <div 
-                            key={idx} 
-                            className="flex items-center justify-between text-sm bg-slate-700/50 rounded px-2 py-1.5"
-                          >
-                            <div className="flex items-center gap-2 flex-1">
-                              <span className="font-bold text-orange-400">{item.quantity}×</span>
-                              <span className="text-white truncate">{item.name}</span>
+                    {/* Items List with Per-Item Status Controls */}
+                    <ScrollArea className="max-h-48">
+                      <div className="space-y-2">
+                        {items.map((item: any, idx: number) => {
+                          const itemStatus = itemStatuses.find((s: ItemStatus) => s.id === item.id);
+                          const status = itemStatus?.status || 'pending';
+                          
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`flex items-center justify-between text-sm rounded px-2 py-2 ${
+                                status === 'ready' ? 'bg-green-900/30 border border-green-700' :
+                                status === 'preparing' ? 'bg-blue-900/30 border border-blue-700' :
+                                'bg-slate-700/50 border border-slate-600'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 flex-1">
+                                <span className="font-bold text-orange-400 text-lg">{item.quantity}×</span>
+                                <span className="text-white font-medium">{item.name}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant={status === 'pending' ? 'default' : 'outline'}
+                                  className={`h-7 w-7 p-0 ${status === 'pending' ? 'bg-orange-500' : ''}`}
+                                  onClick={() => updateItemStatus(order.id, item.id, 'pending')}
+                                >
+                                  <Clock className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={status === 'preparing' ? 'default' : 'outline'}
+                                  className={`h-7 w-7 p-0 ${status === 'preparing' ? 'bg-blue-500' : ''}`}
+                                  onClick={() => updateItemStatus(order.id, item.id, 'preparing')}
+                                >
+                                  <ChefHat className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={status === 'ready' ? 'default' : 'outline'}
+                                  className={`h-7 w-7 p-0 ${status === 'ready' ? 'bg-green-500' : ''}`}
+                                  onClick={() => updateItemStatus(order.id, item.id, 'ready')}
+                                >
+                                  <CheckCircle2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
-                            {order.source === 'kitchen' && (
-                              <Badge 
-                                className={`text-xs cursor-pointer ${
-                                  status === 'ready' ? 'bg-green-500' : 
-                                  status === 'preparing' ? 'bg-blue-500' : 'bg-slate-500'
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const nextStatus = status === 'pending' ? 'preparing' : status === 'preparing' ? 'ready' : 'pending';
-                                  updateItemStatus(order.id, item.id, nextStatus as any);
-                                }}
-                              >
-                                {status === 'ready' ? <CheckCircle2 className="h-3 w-3" /> : 
-                                 status === 'preparing' ? <ChefHat className="h-3 w-3" /> : 
-                                 <Clock className="h-3 w-3" />}
-                              </Badge>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {items.length > 5 && (
-                        <p className="text-xs text-slate-400 text-center">+{items.length - 5} more items</p>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    {order.source === 'kitchen' && (
-                      <div className="pt-2">
-                        {order.status === 'pending' && (
-                          <Button 
-                            onClick={(e) => { e.stopPropagation(); updateKitchenOrderStatus(order.id, 'preparing'); }}
-                            className="w-full bg-blue-500 hover:bg-blue-600"
-                            size="sm"
-                          >
-                            <ChefHat className="h-4 w-4 mr-2" />
-                            Start Preparing
-                          </Button>
-                        )}
-                        {order.status === 'preparing' && (
-                          <Button 
-                            onClick={(e) => { e.stopPropagation(); updateKitchenOrderStatus(order.id, 'ready'); }}
-                            className="w-full bg-green-500 hover:bg-green-600"
-                            size="sm"
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Mark Ready
-                          </Button>
-                        )}
-                        {order.status === 'ready' && (
-                          <Button 
-                            onClick={(e) => { e.stopPropagation(); updateKitchenOrderStatus(order.id, 'delivered'); }}
-                            className="w-full bg-slate-600 hover:bg-slate-500"
-                            size="sm"
-                          >
-                            <Truck className="h-4 w-4 mr-2" />
-                            Delivered
-                          </Button>
-                        )}
+                          );
+                        })}
                       </div>
+                    </ScrollArea>
+
+                    {/* Action Button */}
+                    {order.status === 'ready' && (
+                      <Button 
+                        className="w-full bg-green-600 hover:bg-green-700 gap-2"
+                        onClick={() => markOrderDelivered(order.id)}
+                      >
+                        <Truck className="h-4 w-4" />
+                        Mark Delivered
+                      </Button>
                     )}
                   </CardContent>
                 </Card>
@@ -494,85 +452,6 @@ const Kitchen = () => {
           </div>
         )}
       </main>
-
-      {/* Order Detail Dialog */}
-      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Utensils className="h-5 w-5 text-orange-500" />
-              Order #{selectedOrder?.bill_number}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedOrder && (
-            <div className="space-y-4">
-              {/* Order Info */}
-              <div className="flex items-center gap-4 text-sm">
-                <Badge className={getStatusColor(selectedOrder.status)}>
-                  {selectedOrder.status.toUpperCase()}
-                </Badge>
-                <span className="text-slate-400">
-                  {format(new Date(selectedOrder.created_at), 'HH:mm, dd MMM')}
-                </span>
-              </div>
-
-              {/* Items with Status Controls */}
-              <ScrollArea className="h-64">
-                <div className="space-y-2">
-                  {selectedOrder.items_data.map((item: any, idx: number) => {
-                    const itemStatus = selectedOrder.item_statuses?.find((s: ItemStatus) => s.id === item.id);
-                    const status = itemStatus?.status || 'pending';
-                    
-                    return (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
-                        <div>
-                          <span className="font-bold text-orange-400 mr-2">{item.quantity}×</span>
-                          <span>{item.name}</span>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            size="icon"
-                            variant={status === 'pending' ? 'default' : 'outline'}
-                            className={`h-8 w-8 ${status === 'pending' ? 'bg-slate-500' : ''}`}
-                            onClick={() => updateItemStatus(selectedOrder.id, item.id, 'pending')}
-                          >
-                            <Clock className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant={status === 'preparing' ? 'default' : 'outline'}
-                            className={`h-8 w-8 ${status === 'preparing' ? 'bg-blue-500' : ''}`}
-                            onClick={() => updateItemStatus(selectedOrder.id, item.id, 'preparing')}
-                          >
-                            <ChefHat className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant={status === 'ready' ? 'default' : 'outline'}
-                            className={`h-8 w-8 ${status === 'ready' ? 'bg-green-500' : ''}`}
-                            onClick={() => updateItemStatus(selectedOrder.id, item.id, 'ready')}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-
-              {/* Notes */}
-              {selectedOrder.notes && (
-                <div className="p-3 bg-yellow-500/20 rounded-lg">
-                  <p className="text-xs text-yellow-300 font-medium">Notes</p>
-                  <p className="text-sm">{selectedOrder.notes}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
