@@ -7,17 +7,15 @@ import { ArrowLeft, TrendingUp, DollarSign, Package, Users, Calendar, BarChart3,
 import { toast } from "sonner";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PageLoader } from "@/components/common";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
-import AnalyticsKPICard from "@/components/AnalyticsKPICard";
+import { ReportKPICard, ReportChartCard, ReportTabsList, ReportFilterBar, ReportListItem } from "@/components/reports";
 
 interface TopProduct {
   id: string;
@@ -754,733 +752,494 @@ const AdvancedReports = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/5">
+      {/* Zoho-style Header */}
+      <header className="border-b bg-card/95 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+        <div className="container mx-auto px-4 py-3 flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate("/dashboard")}
+            className="hover:bg-primary/10 transition-colors"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl sm:text-2xl font-bold">Advanced Reports</h1>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5">
+              <BarChart3 className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight">Advanced Reports</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">Business Intelligence Dashboard</p>
+            </div>
+          </div>
           <div className="ml-auto">
             <OnlineStatusIndicator />
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
-        {/* Collapsible Filters */}
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                <span className="font-medium">Filters</span>
-                <span className="text-xs text-muted-foreground">
-                  ({timeRange === 'today' ? 'Today' : timeRange === 'week' ? 'This Week' : timeRange === '7d' ? 'Last 7 Days' : timeRange === '30d' ? 'Last 30 Days' : timeRange === '90d' ? 'Last 90 Days' : timeRange === 'month' ? 'This Month' : 'All Time'})
-                </span>
-              </div>
-              {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2">
-            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Time Range</label>
-                    <Select value={timeRange} onValueChange={setTimeRange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="today">Today</SelectItem>
-                        <SelectItem value="week">This Week</SelectItem>
-                        <SelectItem value="7d">Last 7 Days</SelectItem>
-                        <SelectItem value="30d">Last 30 Days</SelectItem>
-                        <SelectItem value="90d">Last 90 Days</SelectItem>
-                        <SelectItem value="month">This Month</SelectItem>
-                        <SelectItem value="all">All Time</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Counter</label>
-                    <Select value={selectedCounter} onValueChange={setSelectedCounter}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Counters</SelectItem>
-                        {counters.map((counter) => (
-                          <SelectItem key={counter.id} value={counter.id}>
-                            {counter.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button onClick={fetchAdvancedData} className="w-full">
-                      <Activity className="mr-2 h-4 w-4" />
-                      Refresh Data
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5">
+        {/* Zoho-style Filter Bar */}
+        <ReportFilterBar
+          timeRange={timeRange}
+          setTimeRange={setTimeRange}
+          selectedCounter={selectedCounter}
+          setSelectedCounter={setSelectedCounter}
+          counters={counters}
+          onRefresh={fetchAdvancedData}
+          isOpen={filtersOpen}
+          setIsOpen={setFiltersOpen}
+        />
 
-        {/* Key Metrics Grid - New CRM-style cards with faded color backgrounds */}
-        <TooltipProvider>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <AnalyticsKPICard
-              title="TOTAL REVENUE"
-              value={`₹${metrics.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-              subtitle={metrics.growthRate >= 0 ? `${metrics.growthRate.toFixed(1)}% growth` : `${Math.abs(metrics.growthRate).toFixed(1)}% decline`}
-              icon={DollarSign}
-              colorScheme="blue"
-              trend={{ value: metrics.growthRate, isPositive: metrics.growthRate >= 0 }}
+        {/* Primary KPI Cards - Zoho CRM Style */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <ReportKPICard
+            title="Total Revenue"
+            value={formatIndianCurrency(metrics.totalRevenue)}
+            subtitle={metrics.growthRate >= 0 ? `${metrics.growthRate.toFixed(1)}% growth` : `${Math.abs(metrics.growthRate).toFixed(1)}% decline`}
+            icon={DollarSign}
+            variant="blue"
+            trend={{ value: metrics.growthRate, isPositive: metrics.growthRate >= 0 }}
+          />
+          
+          {!isRestaurant && (
+            <ReportKPICard
+              title="Gross Profit"
+              value={formatIndianCurrency(metrics.totalProfit)}
+              subtitle={`${metrics.profitMargin.toFixed(1)}% margin`}
+              icon={TrendingUp}
+              variant="green"
             />
-            
-            {/* Only show Gross Profit when NOT in restaurant mode */}
-            {!isRestaurant && (
-              <AnalyticsKPICard
-                title="GROSS PROFIT"
-                value={`₹${metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-                subtitle={`${metrics.profitMargin.toFixed(1)}% margin`}
-                icon={TrendingUp}
-                colorScheme="green"
-              />
-            )}
+          )}
 
-            <AnalyticsKPICard
-              title="TOTAL ORDERS"
-              value={metrics.totalOrders.toString()}
-              subtitle={`Avg: ₹${metrics.averageSale.toFixed(0)}`}
-              icon={ShoppingBag}
-              colorScheme="purple"
-            />
+          <ReportKPICard
+            title="Total Orders"
+            value={metrics.totalOrders.toString()}
+            subtitle={`Avg: ${formatIndianCurrency(metrics.averageSale)}`}
+            icon={ShoppingBag}
+            variant="purple"
+          />
 
-            <AnalyticsKPICard
-              title="TAX COLLECTED"
-              value={`₹${metrics.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-              subtitle="GST amount"
-              icon={Percent}
-              colorScheme="orange"
-            />
-          </div>
-
-          {/* Second row of KPI cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <AnalyticsKPICard
-              title="TOTAL EXPENSES"
-              value={`₹${metrics.totalExpenses.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-              subtitle="Operational costs"
-              icon={Receipt}
-              colorScheme="red"
-            />
-
-            <AnalyticsKPICard
-              title="TOTAL PURCHASES"
-              value={`${metrics.receivedPurchases}`}
-              subtitle={`${metrics.purchaseCount} total POs (${metrics.pendingPurchases} pending)`}
-              icon={Truck}
-              colorScheme="cyan"
-            />
-
-            <AnalyticsKPICard
-              title="NET PROFIT"
-              value={`₹${metrics.netProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-              subtitle="After expenses"
-              icon={metrics.netProfit >= 0 ? TrendingUp : TrendingDown}
-              colorScheme={metrics.netProfit >= 0 ? "emerald" : "red"}
-            />
-
-            <AnalyticsKPICard
-              title="REPEAT CUSTOMERS"
-              value={`${metrics.repeatCustomerRate.toFixed(1)}%`}
-              subtitle={`${metrics.totalCustomers} unique`}
-              icon={Users}
-              colorScheme="indigo"
-            />
-          </div>
-        </TooltipProvider>
-
-        {/* Additional Metrics Row - With Trend Indicators */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="border-l-4 border-l-amber-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Total Tax</CardTitle>
-              <Layers className="h-4 w-4 text-amber-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-xl font-bold">₹{metrics.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <p className="text-xs text-muted-foreground">GST collected</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-indigo-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Avg Items/Order</CardTitle>
-              <Package className="h-4 w-4 text-indigo-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-xl font-bold">{metrics.averageItemsPerOrder.toFixed(1)}</div>
-              <p className="text-xs text-muted-foreground">items per transaction</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-cyan-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Peak Hour</CardTitle>
-              <Flame className="h-4 w-4 text-cyan-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-xl font-bold flex items-center gap-1">
-                {metrics.peakHour}
-                <Sparkles className="h-3 w-3 text-amber-400" />
-              </div>
-              <p className="text-xs text-muted-foreground">busiest time</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-rose-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Peak Day</CardTitle>
-              <Calendar className="h-4 w-4 text-rose-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-xl font-bold flex items-center gap-1">
-                {metrics.peakDay}
-                <Sparkles className="h-3 w-3 text-amber-400" />
-              </div>
-              <p className="text-xs text-muted-foreground">busiest day</p>
-            </CardContent>
-          </Card>
+          <ReportKPICard
+            title="Tax Collected"
+            value={formatIndianCurrency(metrics.totalTax)}
+            subtitle="GST amount"
+            icon={Percent}
+            variant="orange"
+          />
         </div>
 
-        {/* Expenses & Purchases Metrics */}
-        <TooltipProvider>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <Card className="bg-gradient-to-br from-red-500 to-rose-600 text-white border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-1">
-                  <CardTitle className="text-xs sm:text-sm font-medium text-red-100">Total Expenses</CardTitle>
-                  <UITooltip>
-                    <TooltipTrigger>
-                      <Info className="h-3 w-3 text-red-200" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-semibold">Expenses Formula:</p>
-                      <p className="text-xs">Sum of all expense entries in selected period</p>
-                    </TooltipContent>
-                  </UITooltip>
-                </div>
-                <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-red-200" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalExpenses.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                <p className="text-xs text-red-200 mt-1">operational costs</p>
-              </CardContent>
-            </Card>
+        {/* Secondary KPI Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <ReportKPICard
+            title="Expenses"
+            value={formatIndianCurrency(metrics.totalExpenses)}
+            subtitle="Operational costs"
+            icon={Receipt}
+            variant="red"
+          />
 
-            <Card className="bg-gradient-to-br from-cyan-500 to-teal-600 text-white border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-1">
-                  <CardTitle className="text-xs sm:text-sm font-medium text-cyan-100">Total Purchases</CardTitle>
-                  <UITooltip>
-                    <TooltipTrigger>
-                      <Info className="h-3 w-3 text-cyan-200" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-semibold">Purchases Formula:</p>
-                      <p className="text-xs">Sum of all purchase order amounts</p>
-                    </TooltipContent>
-                  </UITooltip>
-                </div>
-                <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-200" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg sm:text-2xl font-bold">₹{metrics.totalPurchases.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                <p className="text-xs text-cyan-200 mt-1">{metrics.purchaseCount} orders ({metrics.pendingPurchases} pending)</p>
-              </CardContent>
-            </Card>
+          <ReportKPICard
+            title="Purchases"
+            value={`${metrics.receivedPurchases} received`}
+            subtitle={`${metrics.pendingPurchases} pending`}
+            icon={Truck}
+            variant="cyan"
+          />
 
-            <Card className="bg-gradient-to-br from-emerald-600 to-green-700 text-white border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-1">
-                  <CardTitle className="text-xs sm:text-sm font-medium text-emerald-100">Net Profit</CardTitle>
-                  <UITooltip>
-                    <TooltipTrigger>
-                      <Info className="h-3 w-3 text-emerald-200" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-semibold">Net Profit Formula:</p>
-                      <p className="text-xs">Gross Profit − Total Expenses</p>
-                      <p className="text-xs mt-1">= ₹{metrics.totalProfit.toFixed(0)} − ₹{metrics.totalExpenses.toFixed(0)}</p>
-                    </TooltipContent>
-                  </UITooltip>
-                </div>
-                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-200" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-lg sm:text-2xl font-bold ${metrics.netProfit < 0 ? 'text-red-200' : ''}`}>
-                  ₹{metrics.netProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </div>
-                <p className="text-xs text-emerald-200 mt-1">after expenses</p>
-              </CardContent>
-            </Card>
+          <ReportKPICard
+            title="Net Profit"
+            value={formatIndianCurrency(metrics.netProfit)}
+            subtitle="After all deductions"
+            icon={metrics.netProfit >= 0 ? TrendingUp : TrendingDown}
+            variant={metrics.netProfit >= 0 ? "emerald" : "red"}
+          />
 
-            <Card className="border-l-4 border-l-violet-500">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Expense Ratio</CardTitle>
-                <Wallet className="h-4 w-4 text-violet-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg sm:text-xl font-bold">
-                  {metrics.totalRevenue > 0 ? ((metrics.totalExpenses / metrics.totalRevenue) * 100).toFixed(1) : 0}%
-                </div>
-                <p className="text-xs text-muted-foreground">of revenue</p>
-              </CardContent>
-            </Card>
+          <ReportKPICard
+            title="Repeat Customers"
+            value={`${metrics.repeatCustomerRate.toFixed(1)}%`}
+            subtitle={`${metrics.totalCustomers} unique`}
+            icon={Users}
+            variant="indigo"
+          />
+        </div>
+
+        {/* Quick Stats Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-200/30 dark:border-amber-800/30">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <span className="text-xs font-medium text-amber-600/80">Peak Hour</span>
+            </div>
+            <p className="text-lg font-bold text-amber-700 dark:text-amber-400 mt-1">{metrics.peakHour || 'N/A'}</p>
           </div>
-        </TooltipProvider>
+          <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500/10 to-transparent border border-teal-200/30 dark:border-teal-800/30">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-medium text-teal-600/80">Peak Day</span>
+            </div>
+            <p className="text-lg font-bold text-teal-700 dark:text-teal-400 mt-1">{metrics.peakDay || 'N/A'}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-gradient-to-br from-pink-500/10 to-transparent border border-pink-200/30 dark:border-pink-800/30">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-pink-600" />
+              <span className="text-xs font-medium text-pink-600/80">Avg Items/Order</span>
+            </div>
+            <p className="text-lg font-bold text-pink-700 dark:text-pink-400 mt-1">{metrics.averageItemsPerOrder.toFixed(1)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500/10 to-transparent border border-violet-200/30 dark:border-violet-800/30">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-violet-600" />
+              <span className="text-xs font-medium text-violet-600/80">Expense Ratio</span>
+            </div>
+            <p className="text-lg font-bold text-violet-700 dark:text-violet-400 mt-1">
+              {metrics.totalRevenue > 0 ? ((metrics.totalExpenses / metrics.totalRevenue) * 100).toFixed(1) : 0}%
+            </p>
+          </div>
+        </div>
 
-        {/* Charts Section */}
+        {/* Tabs Section */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <div className="overflow-x-auto -mx-2 px-2 pb-2">
-            <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-10 gap-1">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="products">Products</TabsTrigger>
-              <TabsTrigger value="profit">Profit</TabsTrigger>
-              <TabsTrigger value="expenses">Expenses</TabsTrigger>
-              <TabsTrigger value="customers">Customers</TabsTrigger>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
-              <TabsTrigger value="daywise" className="flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" />
-                Day Wise
-              </TabsTrigger>
-              <TabsTrigger value="gst" className="flex items-center gap-1">
-                <Percent className="h-3 w-3" />
-                GST
-              </TabsTrigger>
-              <TabsTrigger value="margin" className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                Margins
-              </TabsTrigger>
-              {isRestaurant && <TabsTrigger value="restaurant">Restaurant</TabsTrigger>}
-            </TabsList>
-          </div>
+          <ReportTabsList
+            tabs={[
+              { value: 'overview', label: 'Overview' },
+              { value: 'products', label: 'Products', icon: Package },
+              { value: 'profit', label: 'Profit', icon: TrendingUp },
+              { value: 'expenses', label: 'Expenses', icon: Receipt },
+              { value: 'customers', label: 'Customers', icon: Users },
+              { value: 'payments', label: 'Payments', icon: CreditCard },
+              { value: 'daywise', label: 'Day Wise', icon: CalendarDays },
+              { value: 'gst', label: 'GST', icon: Percent },
+              { value: 'margin', label: 'Margins', icon: TrendingUp },
+              { value: 'restaurant', label: 'Restaurant', icon: UtensilsCrossed, hidden: !isRestaurant },
+            ]}
+          />
 
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue Trend</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={revenueTrend}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
-                      <Legend />
-                      <Area type="monotone" dataKey="revenue" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Revenue (₹)" />
-                      <Area type="monotone" dataKey="profit" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Profit (₹)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Revenue Trend" icon={TrendingUp} iconColor="text-blue-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={revenueTrend}>
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      formatter={(value: number) => formatIndianCurrency(value)}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
+                    />
+                    <Legend />
+                    <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="url(#colorRevenue)" strokeWidth={2} name="Revenue" />
+                    <Area type="monotone" dataKey="profit" stroke="#10b981" fill="url(#colorProfit)" strokeWidth={2} name="Profit" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Category Revenue Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={categoryRevenue}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        innerRadius={50}
-                        fill="#8884d8"
-                        dataKey="value"
-                        paddingAngle={2}
-                      >
-                        {categoryRevenue.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Category Distribution" icon={PieChartIcon} iconColor="text-purple-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={categoryRevenue}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={90}
+                      innerRadius={50}
+                      fill="#8884d8"
+                      dataKey="value"
+                      paddingAngle={3}
+                    >
+                      {categoryRevenue.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Hourly Sales Pattern</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={hourlySales}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="hour" />
-                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
-                      <Tooltip formatter={(value: number, name: string) => name.includes('Revenue') ? `₹${value.toFixed(2)}` : value} />
-                      <Legend />
-                      <Bar dataKey="revenue" fill="#8884d8" name="Revenue (₹)" />
-                      <Bar dataKey="orders" fill="#82ca9d" name="Orders" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Hourly Sales Pattern" icon={Clock} iconColor="text-amber-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={hourlySales}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="hour" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number, name: string) => name === 'Revenue' ? formatIndianCurrency(value) : value} />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Revenue" />
+                    <Bar dataKey="orders" fill="#22d3ee" radius={[4, 4, 0, 0]} name="Orders" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sales by Day of Week</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dailySales}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" />
-                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
-                      <Tooltip formatter={(value: number, name: string) => name.includes('Revenue') ? `₹${value.toFixed(2)}` : value} />
-                      <Legend />
-                      <Bar dataKey="revenue" fill="#6366f1" name="Revenue (₹)" />
-                      <Bar dataKey="orders" fill="#f59e0b" name="Orders" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Sales by Day" icon={Calendar} iconColor="text-teal-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dailySales}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="day" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number, name: string) => name === 'Revenue' ? formatIndianCurrency(value) : value} />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#6366f1" radius={[4, 4, 0, 0]} name="Revenue" />
+                    <Bar dataKey="orders" fill="#f97316" radius={[4, 4, 0, 0]} name="Orders" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
 
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Weekly Comparison</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={weeklyComparison} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="revenue" fill="#3b82f6" name="Revenue (₹)" />
-                      <Bar dataKey="orders" fill="#10b981" name="Orders" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Weekly Comparison" icon={BarChart3} iconColor="text-cyan-500" className="lg:col-span-2">
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={weeklyComparison} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis dataKey="name" type="category" fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#3b82f6" radius={[0, 4, 4, 0]} name="Revenue" />
+                    <Bar dataKey="orders" fill="#10b981" radius={[0, 4, 4, 0]} name="Orders" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
             </div>
           </TabsContent>
 
           <TabsContent value="products" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Product Performance (Revenue vs Profit)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={productPerformance}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
-                      <Legend />
-                      <Bar dataKey="revenue" fill="#3b82f6" name="Revenue (₹)" />
-                      <Bar dataKey="profit" fill="#10b981" name="Profit (₹)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Product Performance" icon={Package} iconColor="text-blue-500">
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={productPerformance}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Revenue" />
+                    <Bar dataKey="profit" fill="#10b981" radius={[4, 4, 0, 0]} name="Profit" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    Top Selling Products
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                    {topProducts.map((product, index) => (
-                      <div key={product.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-sm">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {product.quantity.toFixed(2)} units • {product.salesCount} sales
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-600 text-sm">₹{product.revenue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                          <p className="text-xs text-blue-600">Profit: ₹{product.profit.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {topProducts.length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">No product data available</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Top Selling Products" icon={Award} iconColor="text-amber-500">
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                  {topProducts.map((product, index) => (
+                    <ReportListItem
+                      key={product.id}
+                      rank={index + 1}
+                      title={product.name}
+                      subtitle={`${product.quantity.toFixed(1)} units • ${product.salesCount} sales`}
+                      value={formatIndianCurrency(product.revenue)}
+                      valueColor="green"
+                      secondaryValue={`Profit: ${formatIndianCurrency(product.profit)}`}
+                      secondaryColor="text-blue-600"
+                      highlight={index < 3}
+                    />
+                  ))}
+                  {topProducts.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No product data available</p>
+                  )}
+                </div>
+              </ReportChartCard>
             </div>
           </TabsContent>
 
-          {/* Profit Analysis Tab - NEW */}
+          {/* Profit Analysis Tab */}
           <TabsContent value="profit" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Profit KPI Cards */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                    Profit Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/30 dark:to-emerald-900/30 p-4 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Total Profit</p>
-                      <p className="text-2xl font-bold text-green-600">₹{metrics.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/30 dark:to-indigo-900/30 p-4 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Profit Margin</p>
-                      <p className="text-2xl font-bold text-blue-600">{metrics.profitMargin.toFixed(1)}%</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-950/30 dark:to-violet-900/30 p-4 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Avg Profit/Order</p>
-                      <p className="text-2xl font-bold text-purple-600">₹{metrics.totalOrders > 0 ? (metrics.totalProfit / metrics.totalOrders).toFixed(0) : 0}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950/30 dark:to-orange-900/30 p-4 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Revenue to Profit Ratio</p>
-                      <p className="text-2xl font-bold text-amber-600">{metrics.totalRevenue > 0 ? (metrics.totalRevenue / metrics.totalProfit).toFixed(1) : 0}:1</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Profit Summary Cards */}
+              <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-green-200/30 dark:border-green-800/30">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Profit</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+                    {formatIndianCurrency(metrics.totalProfit)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-200/30 dark:border-blue-800/30">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Profit Margin</p>
+                  <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                    {metrics.profitMargin.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-200/30 dark:border-purple-800/30">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Profit/Order</p>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+                    {formatIndianCurrency(metrics.totalOrders > 0 ? metrics.totalProfit / metrics.totalOrders : 0)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-200/30 dark:border-amber-800/30">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Revenue:Profit</p>
+                  <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                    {metrics.totalProfit > 0 ? (metrics.totalRevenue / metrics.totalProfit).toFixed(1) : 0}:1
+                  </p>
+                </div>
+              </div>
 
-              {/* Top Profitable Products */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-amber-500" />
-                    Top Profitable Products
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                    {topProducts
-                      .sort((a, b) => b.profit - a.profit)
-                      .slice(0, 10)
-                      .map((product, index) => {
-                        const profitMargin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
+              <ReportChartCard title="Top Profitable Products" icon={Award} iconColor="text-amber-500">
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                  {[...topProducts]
+                    .sort((a, b) => b.profit - a.profit)
+                    .slice(0, 10)
+                    .map((product, index) => {
+                      const profitMargin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
+                      return (
+                        <ReportListItem
+                          key={product.id}
+                          rank={index + 1}
+                          title={product.name}
+                          subtitle={`${product.quantity.toFixed(0)} units sold`}
+                          value={formatIndianCurrency(product.profit)}
+                          valueColor="green"
+                          secondaryValue={`${profitMargin.toFixed(1)}% margin`}
+                          secondaryColor="text-blue-600"
+                          highlight={index < 3}
+                        />
+                      );
+                    })}
+                  {topProducts.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No profit data available</p>
+                  )}
+                </div>
+              </ReportChartCard>
+
+              <ReportChartCard title="Profit vs Revenue Trend" icon={LineChartIcon} iconColor="text-green-500">
+                <ResponsiveContainer width="100%" height={310}>
+                  <AreaChart data={revenueTrend}>
+                    <defs>
+                      <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                    <Legend />
+                    <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} name="Revenue" />
+                    <Area type="monotone" dataKey="profit" stroke="#10b981" fill="url(#profitGradient)" strokeWidth={2} name="Profit" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
+
+              <ReportChartCard title="Product-wise Breakdown" icon={Package} iconColor="text-indigo-500" className="lg:col-span-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        <th className="text-left p-2 font-semibold text-muted-foreground">Product</th>
+                        <th className="text-right p-2 font-semibold text-muted-foreground">Qty</th>
+                        <th className="text-right p-2 font-semibold text-muted-foreground">Revenue</th>
+                        <th className="text-right p-2 font-semibold text-muted-foreground">Profit</th>
+                        <th className="text-right p-2 font-semibold text-muted-foreground">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topProducts.map((product) => {
+                        const margin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
+                        const marginColor = margin >= 20 ? 'text-green-600' : margin >= 10 ? 'text-amber-600' : 'text-red-600';
                         return (
-                          <div key={product.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
-                                index < 3 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
-                              }`}>
-                                {index + 1}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-sm">{product.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {product.quantity.toFixed(0)} units sold
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-green-600 text-sm">₹{product.profit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-                              <p className="text-xs text-blue-600">{profitMargin.toFixed(1)}% margin</p>
-                            </div>
-                          </div>
+                          <tr key={product.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+                            <td className="p-2 font-medium">{product.name}</td>
+                            <td className="p-2 text-right text-muted-foreground">{product.quantity.toFixed(1)}</td>
+                            <td className="p-2 text-right">{formatIndianCurrency(product.revenue)}</td>
+                            <td className="p-2 text-right text-green-600 font-medium">{formatIndianCurrency(product.profit)}</td>
+                            <td className={`p-2 text-right font-bold ${marginColor}`}>{margin.toFixed(1)}%</td>
+                          </tr>
                         );
                       })}
-                    {topProducts.length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">No profit data available</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Profit vs Revenue Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profit vs Revenue Trend</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <AreaChart data={revenueTrend}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis tickFormatter={(v) => `₹${Number(v).toFixed(0)}`} />
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
-                      <Legend />
-                      <Area type="monotone" dataKey="revenue" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Revenue (₹)" />
-                      <Area type="monotone" dataKey="profit" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Profit (₹)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Product Profit Breakdown Table */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Product-wise Profit Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-2 font-semibold">Product</th>
-                          <th className="text-right p-2 font-semibold">Qty Sold</th>
-                          <th className="text-right p-2 font-semibold">Revenue</th>
-                          <th className="text-right p-2 font-semibold">Profit</th>
-                          <th className="text-right p-2 font-semibold">Margin %</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {topProducts.map((product) => {
-                          const margin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
-                          const marginColor = margin >= 20 ? 'text-green-600' : margin >= 10 ? 'text-amber-600' : 'text-red-600';
-                          return (
-                            <tr key={product.id} className="border-b hover:bg-muted/50">
-                              <td className="p-2 font-medium">{product.name}</td>
-                              <td className="p-2 text-right">{product.quantity.toFixed(2)}</td>
-                              <td className="p-2 text-right">₹{product.revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                              <td className="p-2 text-right text-green-600 font-medium">₹{product.profit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                              <td className={`p-2 text-right font-bold ${marginColor}`}>{margin.toFixed(1)}%</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+                    </tbody>
+                  </table>
+                </div>
+              </ReportChartCard>
             </div>
           </TabsContent>
 
           <TabsContent value="customers" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Top Customers
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {topCustomers.map((customer, index) => (
-                    <div key={customer.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-semibold">{customer.name || 'Unknown'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {customer.phone} • {customer.orderCount} orders
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">₹{customer.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                        <p className="text-sm text-muted-foreground">Avg: ₹{customer.avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {topCustomers.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">No customer data available</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <ReportChartCard title="Top Customers" icon={Users} iconColor="text-indigo-500">
+              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                {topCustomers.map((customer, index) => (
+                  <ReportListItem
+                    key={customer.id}
+                    rank={index + 1}
+                    title={customer.name || 'Unknown'}
+                    subtitle={`${customer.phone} • ${customer.orderCount} orders`}
+                    value={formatIndianCurrency(customer.totalSpent)}
+                    valueColor="green"
+                    secondaryValue={`Avg: ${formatIndianCurrency(customer.avgOrderValue)}`}
+                    highlight={index < 3}
+                  />
+                ))}
+                {topCustomers.length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">No customer data available</p>
+                )}
+              </div>
+            </ReportChartCard>
           </TabsContent>
 
           <TabsContent value="payments" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Payment Mode Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={paymentModeStats}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ mode, count }) => `${mode}: ${count}`}
-                        outerRadius={100}
-                        innerRadius={50}
-                        fill="#8884d8"
-                        dataKey="count"
-                        nameKey="mode"
-                        paddingAngle={2}
-                      >
-                        {paymentModeStats.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => value.toFixed(0)} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Payment Distribution" icon={CreditCard} iconColor="text-purple-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={paymentModeStats}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ mode, count }) => `${mode}: ${count}`}
+                      outerRadius={90}
+                      innerRadius={50}
+                      fill="#8884d8"
+                      dataKey="count"
+                      nameKey="mode"
+                      paddingAngle={3}
+                    >
+                      {paymentModeStats.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Mode Revenue</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {paymentModeStats.map((stat, index) => (
-                      <div key={stat.mode} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                          />
-                          <div>
-                            <p className="font-semibold">{stat.mode}</p>
-                            <p className="text-sm text-muted-foreground">{stat.count} transactions</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-600">₹{stat.revenue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {metrics.totalRevenue > 0 ? ((stat.revenue / metrics.totalRevenue) * 100).toFixed(1) : 0}% of total
-                          </p>
+              <ReportChartCard title="Payment Revenue Breakdown" icon={Wallet} iconColor="text-green-500">
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                  {paymentModeStats.map((stat, index) => (
+                    <div key={stat.mode} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <div>
+                          <p className="font-medium text-sm">{stat.mode}</p>
+                          <p className="text-xs text-muted-foreground">{stat.count} transactions</p>
                         </div>
                       </div>
-                    ))}
-                    {paymentModeStats.length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">No payment data available</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600 text-sm">{formatIndianCurrency(stat.revenue)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {metrics.totalRevenue > 0 ? ((stat.revenue / metrics.totalRevenue) * 100).toFixed(1) : 0}%
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {paymentModeStats.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No payment data available</p>
+                  )}
+                </div>
+              </ReportChartCard>
             </div>
           </TabsContent>
 
@@ -1614,68 +1373,55 @@ const AdvancedReports = () => {
           {/* Expenses Tab */}
           <TabsContent value="expenses" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Receipt className="h-5 w-5 text-red-500" />
-                    Expenses by Category
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={expensesByCategory}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        innerRadius={50}
-                        fill="#8884d8"
-                        dataKey="value"
-                        paddingAngle={2}
-                      >
-                        {expensesByCategory.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              <ReportChartCard title="Expenses by Category" icon={Receipt} iconColor="text-red-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={expensesByCategory}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={90}
+                      innerRadius={50}
+                      fill="#8884d8"
+                      dataKey="value"
+                      paddingAngle={3}
+                    >
+                      {expensesByCategory.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Expense Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                    {expensesByCategory.map((exp, index) => (
-                      <div key={exp.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                          />
-                          <span className="font-medium">{exp.name}</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-red-600">₹{exp.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {metrics.totalExpenses > 0 ? ((exp.value / metrics.totalExpenses) * 100).toFixed(1) : 0}%
-                          </p>
-                        </div>
+              <ReportChartCard title="Expense Breakdown" icon={Wallet} iconColor="text-red-500">
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                  {expensesByCategory.map((exp, index) => (
+                    <div key={exp.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="font-medium text-sm">{exp.name}</span>
                       </div>
-                    ))}
-                    {expensesByCategory.length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">No expense data available</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                      <div className="text-right">
+                        <p className="font-bold text-red-600 text-sm">{formatIndianCurrency(exp.value)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {metrics.totalExpenses > 0 ? ((exp.value / metrics.totalExpenses) * 100).toFixed(1) : 0}%
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {expensesByCategory.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No expense data available</p>
+                  )}
+                </div>
+              </ReportChartCard>
             </div>
           </TabsContent>
 
