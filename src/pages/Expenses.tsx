@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface Expense {
   id: string;
@@ -51,6 +52,7 @@ const EXPENSE_CATEGORIES = [
 
 const Expenses = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,18 +80,16 @@ const Expenses = () => {
 
   const fetchExpenses = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const monthDate = parseISO(selectedMonth + "-01");
       const start = startOfMonth(monthDate);
       const end = endOfMonth(monthDate);
 
-      // Current month expenses
       const { data, error } = await supabase
         .from("expenses")
         .select("*")
-        .eq("created_by", user.id)
+        .eq("created_by", userId)
         .gte("expense_date", start.toISOString())
         .lte("expense_date", end.toISOString())
         .order("expense_date", { ascending: false });
@@ -105,7 +105,7 @@ const Expenses = () => {
       const { data: prevData } = await supabase
         .from("expenses")
         .select("*")
-        .eq("created_by", user.id)
+        .eq("created_by", userId)
         .gte("expense_date", prevStart.toISOString())
         .lte("expense_date", prevEnd.toISOString());
 
@@ -139,11 +139,10 @@ const Expenses = () => {
 
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { error } = await supabase.from("expenses").insert({
-        created_by: user.id,
+        created_by: userId,
         expense_date: formData.expense_date,
         category: formData.category,
         description: formData.description || null,

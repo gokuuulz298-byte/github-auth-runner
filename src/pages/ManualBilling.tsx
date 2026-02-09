@@ -17,9 +17,11 @@ import LoadingButton from "@/components/LoadingButton";
 import PrinterStatusIndicator from "@/components/PrinterStatusIndicator";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 const ManualBilling = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [searchTerm, setSearchTerm] = useState("");
@@ -83,13 +85,12 @@ const ManualBilling = () => {
   
   const fetchLoyaltySettings = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('loyalty_settings')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .maybeSingle();
 
       if (error) throw error;
@@ -109,13 +110,12 @@ const ManualBilling = () => {
 
   const fetchCompanyProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('company_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (error) throw error;
@@ -138,13 +138,12 @@ const ManualBilling = () => {
 
   const fetchCounters = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('counters')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('name');
 
       if (error) throw error;
@@ -194,13 +193,12 @@ const ManualBilling = () => {
 
   const fetchActiveTemplate = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('bill_templates')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -220,15 +218,14 @@ const ManualBilling = () => {
       }
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!userId) return;
 
         // Fetch customer name
         const { data: customerData } = await supabase
           .from('customers')
           .select('name')
           .eq('phone', customerPhone)
-          .eq('created_by', user.id)
+          .eq('created_by', userId)
           .maybeSingle();
 
         if (customerData?.name && !customerName) {
@@ -240,7 +237,7 @@ const ManualBilling = () => {
           .from('loyalty_points')
           .select('points')
           .eq('customer_phone', customerPhone)
-          .eq('created_by', user.id)
+          .eq('created_by', userId)
           .maybeSingle();
 
         if (error) throw error;
@@ -261,15 +258,14 @@ const ManualBilling = () => {
   useEffect(() => {
     const fetchAllProducts = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!userId) return;
 
         const { data, error } = await supabase
           .from('products')
           .select('*')
-          .eq('created_by', user.id)
+          .eq('created_by', userId)
           .eq('is_deleted', false)
-          .neq('is_raw_material', true) // Exclude raw materials from billing
+          .neq('is_raw_material', true)
           .order('name');
 
         if (error) throw error;
@@ -578,14 +574,13 @@ const ManualBilling = () => {
     
     // Get today's bill count per counter
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const { data: { user } } = await supabase.auth.getUser();
     
     let billCount = 1;
-    if (user) {
+    if (userId) {
       const { count } = await supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .eq('counter_id', selectedCounter)
         .gte('created_at', startOfToday.toISOString());
       billCount = (count || 0) + 1;
@@ -624,9 +619,7 @@ const ManualBilling = () => {
     
     // Save customer and invoice FIRST (don't download PDF)
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (isOnline && user) {
+      if (isOnline && userId) {
         const { data: existingCustomer } = await supabase
           .from('customers')
           .select('*')
@@ -638,7 +631,7 @@ const ManualBilling = () => {
         if (!existingCustomer) {
           const { data: newCustomer } = await supabase
             .from('customers')
-            .insert([{ name: customerName, phone: customerPhone, created_by: user.id }])
+            .insert([{ name: customerName, phone: customerPhone, created_by: userId }])
             .select()
             .maybeSingle();
           customerId = newCustomer?.id;
@@ -650,7 +643,7 @@ const ManualBilling = () => {
           tax_amount: taxAmount || 0, // Ensure never null
           discount_amount: couponDiscount || 0,
           items_data: cartItems as any,
-          created_by: user.id,
+          created_by: userId,
           customer_id: customerId,
           customer_name: customerName,
           customer_phone: customerPhone,
@@ -681,7 +674,7 @@ const ManualBilling = () => {
               customer_name: customerName,
               points: pointsEarned,
               total_spent: total,
-              created_by: user.id,
+              created_by: userId,
             }]);
         }
 
@@ -720,7 +713,7 @@ const ManualBilling = () => {
                 total_value: item.price * item.quantity,
                 party_name: customerName || 'Walk-in',
                 party_phone: customerPhone || null,
-                created_by: user.id,
+                created_by: userId!,
               });
           }
         }

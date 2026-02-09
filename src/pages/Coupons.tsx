@@ -19,9 +19,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 const Coupons = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [coupons, setCoupons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -43,8 +45,7 @@ const Coupons = () => {
 
   const fetchCoupons = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!userId) {
         toast.error("Please sign in to view coupons");
         return;
       }
@@ -52,7 +53,7 @@ const Coupons = () => {
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -79,8 +80,7 @@ const Coupons = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      if (!userId) throw new Error("User not authenticated");
 
       const couponData = {
         code: formData.code.toUpperCase(),
@@ -89,7 +89,7 @@ const Coupons = () => {
         is_active: formData.is_active,
         start_date: formData.start_date ? new Date(formData.start_date).toISOString() : null,
         end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
-        created_by: user.id,
+        created_by: userId,
       };
 
       if (editingId) {

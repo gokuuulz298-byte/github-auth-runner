@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 const LimitedDiscounts = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

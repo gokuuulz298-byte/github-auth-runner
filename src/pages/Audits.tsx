@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface AuditEntry {
   id: string;
@@ -51,6 +52,7 @@ const OPERATION_COLORS = {
 
 const Audits = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [audits, setAudits] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<string>("all");

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface Template {
   id: string;
@@ -17,6 +18,7 @@ interface Template {
 
 const Templates = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
