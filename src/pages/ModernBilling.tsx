@@ -23,9 +23,11 @@ import PrinterStatusIndicator from "@/components/PrinterStatusIndicator";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 import WeightSelectionDialog from "@/components/WeightSelectionDialog";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 const ModernBilling = () => {
   const navigate = useNavigate();
+  const { userId, user: authUser } = useAuthContext();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -182,13 +184,12 @@ const ModernBilling = () => {
   
   const fetchLoyaltySettings = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('loyalty_settings')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .maybeSingle();
 
       if (error) throw error;
@@ -239,12 +240,9 @@ const ModernBilling = () => {
 
   const fetchCategories = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
-      const { data, error } = await supabase.from("categories").select("*").eq("created_by", user.id).order("name");
+      const { data, error } = await supabase.from("categories").select("*").eq("created_by", userId).order("name");
 
       if (error) throw error;
       setCategories(data || []);
@@ -259,15 +257,12 @@ const ModernBilling = () => {
   const fetchAllProducts = async () => {
     try {
       setProductsLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("created_by", user.id)
+        .eq("created_by", userId)
         .eq("is_deleted", false)
         .neq("is_raw_material", true) // Exclude raw materials from billing
         .order("name");
@@ -284,12 +279,9 @@ const ModernBilling = () => {
 
   const fetchCompanyProfile = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
-      const { data, error } = await supabase.from("company_profiles").select("*").eq("user_id", user.id).maybeSingle();
+      const { data, error } = await supabase.from("company_profiles").select("*").eq("user_id", userId).maybeSingle();
 
       if (error) throw error;
       setCompanyProfile(data);
@@ -310,12 +302,9 @@ const ModernBilling = () => {
 
   const fetchCounters = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
-      const { data, error } = await supabase.from("counters").select("*").eq("created_by", user.id).order("name");
+      const { data, error } = await supabase.from("counters").select("*").eq("created_by", userId).order("name");
 
       if (error) throw error;
       setCounters(data || []);
@@ -357,15 +346,12 @@ const ModernBilling = () => {
 
   const fetchActiveTemplate = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from("bill_templates")
         .select("*")
-        .eq("created_by", user.id)
+        .eq("created_by", userId)
         .eq("is_active", true)
         .maybeSingle();
 
@@ -385,17 +371,14 @@ const ModernBilling = () => {
       }
 
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!userId) return;
 
         // Fetch customer name
         const { data: customerData } = await supabase
           .from("customers")
           .select("name")
           .eq("phone", customerPhone)
-          .eq("created_by", user.id)
+          .eq("created_by", userId)
           .maybeSingle();
 
         if (customerData?.name && !customerName) {
@@ -407,7 +390,7 @@ const ModernBilling = () => {
           .from("loyalty_points")
           .select("points")
           .eq("customer_phone", customerPhone)
-          .eq("created_by", user.id)
+          .eq("created_by", userId)
           .maybeSingle();
 
         if (error) throw error;
@@ -694,10 +677,7 @@ const ModernBilling = () => {
     setIsProcessing(true);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      if (!userId) {
         toast.error("Please sign in");
         setIsProcessing(false);
         return;
@@ -714,7 +694,7 @@ const ModernBilling = () => {
       const { count } = await supabase
         .from("invoices")
         .select("*", { count: "exact", head: true })
-        .eq("created_by", user.id)
+        .eq("created_by", userId)
         .gte("created_at", startOfToday.toISOString());
 
       const billCount = (count || 0) + 1;
@@ -753,7 +733,7 @@ const ModernBilling = () => {
               total_value: item.price * item.quantity,
               party_name: customerName || 'Walk-in',
               party_phone: customerPhone || null,
-              created_by: user.id,
+              created_by: userId!,
             });
         }
       }
@@ -768,7 +748,7 @@ const ModernBilling = () => {
         total_amount: totals.total,
         tax_amount: taxAmount, // Ensure this is never null
         discount_amount: totals.couponDiscountAmount || 0,
-        created_by: user.id,
+        created_by: userId!,
         counter_id: selectedCounter,
         customer_id: null,
       };
@@ -788,7 +768,7 @@ const ModernBilling = () => {
             customer_phone: customerPhone || null,
             status: "pending",
             total_amount: totals.total,
-            created_by: user.id,
+            created_by: userId!,
           },
         ]);
       }
@@ -802,7 +782,7 @@ const ModernBilling = () => {
           .from("customers")
           .select("*")
           .eq("phone", customerPhone)
-          .eq("created_by", user.id)
+          .eq("created_by", userId)
           .maybeSingle();
 
         if (!customerFetchError) {
@@ -816,7 +796,7 @@ const ModernBilling = () => {
             await supabase.from("customers").insert({
               name: customerName || "Customer",
               phone: customerPhone,
-              created_by: user.id,
+              created_by: userId!,
             });
           }
         }
@@ -850,7 +830,7 @@ const ModernBilling = () => {
                 customer_name: customerName,
                 points: pointsToAdd,
                 total_spent: totals.total,
-                created_by: user.id,
+                created_by: userId!,
               });
 
               if (insertError) {

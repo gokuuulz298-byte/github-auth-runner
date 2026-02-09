@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageLoader } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface Invoice {
   id: string;
@@ -25,6 +26,7 @@ interface Invoice {
 
 const Analytics = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalSales: 0,

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import JsBarcode from "jsbarcode";
 import QRCode from "qrcode";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface Product {
   id: string;
@@ -21,6 +22,7 @@ interface Product {
 
 const Barcodes = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,8 +44,7 @@ const Barcodes = () => {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!userId) {
         toast.error("Please sign in to view products");
         return;
       }
@@ -51,7 +52,7 @@ const Barcodes = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .eq('is_deleted', false)
         .order('name');
 

@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp } from "lucide-react";
+import { Scan, Loader2, Eye, EyeOff, BarChart3, Receipt, Users, TrendingUp, UtensilsCrossed } from "lucide-react";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 
 const Auth = () => {
@@ -18,6 +19,12 @@ const Auth = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Waiter login state
+  const [waiterUsername, setWaiterUsername] = useState("");
+  const [waiterPassword, setWaiterPassword] = useState("");
+  const [waiterLoading, setWaiterLoading] = useState(false);
+  const [showWaiterPassword, setShowWaiterPassword] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -62,6 +69,37 @@ const Auth = () => {
     setLoading(false);
   };
 
+  const handleWaiterLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!waiterUsername.trim() || !waiterPassword.trim()) {
+      toast.error("Please enter username and password");
+      return;
+    }
+    
+    setWaiterLoading(true);
+    try {
+      // Waiter accounts use a deterministic email pattern for Supabase Auth
+      const waiterEmail = `${waiterUsername.trim().toLowerCase()}@waiter.eduvanca.local`;
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email: waiterEmail,
+        password: waiterPassword,
+      });
+
+      if (error) {
+        toast.error("Invalid username or password");
+        setWaiterLoading(false);
+        return;
+      }
+
+      toast.success("Waiter logged in successfully!");
+    } catch (error) {
+      toast.error("Login failed. Please try again.");
+    } finally {
+      setWaiterLoading(false);
+    }
+  };
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -84,7 +122,6 @@ const Auth = () => {
     <div className="min-h-screen flex bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 relative overflow-hidden">
       {/* Animated Background SVG Graphics */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Floating circles */}
         <svg className="absolute top-10 left-10 w-64 h-64 opacity-10 animate-pulse" viewBox="0 0 200 200">
           <circle cx="100" cy="100" r="80" fill="white" />
         </svg>
@@ -94,18 +131,12 @@ const Auth = () => {
         <svg className="absolute top-1/3 left-20 w-32 h-32 opacity-10 animate-ping" style={{ animationDuration: '4s' }} viewBox="0 0 200 200">
           <circle cx="100" cy="100" r="80" fill="white" />
         </svg>
-        
-        {/* Floating rectangles */}
         <svg className="absolute top-1/4 left-1/3 w-20 h-20 opacity-10 animate-spin" style={{ animationDuration: '20s' }} viewBox="0 0 100 100">
           <rect x="10" y="10" width="80" height="80" rx="10" fill="white" />
         </svg>
-        
-        {/* Wave pattern at bottom */}
         <svg className="absolute bottom-0 left-0 w-full h-32 opacity-20" viewBox="0 0 1440 120" preserveAspectRatio="none">
           <path d="M0,64L48,69.3C96,75,192,85,288,90.7C384,96,480,96,576,85.3C672,75,768,53,864,48C960,43,1056,53,1152,58.7C1248,64,1344,64,1392,64L1440,64L1440,120L1392,120C1344,120,1248,120,1152,120C1056,120,960,120,864,120C768,120,672,120,576,120C480,120,384,120,288,120C192,120,96,120,48,120L0,120Z" fill="white" />
         </svg>
-        
-        {/* Moving dots pattern */}
         <div className="absolute inset-0">
           {[...Array(20)].map((_, i) => (
             <div
@@ -120,8 +151,6 @@ const Auth = () => {
             />
           ))}
         </div>
-        
-        {/* Gradient overlay lines */}
         <svg className="absolute top-0 right-1/2 w-full h-full opacity-5" viewBox="0 0 400 800">
           <line x1="0" y1="0" x2="400" y2="800" stroke="white" strokeWidth="1" />
           <line x1="100" y1="0" x2="500" y2="800" stroke="white" strokeWidth="1" />
@@ -148,7 +177,6 @@ const Auth = () => {
           and seamless multi-counter support.
         </p>
         
-        {/* Feature highlights */}
         <div className="grid grid-cols-2 gap-4 mt-6">
           <div className="flex items-center gap-3 text-blue-100">
             <div className="p-2 bg-white/10 rounded-lg">
@@ -197,71 +225,7 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
-            {!showForgotPassword ? (
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700 font-medium">
-                    Email Address
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 font-semibold text-base bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-                <div className="text-center space-y-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
-                  >
-                    Forgot your password?
-                  </button>
-                  <p className="text-sm text-gray-500">
-                    Contact your administrator to create an account
-                  </p>
-                </div>
-              </form>
-            ) : (
+            {showForgotPassword ? (
               <form onSubmit={handleForgotPassword} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email" className="text-gray-700 font-medium">Email Address</Label>
@@ -299,12 +263,146 @@ const Auth = () => {
                   </button>
                 </div>
               </form>
+            ) : (
+              <Tabs defaultValue="admin" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="admin" className="text-sm font-medium">
+                    Admin / Staff
+                  </TabsTrigger>
+                  <TabsTrigger value="waiter" className="text-sm font-medium">
+                    <UtensilsCrossed className="h-4 w-4 mr-1.5" />
+                    Waiter
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="admin">
+                  <form onSubmit={handleLogin} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-gray-700 font-medium">
+                        Email Address
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+                    <Button 
+                      type="submit" 
+                      className="w-full h-12 font-semibold text-base bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Signing in...
+                        </>
+                      ) : (
+                        "Sign In"
+                      )}
+                    </Button>
+                    <div className="text-center space-y-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                      >
+                        Forgot your password?
+                      </button>
+                      <p className="text-sm text-gray-500">
+                        Contact your administrator to create an account
+                      </p>
+                    </div>
+                  </form>
+                </TabsContent>
+                
+                <TabsContent value="waiter">
+                  <form onSubmit={handleWaiterLogin} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="waiter-username" className="text-gray-700 font-medium">
+                        Username
+                      </Label>
+                      <Input
+                        id="waiter-username"
+                        type="text"
+                        placeholder="Enter your username"
+                        value={waiterUsername}
+                        onChange={(e) => setWaiterUsername(e.target.value)}
+                        required
+                        className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="waiter-password" className="text-gray-700 font-medium">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="waiter-password"
+                          type={showWaiterPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={waiterPassword}
+                          onChange={(e) => setWaiterPassword(e.target.value)}
+                          required
+                          className="h-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowWaiterPassword(!showWaiterPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {showWaiterPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+                    <Button 
+                      type="submit" 
+                      className="w-full h-12 font-semibold text-base bg-teal-600 hover:bg-teal-700 text-white"
+                      disabled={waiterLoading}
+                    >
+                      {waiterLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Signing in...
+                        </>
+                      ) : (
+                        "Sign In as Waiter"
+                      )}
+                    </Button>
+                    <p className="text-sm text-gray-500 text-center pt-2">
+                      Contact your admin for waiter credentials
+                    </p>
+                  </form>
+                </TabsContent>
+              </Tabs>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Add floating animation keyframes */}
       <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
