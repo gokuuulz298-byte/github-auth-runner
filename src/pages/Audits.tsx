@@ -80,8 +80,7 @@ const Audits = () => {
   const generateAuditTrail = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { start, end } = getDateRange();
       const auditEntries: AuditEntry[] = [];
@@ -90,7 +89,7 @@ const Audits = () => {
       const { data: invoices } = await supabase
         .from('invoices')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
@@ -110,7 +109,7 @@ const Audits = () => {
             tax: inv.tax_amount,
             discount: inv.discount_amount
           },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: inv.created_at,
           full_data: {
             bill_number: inv.bill_number,
@@ -133,7 +132,7 @@ const Audits = () => {
       const { data: products } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -151,7 +150,7 @@ const Audits = () => {
             stock: prod.stock_quantity,
             buying_price: prod.buying_price
           },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: prod.created_at!,
           full_data: {
             name: prod.name,
@@ -171,7 +170,7 @@ const Audits = () => {
       const { data: updatedProducts } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString())
         .not('updated_at', 'eq', supabase.rpc as any);
@@ -185,7 +184,7 @@ const Audits = () => {
             entity_id: prod.id,
             entity_name: prod.name,
             details: { price: prod.price, stock: prod.stock_quantity },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: prod.updated_at,
           });
         }
@@ -195,7 +194,7 @@ const Audits = () => {
       const { data: deletedProducts } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .eq('is_deleted', true)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
@@ -208,7 +207,7 @@ const Audits = () => {
           entity_id: prod.id,
           entity_name: prod.name,
           details: { reason: 'Marked as deleted' },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: prod.updated_at!,
         });
       });
@@ -217,7 +216,7 @@ const Audits = () => {
       const { data: customers } = await supabase
         .from('customers')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -229,7 +228,7 @@ const Audits = () => {
           entity_id: cust.id,
           entity_name: cust.name,
           details: { phone: cust.phone, email: cust.email },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: cust.created_at!,
         });
       });
@@ -238,7 +237,7 @@ const Audits = () => {
       const { data: expenses } = await supabase
         .from('expenses')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -250,7 +249,7 @@ const Audits = () => {
           entity_id: exp.id,
           entity_name: exp.category,
           details: { amount: exp.amount, description: exp.description, payment_mode: exp.payment_mode },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: exp.created_at!,
         });
       });
@@ -259,7 +258,7 @@ const Audits = () => {
       const { data: purchases } = await supabase
         .from('purchases')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -271,7 +270,7 @@ const Audits = () => {
           entity_id: pur.id,
           entity_name: pur.purchase_number,
           details: { total: pur.total_amount, supplier: pur.supplier_name, status: pur.status },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: pur.created_at!,
         });
       });
@@ -280,7 +279,7 @@ const Audits = () => {
       const { data: receivedPurchases } = await supabase
         .from('purchases')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .not('received_date', 'is', null)
         .gte('received_date', start.toISOString())
         .lte('received_date', end.toISOString());
@@ -294,7 +293,7 @@ const Audits = () => {
             entity_id: pur.id,
             entity_name: pur.purchase_number,
             details: { action: 'Received', total: pur.total_amount },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: pur.received_date,
           });
 
@@ -313,7 +312,7 @@ const Audits = () => {
                 source: `Purchase ${pur.purchase_number}`,
                 supplier: pur.supplier_name
               },
-              user_id: user.id,
+              user_id: userId!,
               timestamp: pur.received_date,
               full_data: {
                 product_name: item.name,
@@ -344,7 +343,7 @@ const Audits = () => {
               source: `Sale ${inv.bill_number}`,
               customer: inv.customer_name || 'Walk-in'
             },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: inv.created_at,
             full_data: {
               product_name: item.name,
@@ -362,7 +361,7 @@ const Audits = () => {
       const { data: categories } = await supabase
         .from('categories')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -374,7 +373,7 @@ const Audits = () => {
           entity_id: cat.id,
           entity_name: cat.name,
           details: {},
-          user_id: user.id,
+          user_id: userId!,
           timestamp: cat.created_at!,
         });
       });
@@ -383,7 +382,7 @@ const Audits = () => {
       const { data: coupons } = await supabase
         .from('coupons')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -395,7 +394,7 @@ const Audits = () => {
           entity_id: coup.id,
           entity_name: coup.code,
           details: { type: coup.discount_type, value: coup.discount_value },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: coup.created_at!,
         });
       });
@@ -404,7 +403,7 @@ const Audits = () => {
       const { data: updatedCoupons } = await supabase
         .from('coupons')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
 
@@ -417,7 +416,7 @@ const Audits = () => {
             entity_id: coup.id,
             entity_name: coup.code,
             details: { type: coup.discount_type, value: coup.discount_value, is_active: coup.is_active },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: coup.updated_at,
           });
         }
@@ -427,7 +426,7 @@ const Audits = () => {
       const { data: updatedCustomers } = await supabase
         .from('customers')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
 
@@ -440,7 +439,7 @@ const Audits = () => {
             entity_id: cust.id,
             entity_name: cust.name,
             details: { phone: cust.phone, email: cust.email },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: cust.updated_at,
           });
         }
@@ -450,7 +449,7 @@ const Audits = () => {
       const { data: updatedExpenses } = await supabase
         .from('expenses')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
 
@@ -463,7 +462,7 @@ const Audits = () => {
             entity_id: exp.id,
             entity_name: exp.category,
             details: { amount: exp.amount, description: exp.description },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: exp.updated_at,
           });
         }
@@ -473,7 +472,7 @@ const Audits = () => {
       const { data: updatedCategories } = await supabase
         .from('categories')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
 
@@ -486,7 +485,7 @@ const Audits = () => {
             entity_id: cat.id,
             entity_name: cat.name,
             details: {},
-            user_id: user.id,
+            user_id: userId!,
             timestamp: cat.updated_at,
           });
         }
@@ -496,7 +495,7 @@ const Audits = () => {
       const { data: suppliers } = await supabase
         .from('suppliers')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -508,7 +507,7 @@ const Audits = () => {
           entity_id: sup.id,
           entity_name: sup.name,
           details: { phone: sup.phone, gst: sup.gst_number },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: sup.created_at!,
           full_data: {
             name: sup.name,
@@ -523,7 +522,7 @@ const Audits = () => {
       const { data: updatedSuppliers } = await supabase
         .from('suppliers')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
 
@@ -536,7 +535,7 @@ const Audits = () => {
             entity_id: sup.id,
             entity_name: sup.name,
             details: { phone: sup.phone, gst: sup.gst_number },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: sup.updated_at,
           });
         }
@@ -546,7 +545,7 @@ const Audits = () => {
       const { data: staff } = await supabase
         .from('staff')
         .select('id, display_name, email, created_at, updated_at, is_active, allowed_modules')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -558,7 +557,7 @@ const Audits = () => {
           entity_id: s.id,
           entity_name: s.display_name,
           details: { email: s.email, modules: s.allowed_modules?.length || 0 },
-          user_id: user.id,
+          user_id: userId!,
           timestamp: s.created_at!,
         });
       });
@@ -566,7 +565,7 @@ const Audits = () => {
       const { data: updatedStaff } = await supabase
         .from('staff')
         .select('id, display_name, email, created_at, updated_at, is_active')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
 
@@ -579,7 +578,7 @@ const Audits = () => {
             entity_id: s.id,
             entity_name: s.display_name,
             details: { email: s.email, is_active: s.is_active },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: s.updated_at,
           });
         }
@@ -589,7 +588,7 @@ const Audits = () => {
       const { data: updatedPurchases } = await supabase
         .from('purchases')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('updated_at', start.toISOString())
         .lte('updated_at', end.toISOString());
 
@@ -602,7 +601,7 @@ const Audits = () => {
             entity_id: pur.id,
             entity_name: pur.purchase_number,
             details: { status: pur.status, payment_status: pur.payment_status, paid: pur.paid_amount },
-            user_id: user.id,
+            user_id: userId!,
             timestamp: pur.updated_at,
           });
         }

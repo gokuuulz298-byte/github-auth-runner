@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 import { ReportKPICard, ReportChartCard, ReportTabsList, ReportFilterBar, ReportListItem } from "@/components/reports";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface TopProduct {
   id: string;
@@ -68,6 +69,7 @@ const formatDecimal = (num: number): string => {
 
 const AdvancedReports = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<string>("7d");
   const [selectedCounter, setSelectedCounter] = useState<string>("all");
@@ -158,17 +160,15 @@ const AdvancedReports = () => {
   }, [dayWiseDate, products]);
 
   const fetchProducts = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('products').select('*').eq('created_by', user.id);
+    if (!userId) return;
+    const { data } = await supabase.from('products').select('*').eq('created_by', userId);
     setProducts(data || []);
   };
 
   const fetchDayWiseData = async () => {
     setDayWiseLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const start = startOfDay(dayWiseDate);
       const end = endOfDay(dayWiseDate);
@@ -177,7 +177,7 @@ const AdvancedReports = () => {
       const { data: invoices } = await supabase
         .from('invoices')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -185,7 +185,7 @@ const AdvancedReports = () => {
       const { data: expenses } = await supabase
         .from('expenses')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('expense_date', start.toISOString())
         .lte('expense_date', end.toISOString());
 
@@ -193,7 +193,7 @@ const AdvancedReports = () => {
       const { data: purchases } = await supabase
         .from('purchases')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -244,13 +244,12 @@ const AdvancedReports = () => {
 
   const fetchBillingSettings = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data } = await supabase
         .from('company_profiles')
         .select('billing_settings')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (data?.billing_settings) {
@@ -263,13 +262,12 @@ const AdvancedReports = () => {
 
   const fetchCounters = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('counters')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('name');
 
       if (error) throw error;
@@ -318,8 +316,7 @@ const AdvancedReports = () => {
   const fetchAdvancedData = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { start, end } = getDateRange();
 
@@ -327,7 +324,7 @@ const AdvancedReports = () => {
       let invoiceQuery = supabase
         .from('invoices')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
@@ -342,19 +339,19 @@ const AdvancedReports = () => {
       const { data: products } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id);
+        .eq('created_by', userId);
 
       // Fetch customers
       const { data: customers } = await supabase
         .from('customers')
         .select('*')
-        .eq('created_by', user.id);
+        .eq('created_by', userId);
 
       // Fetch expenses
       const { data: expenses } = await supabase
         .from('expenses')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('expense_date', start.toISOString())
         .lte('expense_date', end.toISOString());
 
@@ -362,7 +359,7 @@ const AdvancedReports = () => {
       const { data: purchases } = await supabase
         .from('purchases')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
@@ -413,7 +410,7 @@ const AdvancedReports = () => {
       const { data: previousInvoices } = await supabase
         .from('invoices')
         .select('total_amount')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', previousStart.toISOString())
         .lte('created_at', previousEnd.toISOString());
 
@@ -655,14 +652,14 @@ const AdvancedReports = () => {
       const { data: thisWeekInvoices } = await supabase
         .from('invoices')
         .select('total_amount, created_at')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', thisWeekStart.toISOString())
         .lte('created_at', new Date().toISOString());
 
       const { data: lastWeekInvoices } = await supabase
         .from('invoices')
         .select('total_amount, created_at')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .gte('created_at', lastWeekStart.toISOString())
         .lte('created_at', lastWeekEnd.toISOString());
 
