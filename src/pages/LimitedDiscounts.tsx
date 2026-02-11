@@ -37,8 +37,7 @@ const LimitedDiscounts = () => {
 
   const fetchDiscounts = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!userId) {
         toast.error("Please sign in to view discounts");
         return;
       }
@@ -49,7 +48,7 @@ const LimitedDiscounts = () => {
           *,
           products (name, barcode)
         `)
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -64,13 +63,12 @@ const LimitedDiscounts = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('name');
 
       if (error) throw error;
@@ -95,8 +93,7 @@ const LimitedDiscounts = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      if (!userId) throw new Error("User not authenticated");
 
       const discountData = {
         product_id: formData.product_id,
@@ -106,7 +103,7 @@ const LimitedDiscounts = () => {
         start_date: new Date(formData.start_date).toISOString(),
         end_date: new Date(formData.end_date).toISOString(),
         is_active: true,
-        created_by: user.id,
+        created_by: userId,
       };
 
       if (editingId) {

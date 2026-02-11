@@ -74,6 +74,7 @@ const STATUS_COLUMNS = [
 
 const Purchases = () => {
   const navigate = useNavigate();
+  const { userId } = useAuthContext();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -120,8 +121,7 @@ const Purchases = () => {
 
   const fetchPurchases = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!userId) {
         navigate("/auth");
         return;
       }
@@ -129,7 +129,7 @@ const Purchases = () => {
       const { data, error } = await supabase
         .from('purchases')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -149,8 +149,6 @@ const Purchases = () => {
 
   const fetchPayments = async (purchaseId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
       const { data, error } = await supabase
         .from('purchase_payments')
@@ -167,13 +165,12 @@ const Purchases = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .eq('is_deleted', false)
         .order('name');
 
@@ -186,13 +183,12 @@ const Purchases = () => {
 
   const fetchSuppliers = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('suppliers')
         .select('id, name, phone, mapped_products')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('name');
 
       if (error) throw error;
@@ -223,8 +219,7 @@ const Purchases = () => {
 
     setIsAddingPayment(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { error: paymentError } = await supabase
         .from('purchase_payments')
@@ -233,7 +228,7 @@ const Purchases = () => {
           amount,
           payment_mode: newPaymentMode,
           notes: newPaymentNotes || null,
-          created_by: user.id
+          created_by: userId
         });
 
       if (paymentError) throw paymentError;
@@ -382,11 +377,10 @@ const Purchases = () => {
 
     setIsCreating(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const purchaseData = {
-        created_by: user.id,
+        created_by: userId,
         purchase_number: generatePurchaseNumber(),
         supplier_name: supplierName || null,
         supplier_phone: supplierPhone || null,
@@ -415,8 +409,7 @@ const Purchases = () => {
   const handleReceivePurchase = async (purchase: Purchase) => {
     setIsReceiving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       const { error: purchaseError } = await supabase
         .from('purchases')
@@ -456,7 +449,7 @@ const Purchases = () => {
               total_value: item.unit_price * item.quantity,
               party_name: purchase.supplier_name,
               party_phone: purchase.supplier_phone,
-              created_by: user.id
+              created_by: userId
             });
         }
       }

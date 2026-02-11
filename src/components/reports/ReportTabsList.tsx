@@ -22,7 +22,7 @@ const ReportTabsList = ({ tabs, className }: ReportTabsListProps) => {
       <TabsList className={cn(
         "inline-flex w-auto min-w-full h-auto p-1.5 gap-1",
         "bg-muted/50 backdrop-blur-sm rounded-xl border border-border/50",
-        `md:grid md:grid-cols-${Math.min(visibleTabs.length, 10)}`
+        "flex-wrap md:flex-nowrap"
       )}>
         {visibleTabs.map((tab) => (
           <TabsTrigger
