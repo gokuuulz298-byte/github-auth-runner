@@ -230,17 +230,20 @@ const Dashboard = () => {
         onGenerateBill={handleGenerateBill}
       />
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 overflow-x-hidden">
-        <div className="mb-4 sm:mb-8 px-2 fade-in">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2">
-            Welcome{companyName ? `, ${companyName}` : ''}!
-          </h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {isStaff 
-              ? `You have access to ${staffModules.length} module${staffModules.length !== 1 ? 's' : ''}`
-              : 'Choose an option to get started'
-            }
-          </p>
+      <main className="container mx-auto px-3 sm:px-6 py-5 sm:py-8 overflow-x-hidden">
+        {/* Welcome section with Zoho-style gradient card */}
+        <div className="mb-6 sm:mb-8 fade-in">
+          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl p-5 sm:p-6 border border-primary/10">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+              Welcome back{companyName ? `, ${companyName}` : ''}! 👋
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isStaff 
+                ? `You have access to ${staffModules.length} module${staffModules.length !== 1 ? 's' : ''}`
+                : 'Your business dashboard — choose a module to get started'
+              }
+            </p>
+          </div>
         </div>
 
         <DashboardMenuGrid
