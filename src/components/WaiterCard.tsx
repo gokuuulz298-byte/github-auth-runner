@@ -55,39 +55,37 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
       return;
     }
 
-    if (formData.password.length < 4) {
-      toast.error("Password must be at least 4 characters");
+    if (formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Use secure RPC function that hashes password server-side
-      // No Supabase Auth account is created - waiters only login via username/password
-      const { data: waiterId, error } = await supabase.rpc('create_waiter', {
-        p_username: formData.username,
-        p_password: formData.password,
-        p_display_name: formData.display_name,
-        p_created_by: user.id,
+      const { data, error } = await supabase.functions.invoke("create-waiter-auth", {
+        body: {
+          action: "create",
+          username: formData.username,
+          password: formData.password,
+          display_name: formData.display_name,
+        },
       });
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Username already exists for this account");
+      if (error) throw error;
+      if (data?.error) {
+        if (data.error.includes("already") || data.error.includes("duplicate")) {
+          toast.error("Username already exists. Please choose a different username.");
         } else {
-          throw error;
+          toast.error(data.error);
         }
         setIsSubmitting(false);
         return;
       }
 
-      toast.success("Waiter added successfully! They can login using the Interface Selector.");
+      toast.success("Waiter added successfully! They can login from the Auth page.");
       resetForm();
       onRefresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       toast.error("Failed to add waiter");
     } finally {
@@ -101,16 +99,29 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      // Use secure RPC function that hashes password server-side
-      const { error } = await supabase.rpc('update_waiter', {
-        p_waiter_id: id,
-        p_username: formData.username,
-        p_password: formData.password,
-        p_display_name: formData.display_name,
+      const { data, error } = await supabase.functions.invoke("create-waiter-auth", {
+        body: {
+          action: "update",
+          waiter_id: id,
+          username: formData.username,
+          password: formData.password,
+          display_name: formData.display_name,
+        },
       });
 
       if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setIsSubmitting(false);
+        return;
+      }
 
       toast.success("Waiter updated successfully");
       resetForm();
@@ -118,16 +129,28 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to update waiter");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
 
+    setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("waiters").delete().eq("id", deleteId);
+      const { data, error } = await supabase.functions.invoke("create-waiter-auth", {
+        body: {
+          action: "delete",
+          waiter_id: deleteId,
+        },
+      });
 
       if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
 
       toast.success("Waiter deleted successfully");
       setDeleteId(null);
@@ -135,6 +158,8 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete waiter");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -157,7 +182,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
     setEditingId(waiter.id);
     setFormData({
       username: waiter.username,
-      password: "", // Password must be re-entered for security
+      password: "",
       display_name: waiter.display_name,
     });
     setIsAdding(false);
@@ -174,10 +199,10 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
           {!isAdding && !editingId && (
             <Button
               size="sm"
-            onClick={() => {
-              setIsAdding(true);
-              setFormData({ username: "", password: "", display_name: "" });
-            }}
+              onClick={() => {
+                setIsAdding(true);
+                setFormData({ username: "", password: "", display_name: "" });
+              }}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
               <Plus className="h-4 w-4 mr-1" />
@@ -205,17 +230,17 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
                 />
               </div>
               <div>
-                <Label className="text-xs">Username (for quick login) *</Label>
+                <Label className="text-xs">Username (globally unique) *</Label>
                 <Input
                   value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s/g, '') })}
                   placeholder="john123"
                   className="h-9"
                   disabled={isSubmitting}
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs">Password *</Label>
+                <Label className="text-xs">Password * (min 6 characters)</Label>
                 <div className="relative">
                   <Input
                     type={showPassword["form"] ? "text" : "password"}
@@ -269,7 +294,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
           <div className="text-center py-6 text-muted-foreground">
             <UserCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No waiters added yet</p>
-            <p className="text-xs">Add waiters to enable the waiter interface</p>
+            <p className="text-xs">Add waiters to enable waiter login from the Auth page</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -335,7 +360,7 @@ const WaiterCard = ({ waiters, onRefresh }: WaiterCardProps) => {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Waiter</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete this waiter? This action cannot be undone.
+                Are you sure you want to delete this waiter? This will also remove their login account.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

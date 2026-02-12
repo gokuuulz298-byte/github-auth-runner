@@ -14,6 +14,7 @@ import LoadingButton from "@/components/LoadingButton";
 import WaiterCard from "@/components/WaiterCard";
 import StaffCard from "@/components/StaffCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuthContext } from "@/hooks/useAuthContext";
 
 interface CompanyProfile {
   id?: string;
@@ -71,6 +72,7 @@ interface Staff {
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { userId, user, loading: authLoading, isAdmin } = useAuthContext();
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -93,21 +95,25 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    Promise.all([fetchProfile(), fetchWaiters(), fetchStaff()]).finally(() => {
-      setPageLoading(false);
-    });
-  }, []);
+    if (!authLoading && !user) {
+      navigate('/auth');
+      return;
+    }
+    if (userId) {
+      Promise.all([fetchProfile(), fetchWaiters(), fetchStaff()]).finally(() => {
+        setPageLoading(false);
+      });
+    }
+  }, [authLoading, userId, user]);
 
   const fetchWaiters = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!userId) return;
 
-      // Only select non-sensitive fields - never fetch passwords
+    try {
       const { data, error } = await supabase
         .from('waiters')
         .select('id, username, display_name, is_active, created_by, auth_user_id, created_at, updated_at')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('display_name');
 
       if (error) throw error;
@@ -118,14 +124,13 @@ const Profile = () => {
   };
 
   const fetchStaff = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!userId) return;
 
+    try {
       const { data, error } = await supabase
         .from('staff')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .order('display_name');
 
       if (error) throw error;
@@ -136,14 +141,13 @@ const Profile = () => {
   };
 
   const fetchProfile = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!userId) return;
 
+    try {
       const { data, error } = await supabase
         .from('company_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (error) throw error;
@@ -163,8 +167,7 @@ const Profile = () => {
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!userId) throw new Error("Not authenticated");
 
       const safeProfile: any = {
         ...profile,
@@ -181,13 +184,12 @@ const Profile = () => {
       } else {
         const { error } = await supabase
           .from("company_profiles")
-          .insert([{ ...safeProfile, user_id: user.id }]);
+          .insert([{ ...safeProfile, user_id: userId }]);
 
         if (error) throw error;
       }
 
       toast.success("Profile saved successfully!");
-      // Update session cache
       sessionStorage.setItem('companyName', profile.company_name);
       fetchProfile();
     } catch (error) {
@@ -302,17 +304,15 @@ const Profile = () => {
     const save = async () => {
       setIsSaving(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Sign in required");
+        if (!userId) throw new Error("Sign in required");
         
         const { error } = await supabase
           .from('company_profiles')
           .update({ billing_settings: settings as unknown as any })
-          .eq('user_id', user.id);
+          .eq('user_id', userId);
         
         if (error) throw error;
         
-        // Update session cache
         sessionStorage.setItem('billingSettings', JSON.stringify(settings));
         
         toast.success("Settings saved successfully");
