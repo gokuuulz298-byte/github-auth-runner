@@ -39,10 +39,7 @@ const LimitedDiscounts = () => {
 
   const fetchDiscounts = async () => {
     try {
-      if (!userId) {
-        toast.error("Please sign in to view discounts");
-        return;
-      }
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('product_discounts')

@@ -44,10 +44,7 @@ const Barcodes = () => {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      if (!userId) {
-        toast.error("Please sign in to view products");
-        return;
-      }
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('products')

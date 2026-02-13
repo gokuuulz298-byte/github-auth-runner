@@ -17,30 +17,29 @@ interface DashboardMenuGridProps {
 }
 
 const DashboardMenuGrid = memo(({ menuItems, onNavigate }: DashboardMenuGridProps) => {
-  // Memoize the grid to prevent re-renders
   const gridContent = useMemo(() => {
     if (menuItems === null) {
       return (
         <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent"></div>
         </div>
       );
     }
 
     if (menuItems.length === 0) {
       return (
-        <div className="text-center py-12 fade-in">
-          <UserCog className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <h3 className="text-lg font-medium text-muted-foreground">No modules assigned</h3>
-          <p className="text-sm text-muted-foreground mt-2">
-            Contact your administrator to get access to modules.
+        <div className="text-center py-16">
+          <UserCog className="h-14 w-14 mx-auto mb-3 text-muted-foreground/40" />
+          <h3 className="text-base font-medium text-muted-foreground">No modules assigned</h3>
+          <p className="text-sm text-muted-foreground/70 mt-1">
+            Contact your administrator to get access.
           </p>
         </div>
       );
     }
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
         {menuItems.map((item, index) => (
           <DashboardMenuCard
             key={item.path}

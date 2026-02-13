@@ -40,15 +40,12 @@ const Coupons = () => {
   });
 
   useEffect(() => {
-    fetchCoupons();
-  }, []);
+    if (userId) fetchCoupons();
+  }, [userId]);
 
   const fetchCoupons = async () => {
     try {
-      if (!userId) {
-        toast.error("Please sign in to view coupons");
-        return;
-      }
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('coupons')

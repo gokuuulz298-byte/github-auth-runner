@@ -75,13 +75,14 @@ const ManualBilling = () => {
 
   // Fetch company profile, counters, coupons, and discounts
   useEffect(() => {
+    if (!userId) return;
     fetchCompanyProfile();
     fetchCounters();
     fetchCoupons();
     fetchProductDiscounts();
     fetchActiveTemplate();
     fetchLoyaltySettings();
-  }, []);
+  }, [userId]);
   
   const fetchLoyaltySettings = async () => {
     try {
