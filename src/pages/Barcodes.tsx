@@ -32,8 +32,8 @@ const Barcodes = () => {
   const qrcodeRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (userId) fetchProducts();
+  }, [userId]);
 
   useEffect(() => {
     if (selectedProduct) {

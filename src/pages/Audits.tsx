@@ -63,8 +63,8 @@ const Audits = () => {
   const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
-    generateAuditTrail();
-  }, [dateRange]);
+    if (userId) generateAuditTrail();
+  }, [dateRange, userId]);
 
   const getDateRange = () => {
     const now = new Date();

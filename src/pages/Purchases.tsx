@@ -108,10 +108,12 @@ const Purchases = () => {
   const [isReceiving, setIsReceiving] = useState<boolean>(false);
 
   useEffect(() => {
-    fetchPurchases();
-    fetchProducts();
-    fetchSuppliers();
-  }, []);
+    if (userId) {
+      fetchPurchases();
+      fetchProducts();
+      fetchSuppliers();
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (selectedPurchase) {
@@ -121,10 +123,7 @@ const Purchases = () => {
 
   const fetchPurchases = async () => {
     try {
-      if (!userId) {
-        navigate("/auth");
-        return;
-      }
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('purchases')
