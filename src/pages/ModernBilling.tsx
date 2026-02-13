@@ -172,6 +172,7 @@ const ModernBilling = () => {
 
   // Fetch initial data - load all products upfront for faster category switching
   useEffect(() => {
+    if (!userId) return;
     fetchCategories();
     fetchCompanyProfile();
     fetchCounters();
@@ -180,7 +181,7 @@ const ModernBilling = () => {
     fetchActiveTemplate();
     fetchAllProducts(); // Load all products once
     fetchLoyaltySettings();
-  }, []);
+  }, [userId]);
   
   const fetchLoyaltySettings = async () => {
     try {
