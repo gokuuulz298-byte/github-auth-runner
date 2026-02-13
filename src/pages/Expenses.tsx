@@ -75,8 +75,8 @@ const Expenses = () => {
   });
 
   useEffect(() => {
-    fetchExpenses();
-  }, [selectedMonth]);
+    if (userId) fetchExpenses();
+  }, [selectedMonth, userId]);
 
   const fetchExpenses = async () => {
     try {

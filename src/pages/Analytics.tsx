@@ -49,10 +49,11 @@ const Analytics = () => {
   const [dailyLoading, setDailyLoading] = useState(false);
 
   useEffect(() => {
-    fetchCounters();
-  }, []);
+    if (userId) fetchCounters();
+  }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     fetchAnalytics();
     fetchDailyData();
     fetchWeeklyData();
@@ -77,7 +78,7 @@ const Analytics = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedCounter]);
+  }, [selectedCounter, userId]);
 
   // Separate effect for date changes - only refresh daily data without full page loader
   useEffect(() => {

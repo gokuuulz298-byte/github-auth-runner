@@ -179,19 +179,18 @@ const Templates = () => {
   ];
 
   useEffect(() => {
-    fetchTemplates();
-  }, []);
+    if (userId) fetchTemplates();
+  }, [userId]);
 
   const fetchTemplates = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!userId) return;
 
       // Only fetch the active template first
       const { data: activeData, error: activeError } = await supabase
         .from('bill_templates')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', userId)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -199,7 +198,7 @@ const Templates = () => {
 
       if (!activeData) {
         // No active template, initialize with first default template only
-        await initializeSingleTemplate(user.id);
+        await initializeSingleTemplate(userId);
       } else {
         // Load all default templates for display, but only store the active one in DB
         const activeTemplateData = activeData.template_data as { layout?: string } || {};
@@ -209,7 +208,7 @@ const Templates = () => {
           description: template.description,
           template_data: template.template_data,
           is_active: activeTemplateData.layout === template.template_data.layout,
-          created_by: user.id,
+          created_by: userId,
         }));
         
         // Update the active template ID based on matching layout
@@ -268,8 +267,7 @@ const Templates = () => {
   const handleSelectTemplate = async (templateId: string) => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      if (!userId) throw new Error("User not authenticated");
 
       // Find the selected template from our display list
       const selectedTemplate = templates.find(t => t.id === templateId);
@@ -288,7 +286,7 @@ const Templates = () => {
             template_data: selectedTemplate.template_data,
             is_active: true 
           })
-          .eq('created_by', user.id)
+          .eq('created_by', userId)
           .eq('is_active', true);
 
         if (error) throw error;
@@ -297,7 +295,7 @@ const Templates = () => {
         await supabase
           .from('bill_templates')
           .update({ is_active: false })
-          .eq('created_by', user.id);
+          .eq('created_by', userId);
 
         const { error } = await supabase
           .from('bill_templates')

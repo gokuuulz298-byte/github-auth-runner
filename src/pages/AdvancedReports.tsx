@@ -123,15 +123,17 @@ const AdvancedReports = () => {
   const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchCounters();
-    fetchBillingSettings();
-    fetchProducts();
-  }, []);
+    if (userId) {
+      fetchCounters();
+      fetchBillingSettings();
+      fetchProducts();
+    }
+  }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     fetchAdvancedData();
 
-    // Set up real-time subscription for invoices
     const channel = supabase
       .channel('advanced-reports-invoices')
       .on(
@@ -142,7 +144,6 @@ const AdvancedReports = () => {
           table: 'invoices'
         },
         () => {
-          // Refresh data when invoices change
           fetchAdvancedData();
         }
       )
@@ -151,7 +152,7 @@ const AdvancedReports = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [timeRange, selectedCounter]);
+  }, [timeRange, selectedCounter, userId]);
 
   useEffect(() => {
     if (products.length > 0) {

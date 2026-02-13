@@ -31,9 +31,11 @@ const LimitedDiscounts = () => {
   });
 
   useEffect(() => {
-    fetchDiscounts();
-    fetchProducts();
-  }, []);
+    if (userId) {
+      fetchDiscounts();
+      fetchProducts();
+    }
+  }, [userId]);
 
   const fetchDiscounts = async () => {
     try {
