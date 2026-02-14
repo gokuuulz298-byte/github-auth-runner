@@ -446,8 +446,8 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Restaurant Settings */}
-        <Card>
+        {/* Restaurant Settings - Temporarily hidden for retail-only release */}
+        {/* <Card>
           <CardHeader>
             <CardTitle className="text-base">Restaurant Mode</CardTitle>
           </CardHeader>
@@ -485,7 +485,7 @@ const Profile = () => {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Security Settings */}
         <Card>
