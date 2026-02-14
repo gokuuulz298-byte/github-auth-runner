@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 // Eagerly load critical pages
 import Index from "./pages/Index";
@@ -69,43 +70,45 @@ const App = () => (
         }}
       />
       <BrowserRouter>
-        <Suspense fallback={<RouteLoader />}>
-          <Routes>
-            {/* Critical paths - eagerly loaded */}
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Lazy loaded routes */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/manual-billing" element={<ManualBilling />} />
-            <Route path="/modern-billing" element={<ModernBilling />} />
-            <Route path="/kitchen" element={<Kitchen />} />
-            <Route path="/waiter" element={<WaiterInterface />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/low-stocks" element={<LowStocks />} />
-            <Route path="/invoices" element={<Invoices />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/advanced-reports" element={<AdvancedReports />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/counters" element={<Counters />} />
-            <Route path="/coupons" element={<Coupons />} />
-            <Route path="/limited-discounts" element={<LimitedDiscounts />} />
-            <Route path="/barcodes" element={<Barcodes />} />
-            <Route path="/templates" element={<Templates />} />
-            <Route path="/purchases" element={<Purchases />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/restaurant-tables" element={<RestaurantTables />} />
-            <Route path="/suppliers" element={<Suppliers />} />
-            <Route path="/audits" element={<Audits />} />
-            <Route path="/returns" element={<Returns />} />
-            <Route path="/inventory-movements" element={<InventoryMovements />} />
-            
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
+        <AuthProvider>
+          <Suspense fallback={<RouteLoader />}>
+            <Routes>
+              {/* Critical paths - eagerly loaded */}
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              
+              {/* Lazy loaded routes */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/manual-billing" element={<ManualBilling />} />
+              <Route path="/modern-billing" element={<ModernBilling />} />
+              <Route path="/kitchen" element={<Kitchen />} />
+              <Route path="/waiter" element={<WaiterInterface />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/low-stocks" element={<LowStocks />} />
+              <Route path="/invoices" element={<Invoices />} />
+              <Route path="/customers" element={<Customers />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/advanced-reports" element={<AdvancedReports />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/categories" element={<Categories />} />
+              <Route path="/counters" element={<Counters />} />
+              <Route path="/coupons" element={<Coupons />} />
+              <Route path="/limited-discounts" element={<LimitedDiscounts />} />
+              <Route path="/barcodes" element={<Barcodes />} />
+              <Route path="/templates" element={<Templates />} />
+              <Route path="/purchases" element={<Purchases />} />
+              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/restaurant-tables" element={<RestaurantTables />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/audits" element={<Audits />} />
+              <Route path="/returns" element={<Returns />} />
+              <Route path="/inventory-movements" element={<InventoryMovements />} />
+              
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
