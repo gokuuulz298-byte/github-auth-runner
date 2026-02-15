@@ -271,16 +271,16 @@ const ManualBilling = () => {
 
         if (error) throw error;
         setAllProducts(data || []);
-        setProducts(data || []); // Show all products initially
+        setProducts(data || []);
       } catch (error) {
         console.error(error);
       }
     };
 
-    if (isOnline) {
+    if (isOnline && userId) {
       fetchAllProducts();
     }
-  }, [isOnline]);
+  }, [isOnline, userId]);
 
   // Filter products as user types (client-side for speed)
   useEffect(() => {
