@@ -244,6 +244,18 @@ const Returns = () => {
       return;
     }
 
+    // Build confirmation message showing what will change
+    const totalAmount = calculateTotal();
+    const changesSummary = returnType === 'sales_return'
+      ? `📦 Stock will be ADDED back:\n${selectedItems.map(i => `  • ${i.name}: +${i.quantity} units`).join('\n')}\n\n📊 Reports: Revenue reduced by ₹${totalAmount.toFixed(2)}\n💰 Refund: ₹${totalAmount.toFixed(2)} (${amountType})`
+      : `📦 Stock will be REMOVED:\n${selectedItems.map(i => `  • ${i.name}: -${i.quantity} units`).join('\n')}\n\n📊 Reports: Purchase cost adjusted\n💰 Credit: ₹${totalAmount.toFixed(2)} (${amountType})`;
+
+    const confirmed = window.confirm(
+      `⚠️ Confirm Return Processing\n\nThe following changes will be applied:\n\n${changesSummary}\n\nProceed with return?`
+    );
+
+    if (!confirmed) return;
+
     setIsSubmitting(true);
     try {
       const returnData = {
@@ -259,8 +271,8 @@ const Returns = () => {
         items_data: selectedItems as unknown as any,
         reason: finalReason,
         amount_type: amountType,
-        total_amount: calculateTotal(),
-        status: 'pending',
+        total_amount: totalAmount,
+        status: 'completed',
         notes: notes || null
       };
 
@@ -270,7 +282,44 @@ const Returns = () => {
 
       if (error) throw error;
 
-      toast.success("Return created successfully!");
+      // Update inventory for each returned item
+      for (const item of selectedItems) {
+        const { data: product } = await supabase
+          .from('products')
+          .select('stock_quantity')
+          .eq('id', item.id)
+          .single();
+
+        if (product) {
+          const stockChange = returnType === 'sales_return' ? item.quantity : -item.quantity;
+          const newStock = Math.max(0, (Number(product.stock_quantity) || 0) + stockChange);
+
+          await supabase
+            .from('products')
+            .update({ stock_quantity: newStock })
+            .eq('id', item.id);
+
+          // Log inventory movement
+          await supabase
+            .from('inventory_movements')
+            .insert({
+              product_id: item.id,
+              product_name: item.name,
+              movement_type: returnType === 'sales_return' ? 'inflow' : 'outflow',
+              quantity: item.quantity,
+              reference_type: 'return',
+              reference_number: returnData.return_number,
+              unit_price: item.unit_price,
+              total_value: item.unit_price * item.quantity,
+              party_name: referenceData.customer_name || referenceData.supplier_name || null,
+              party_phone: referenceData.customer_phone || null,
+              notes: `Return: ${finalReason}`,
+              created_by: userId
+            });
+        }
+      }
+
+      toast.success("Return processed! Inventory and reports updated.");
       setDialogOpen(false);
       resetForm();
       fetchReturns();

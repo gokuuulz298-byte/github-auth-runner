@@ -352,15 +352,15 @@ const Analytics = () => {
         </Card>
 
         {/* KPI Cards - Zoho Style */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
           <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-blue-100">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-200" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-[10px] sm:text-sm font-medium text-blue-100">Total Revenue</CardTitle>
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-blue-200" />
             </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <div className="flex items-center mt-1 text-xs">
+            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+              <div className="text-sm sm:text-2xl font-bold truncate">₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <div className="flex items-center mt-1 text-[10px] sm:text-xs">
                 {stats.revenueGrowth >= 0 ? (
                   <span className="flex items-center text-green-200">
                     <ArrowUpRight className="h-3 w-3 mr-0.5" />
@@ -372,60 +372,60 @@ const Analytics = () => {
                     {Math.abs(stats.revenueGrowth).toFixed(1)}%
                   </span>
                 )}
-                <span className="ml-1 text-blue-200">vs last week</span>
+                <span className="ml-1 text-blue-200 hidden sm:inline">vs last week</span>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-green-100">Total Profit</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-200" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-[10px] sm:text-sm font-medium text-green-100">Total Profit</CardTitle>
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-200" />
             </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">₹{stats.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <p className="text-xs text-green-200 mt-1">
+            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+              <div className="text-sm sm:text-2xl font-bold truncate">₹{stats.totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-[10px] sm:text-xs text-green-200 mt-1">
                 {stats.totalRevenue > 0 ? ((stats.totalProfit / stats.totalRevenue) * 100).toFixed(1) : 0}% margin
               </p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-purple-100">Total Sales</CardTitle>
-              <ShoppingBag className="h-4 w-4 text-purple-200" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-[10px] sm:text-sm font-medium text-purple-100">Total Sales</CardTitle>
+              <ShoppingBag className="h-3 w-3 sm:h-4 sm:w-4 text-purple-200" />
             </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">{stats.totalSales.toLocaleString()}</div>
-              <p className="text-xs text-purple-200 mt-1">invoices generated</p>
+            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+              <div className="text-sm sm:text-2xl font-bold">{stats.totalSales.toLocaleString()}</div>
+              <p className="text-[10px] sm:text-xs text-purple-200 mt-1">invoices</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-orange-100">Avg Order Value</CardTitle>
-              <Target className="h-4 w-4 text-orange-200" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-[10px] sm:text-sm font-medium text-orange-100">Avg Order</CardTitle>
+              <Target className="h-3 w-3 sm:h-4 sm:w-4 text-orange-200" />
             </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">₹{stats.avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <p className="text-xs text-orange-200 mt-1">per transaction</p>
+            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+              <div className="text-sm sm:text-2xl font-bold truncate">₹{stats.avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-[10px] sm:text-xs text-orange-200 mt-1">per bill</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-pink-500 to-rose-600 text-white border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-pink-100">Tax Collected</CardTitle>
-              <Percent className="h-4 w-4 text-pink-200" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-[10px] sm:text-sm font-medium text-pink-100">Tax</CardTitle>
+              <Percent className="h-3 w-3 sm:h-4 sm:w-4 text-pink-200" />
             </CardHeader>
-            <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">₹{stats.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              <p className="text-xs text-pink-200 mt-1">GST amount</p>
+            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+              <div className="text-sm sm:text-2xl font-bold truncate">₹{stats.totalTax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+              <p className="text-[10px] sm:text-xs text-pink-200 mt-1">GST</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Secondary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
@@ -562,22 +562,22 @@ const Analytics = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20">
-                <p className="text-xs text-muted-foreground font-medium">Bills</p>
-                <p className="text-2xl font-bold">{dailyInvoices.length}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+              <div className="p-3 sm:p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20">
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Bills</p>
+                <p className="text-lg sm:text-2xl font-bold">{dailyInvoices.length}</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-xl border border-green-200 dark:border-green-800">
-                <p className="text-xs text-muted-foreground font-medium">Revenue</p>
-                <p className="text-2xl font-bold text-green-600">₹{dailyRevenue.toFixed(0)}</p>
+              <div className="p-3 sm:p-4 bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-xl border border-green-200 dark:border-green-800">
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Revenue</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600 truncate">₹{dailyRevenue.toFixed(0)}</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-500/5 rounded-xl border border-blue-200 dark:border-blue-800">
-                <p className="text-xs text-muted-foreground font-medium">Profit</p>
-                <p className="text-2xl font-bold text-blue-600">₹{dailyProfit.toFixed(0)}</p>
+              <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-500/10 to-blue-500/5 rounded-xl border border-blue-200 dark:border-blue-800">
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Profit</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-600 truncate">₹{dailyProfit.toFixed(0)}</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-orange-500/10 to-orange-500/5 rounded-xl border border-orange-200 dark:border-orange-800">
-                <p className="text-xs text-muted-foreground font-medium">Tax</p>
-                <p className="text-2xl font-bold text-orange-600">₹{dailyTax.toFixed(0)}</p>
+              <div className="p-3 sm:p-4 bg-gradient-to-br from-orange-500/10 to-orange-500/5 rounded-xl border border-orange-200 dark:border-orange-800">
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Tax</p>
+                <p className="text-lg sm:text-2xl font-bold text-orange-600 truncate">₹{dailyTax.toFixed(0)}</p>
               </div>
             </div>
 

@@ -395,56 +395,7 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Manual Billing */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Manual Billing Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Tax Mode</Label>
-              <div className="flex gap-2 mt-2">
-                <Button
-                  type="button"
-                  variant={settings.ManualBilling.mode === "inclusive" ? "default" : "outline"}
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      ManualBilling: { ...settings.ManualBilling, mode: "inclusive" }
-                    })
-                  }
-                >
-                  Inclusive
-                </Button>
-                <Button
-                  type="button"
-                  variant={settings.ManualBilling.mode === "exclusive" ? "default" : "outline"}
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      ManualBilling: { ...settings.ManualBilling, mode: "exclusive" }
-                    })
-                  }
-                >
-                  Exclusive
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={settings.ManualBilling.allowIgst}
-                onCheckedChange={(v) =>
-                  setSettings({
-                    ...settings,
-                    ManualBilling: { ...settings.ManualBilling, allowIgst: v }
-                  })
-                }
-              />
-              <span>Allow IGST</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Manual Billing settings removed - module deprecated */}
 
         {/* Restaurant Settings - Temporarily hidden for retail-only release */}
         {/* <Card>

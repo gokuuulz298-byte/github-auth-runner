@@ -791,7 +791,7 @@ const AdvancedReports = () => {
         />
 
         {/* Primary KPI Cards - Zoho CRM Style */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           <ReportKPICard
             title="Total Revenue"
             value={formatIndianCurrency(metrics.totalRevenue)}
@@ -829,7 +829,7 @@ const AdvancedReports = () => {
         </div>
 
         {/* Secondary KPI Row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           <ReportKPICard
             title="Expenses"
             value={formatIndianCurrency(metrics.totalExpenses)}
@@ -864,34 +864,34 @@ const AdvancedReports = () => {
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-200/30 dark:border-amber-800/30">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" />
-              <span className="text-xs font-medium text-amber-600/80">Peak Hour</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+          <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-200/30 dark:border-amber-800/30">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-amber-600" />
+              <span className="text-[10px] sm:text-xs font-medium text-amber-600/80">Peak Hour</span>
             </div>
-            <p className="text-lg font-bold text-amber-700 dark:text-amber-400 mt-1">{metrics.peakHour || 'N/A'}</p>
+            <p className="text-base sm:text-lg font-bold text-amber-700 dark:text-amber-400 mt-1">{metrics.peakHour || 'N/A'}</p>
           </div>
-          <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500/10 to-transparent border border-teal-200/30 dark:border-teal-800/30">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-teal-600" />
-              <span className="text-xs font-medium text-teal-600/80">Peak Day</span>
+          <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-teal-500/10 to-transparent border border-teal-200/30 dark:border-teal-800/30">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-teal-600" />
+              <span className="text-[10px] sm:text-xs font-medium text-teal-600/80">Peak Day</span>
             </div>
-            <p className="text-lg font-bold text-teal-700 dark:text-teal-400 mt-1">{metrics.peakDay || 'N/A'}</p>
+            <p className="text-base sm:text-lg font-bold text-teal-700 dark:text-teal-400 mt-1">{metrics.peakDay || 'N/A'}</p>
           </div>
-          <div className="p-3 rounded-xl bg-gradient-to-br from-pink-500/10 to-transparent border border-pink-200/30 dark:border-pink-800/30">
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-pink-600" />
-              <span className="text-xs font-medium text-pink-600/80">Avg Items/Order</span>
+          <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-pink-500/10 to-transparent border border-pink-200/30 dark:border-pink-800/30">
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-3 w-3 sm:h-4 sm:w-4 text-pink-600" />
+              <span className="text-[10px] sm:text-xs font-medium text-pink-600/80">Avg Items</span>
             </div>
-            <p className="text-lg font-bold text-pink-700 dark:text-pink-400 mt-1">{metrics.averageItemsPerOrder.toFixed(1)}</p>
+            <p className="text-base sm:text-lg font-bold text-pink-700 dark:text-pink-400 mt-1">{metrics.averageItemsPerOrder.toFixed(1)}</p>
           </div>
-          <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500/10 to-transparent border border-violet-200/30 dark:border-violet-800/30">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-violet-600" />
-              <span className="text-xs font-medium text-violet-600/80">Expense Ratio</span>
+          <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-violet-500/10 to-transparent border border-violet-200/30 dark:border-violet-800/30">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="h-3 w-3 sm:h-4 sm:w-4 text-violet-600" />
+              <span className="text-[10px] sm:text-xs font-medium text-violet-600/80">Expense %</span>
             </div>
-            <p className="text-lg font-bold text-violet-700 dark:text-violet-400 mt-1">
+            <p className="text-base sm:text-lg font-bold text-violet-700 dark:text-violet-400 mt-1">
               {metrics.totalRevenue > 0 ? ((metrics.totalExpenses / metrics.totalRevenue) * 100).toFixed(1) : 0}%
             </p>
           </div>
@@ -1054,28 +1054,28 @@ const AdvancedReports = () => {
           <TabsContent value="profit" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Profit Summary Cards */}
-              <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
                 <div className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-green-200/30 dark:border-green-800/30">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Profit</p>
-                  <p className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+                  <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Profit</p>
+                  <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400 mt-1 truncate">
                     {formatIndianCurrency(metrics.totalProfit)}
                   </p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-200/30 dark:border-blue-800/30">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Profit Margin</p>
-                  <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-200/30 dark:border-blue-800/30">
+                  <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Profit Margin</p>
+                  <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
                     {metrics.profitMargin.toFixed(1)}%
                   </p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-200/30 dark:border-purple-800/30">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Profit/Order</p>
-                  <p className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+                <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-200/30 dark:border-purple-800/30">
+                  <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Profit/Order</p>
+                  <p className="text-lg sm:text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1 truncate">
                     {formatIndianCurrency(metrics.totalOrders > 0 ? metrics.totalProfit / metrics.totalOrders : 0)}
                   </p>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-200/30 dark:border-amber-800/30">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Revenue:Profit</p>
-                  <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-200/30 dark:border-amber-800/30">
+                  <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">Revenue:Profit</p>
+                  <p className="text-lg sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
                     {metrics.totalProfit > 0 ? (metrics.totalRevenue / metrics.totalProfit).toFixed(1) : 0}:1
                   </p>
                 </div>
@@ -1277,7 +1277,7 @@ const AdvancedReports = () => {
                 ) : dayWiseData ? (
                   <div className="space-y-4">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3">
                       <Card className={`border-l-4 ${dayWiseData.revenue > 0 ? 'border-l-green-500 bg-green-50 dark:bg-green-950/20' : 'border-l-gray-300'}`}>
                         <CardContent className="p-3">
                           <p className="text-xs text-muted-foreground">Revenue</p>

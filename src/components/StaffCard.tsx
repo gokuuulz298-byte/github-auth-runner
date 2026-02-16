@@ -38,7 +38,6 @@ interface StaffCardProps {
 }
 
 const BILLING_MODULES = [
-  { id: "manual-billing", label: "Manual Billing" },
   { id: "modern-billing", label: "Modern Billing" },
 ];
 
@@ -57,6 +56,10 @@ const MANAGEMENT_MODULES = [
   { id: "expenses", label: "Expenses" },
   { id: "low-stocks", label: "Low Stocks" },
   { id: "advanced-reports", label: "Advanced Reports" },
+  { id: "audits", label: "Audits" },
+  { id: "returns", label: "Returns" },
+  { id: "inventory-movements", label: "Stock Ledger" },
+  { id: "suppliers", label: "Suppliers" },
   { id: "profile", label: "Profile" },
 ];
 

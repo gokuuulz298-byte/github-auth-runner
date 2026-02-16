@@ -16,7 +16,7 @@ import NotFound from "./pages/NotFound";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const Invoices = lazy(() => import("./pages/Invoices"));
-const ManualBilling = lazy(() => import("./pages/ManualBilling"));
+// ManualBilling removed per user request
 const ModernBilling = lazy(() => import("./pages/ModernBilling"));
 const Kitchen = lazy(() => import("./pages/Kitchen"));
 const WaiterInterface = lazy(() => import("./pages/WaiterInterface"));
@@ -79,7 +79,7 @@ const App = () => (
               
               {/* Lazy loaded routes */}
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/manual-billing" element={<ManualBilling />} />
+              {/* Manual Billing route removed */}
               <Route path="/modern-billing" element={<ModernBilling />} />
               <Route path="/kitchen" element={<Kitchen />} />
               <Route path="/waiter" element={<WaiterInterface />} />
