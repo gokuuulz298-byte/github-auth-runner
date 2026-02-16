@@ -696,7 +696,7 @@ const Purchases = () => {
                       />
                     </div>
 
-                    {/* Product Search */}
+                    {/* Product Search - Separated by type */}
                     <div className="space-y-2">
                       <Label className="text-xs">Add Products</Label>
                       <div className="relative">
@@ -708,31 +708,63 @@ const Purchases = () => {
                           className="pl-10 h-9"
                         />
                       </div>
-                      <div className="max-h-40 overflow-y-auto border rounded-lg">
+                      <div className="max-h-52 overflow-y-auto border rounded-lg">
                         {filteredProducts.length === 0 ? (
                           <p className="p-3 text-sm text-muted-foreground text-center">No products found</p>
                         ) : (
-                          filteredProducts.slice(0, 10).map(product => (
-                            <div
-                              key={product.id}
-                              className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
-                              onClick={() => handleAddProduct(product)}
-                            >
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium">{product.name}</p>
-                                {product.is_raw_material && (
-                                  <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200">
-                                    Raw Material
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground">{product.barcode}</p>
-                              <div className="text-right">
-                                <p className="text-sm font-semibold">{formatIndianCurrency(product.buying_price || product.price)}</p>
-                                <Plus className="h-4 w-4 text-primary ml-auto" />
-                              </div>
-                            </div>
-                          ))
+                          <>
+                            {/* Inventory Products */}
+                            {filteredProducts.filter(p => !p.is_raw_material).length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 text-xs font-semibold text-blue-700 dark:text-blue-400 sticky top-0 z-10 border-b">
+                                  📦 Inventory Products
+                                </div>
+                                {filteredProducts.filter(p => !p.is_raw_material).slice(0, 10).map(product => (
+                                  <div
+                                    key={product.id}
+                                    className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                                    onClick={() => handleAddProduct(product)}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{product.name}</p>
+                                      <p className="text-[10px] text-muted-foreground">{product.barcode}</p>
+                                    </div>
+                                    <div className="text-right flex items-center gap-2">
+                                      <p className="text-sm font-semibold">{formatIndianCurrency(product.buying_price || product.price)}</p>
+                                      <Plus className="h-4 w-4 text-primary shrink-0" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                            {/* Raw Materials */}
+                            {filteredProducts.filter(p => p.is_raw_material).length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 bg-purple-50 dark:bg-purple-950/30 text-xs font-semibold text-purple-700 dark:text-purple-400 sticky top-0 z-10 border-b">
+                                  🧪 Raw Materials
+                                </div>
+                                {filteredProducts.filter(p => p.is_raw_material).slice(0, 10).map(product => (
+                                  <div
+                                    key={product.id}
+                                    className="flex items-center justify-between p-2 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 cursor-pointer border-b last:border-b-0"
+                                    onClick={() => handleAddProduct(product)}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{product.name}</p>
+                                      <p className="text-[10px] text-muted-foreground">{product.barcode}</p>
+                                    </div>
+                                    <div className="text-right flex items-center gap-2">
+                                      <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200 shrink-0">
+                                        Raw
+                                      </Badge>
+                                      <p className="text-sm font-semibold">{formatIndianCurrency(product.buying_price || product.price)}</p>
+                                      <Plus className="h-4 w-4 text-primary shrink-0" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>

@@ -802,41 +802,47 @@ const ModernBilling = () => {
           }
         }
 
-        if (pointsToAdd > 0) {
-          const { data: existingLoyalty, error: fetchError } = await supabase
-            .from("loyalty_points")
-            .select("*")
-            .eq("customer_phone", customerPhone)
-            .maybeSingle();
+        // Handle loyalty points: add earned, subtract redeemed
+        const pointsEarned = Math.floor(totals.total / 100);
+        const pointsRedeemed = totals.pointsRedeemed || 0;
 
-          if (fetchError && fetchError.code !== "PGRST116") {
-            console.error("Error fetching loyalty points:", fetchError);
-          } else {
-            if (existingLoyalty) {
-              const { error: updateError } = await supabase
-                .from("loyalty_points")
-                .update({
-                  points: Number(existingLoyalty.points) + pointsToAdd,
-                  total_spent: Number(existingLoyalty.total_spent) + totals.total,
-                  customer_name: customerName || existingLoyalty.customer_name,
-                })
-                .eq("id", existingLoyalty.id);
+        const { data: existingLoyalty, error: fetchError } = await supabase
+          .from("loyalty_points")
+          .select("*")
+          .eq("customer_phone", customerPhone)
+          .eq("created_by", userId)
+          .maybeSingle();
 
-              if (updateError) {
-                console.error("Error updating loyalty points:", updateError);
-              }
-            } else {
-              const { error: insertError } = await supabase.from("loyalty_points").insert({
-                customer_phone: customerPhone,
-                customer_name: customerName,
-                points: pointsToAdd,
-                total_spent: totals.total,
-                created_by: userId!,
-              });
+        if (fetchError && fetchError.code !== "PGRST116") {
+          console.error("Error fetching loyalty points:", fetchError);
+        } else {
+          const netPointsChange = pointsEarned - pointsRedeemed;
+          
+          if (existingLoyalty) {
+            const newPoints = Math.max(0, Number(existingLoyalty.points) + netPointsChange);
+            const { error: updateError } = await supabase
+              .from("loyalty_points")
+              .update({
+                points: newPoints,
+                total_spent: Number(existingLoyalty.total_spent) + totals.total,
+                customer_name: customerName || existingLoyalty.customer_name,
+              })
+              .eq("id", existingLoyalty.id);
 
-              if (insertError) {
-                console.error("Error inserting loyalty points:", insertError);
-              }
+            if (updateError) {
+              console.error("Error updating loyalty points:", updateError);
+            }
+          } else if (pointsEarned > 0) {
+            const { error: insertError } = await supabase.from("loyalty_points").insert({
+              customer_phone: customerPhone,
+              customer_name: customerName,
+              points: pointsEarned,
+              total_spent: totals.total,
+              created_by: userId!,
+            });
+
+            if (insertError) {
+              console.error("Error inserting loyalty points:", insertError);
             }
           }
         }
