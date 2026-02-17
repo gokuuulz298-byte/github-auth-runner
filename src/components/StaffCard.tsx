@@ -383,27 +383,30 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
                   </p>
                 )}
               </div>
-              <div className="sm:col-span-2">
-                <Label className="text-xs">Password {editingId ? "(leave blank to keep current)" : "*"}</Label>
-                <div className="relative">
-                  <Input
-                    type={showPassword["form"] ? "text" : "password"}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder={editingId ? "••••••••" : "Min 6 characters"}
-                    className="h-9 pr-8"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-9 w-9"
-                    onClick={() => setShowPassword({ ...showPassword, form: !showPassword["form"] })}
-                  >
-                    {showPassword["form"] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                  </Button>
+              {/* Only show password field when adding new staff, not when editing */}
+              {isAdding && (
+                <div className="sm:col-span-2">
+                  <Label className="text-xs">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword["form"] ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Min 6 characters"
+                      className="h-9 pr-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-9 w-9"
+                      onClick={() => setShowPassword({ ...showPassword, form: !showPassword["form"] })}
+                    >
+                      {showPassword["form"] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Module Access */}

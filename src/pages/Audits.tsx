@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, FileText, Plus, Edit, Trash2, Package, Users, Receipt, Settings, ShoppingBag, Tag, Wallet, Truck, Calendar, Filter, Building2, CreditCard, UserCog, UtensilsCrossed, FileCheck, Store } from "lucide-react";
+import { ArrowLeft, Search, FileText, Plus, Edit, Trash2, Package, Users, Receipt, Settings, ShoppingBag, Tag, Wallet, Truck, Calendar, Filter, Building2, CreditCard, UserCog, UtensilsCrossed, FileCheck, Store, LayoutGrid, List } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,7 @@ const Audits = () => {
   const [dateRange, setDateRange] = useState<string>("7d");
   const [selectedAudit, setSelectedAudit] = useState<AuditEntry | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   // Cache staff/waiter names for user resolution
   const [userNames, setUserNames] = useState<Record<string, string>>({});
@@ -453,6 +454,14 @@ const Audits = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Audit Trail</h1>
+          <div className="ml-auto flex border rounded-md overflow-hidden">
+            <Button variant={viewMode === "list" ? "default" : "ghost"} size="icon" className="h-8 w-8 rounded-none" onClick={() => setViewMode("list")}>
+              <List className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="h-8 w-8 rounded-none" onClick={() => setViewMode("grid")}>
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -557,6 +566,40 @@ const Audits = () => {
                 <p>No audit entries found</p>
               </div>
             ) : (
+              viewMode === "grid" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto">
+                  {filteredAudits.map((audit) => {
+                    const config = MODULE_CONFIG[audit.module] || { icon: FileText, label: audit.module, color: 'bg-gray-500' };
+                    const Icon = config.icon;
+                    return (
+                      <Card
+                        key={audit.id}
+                        className="cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => { setSelectedAudit(audit); setDetailOpen(true); }}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={`p-1.5 rounded ${config.color}`}>
+                              <Icon className="h-3 w-3 text-white" />
+                            </div>
+                            <Badge variant="outline" className={OPERATION_COLORS[audit.operation]}>
+                              {getOperationIcon(audit.operation)}
+                              <span className="ml-1 capitalize text-xs">{audit.operation}d</span>
+                            </Badge>
+                          </div>
+                          <p className="font-medium text-sm truncate">{audit.entity_name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {config.label} • {format(new Date(audit.timestamp), 'MMM dd, HH:mm')}
+                          </p>
+                          {audit.details?.billed_by && (
+                            <p className="text-xs text-primary mt-1">by {audit.details.billed_by}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                 {filteredAudits.map((audit) => {
                   const config = MODULE_CONFIG[audit.module] || { icon: FileText, label: audit.module, color: 'bg-gray-500' };
@@ -587,6 +630,7 @@ const Audits = () => {
                   );
                 })}
               </div>
+              )
             )}
           </CardContent>
         </Card>

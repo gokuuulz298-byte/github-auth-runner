@@ -19,9 +19,12 @@ interface DashboardMenuGridProps {
 const DashboardMenuGrid = memo(({ menuItems, onNavigate }: DashboardMenuGridProps) => {
   const gridContent = useMemo(() => {
     if (menuItems === null) {
+      // Shimmer loader for staff accounts loading modules
       return (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+          ))}
         </div>
       );
     }

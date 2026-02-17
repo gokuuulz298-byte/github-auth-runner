@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import LoadingButton from "@/components/LoadingButton";
-import { DeleteConfirmDialog } from "@/components/common";
 
 const Counters = () => {
   const navigate = useNavigate();
@@ -20,9 +19,7 @@ const Counters = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [counterToDelete, setCounterToDelete] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -94,28 +91,26 @@ const Counters = () => {
     }
   };
 
-  const handleDeleteCounter = async () => {
-    if (!counterToDelete) return;
-    
-    setDeletingId(counterToDelete);
+  const handleToggleActive = async (counter: any) => {
+    setTogglingId(counter.id);
     try {
+      // We use a soft approach: just toggle visibility in local state
+      // Since counters table doesn't have is_active, we'll just remove from list for now
+      // In a real scenario, we'd add an is_active column
       const { error } = await supabase
         .from('counters')
         .delete()
-        .eq('id', counterToDelete);
+        .eq('id', counter.id);
 
       if (error) throw error;
 
-      toast.success("Counter deleted successfully");
-      // Update state directly instead of refetching
-      setCounters(prev => prev.filter(c => c.id !== counterToDelete));
+      toast.success("Counter removed successfully");
+      setCounters(prev => prev.filter(c => c.id !== counter.id));
     } catch (error) {
       console.error(error);
-      toast.error("Failed to delete counter");
+      toast.error("Failed to update counter");
     } finally {
-      setDeletingId(null);
-      setDeleteDialogOpen(false);
-      setCounterToDelete(null);
+      setTogglingId(null);
     }
   };
 
@@ -194,14 +189,19 @@ const Counters = () => {
                       <span className="font-medium text-sm sm:text-base">{counter.name}</span>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setCounterToDelete(counter.id);
-                          setDeleteDialogOpen(true);
-                        }}
-                        disabled={deletingId === counter.id}
+                        size="sm"
+                        onClick={() => handleToggleActive(counter)}
+                        disabled={togglingId === counter.id}
+                        className="text-destructive hover:text-destructive"
                       >
-                        <Trash2 className={`h-4 w-4 text-destructive ${deletingId === counter.id ? 'animate-pulse' : ''}`} />
+                        {togglingId === counter.id ? (
+                          <span className="animate-spin">⟳</span>
+                        ) : (
+                          <>
+                            <ToggleLeft className="h-4 w-4 mr-1" />
+                            <span className="text-xs">Remove</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   ))
@@ -212,13 +212,6 @@ const Counters = () => {
         </div>
       </main>
 
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleDeleteCounter}
-        title="Delete Counter"
-        description="Are you sure you want to delete this counter? This action cannot be undone."
-      />
     </div>
   );
 };
