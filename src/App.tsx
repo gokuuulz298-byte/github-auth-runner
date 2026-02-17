@@ -63,10 +63,16 @@ const App = () => (
     <TooltipProvider delayDuration={200}>
       <Toaster />
       <Sonner 
-        position="top-right" 
+        position="bottom-right" 
         toastOptions={{
           className: "slide-up",
           duration: 3000,
+          style: {
+            borderRadius: '12px',
+            padding: '14px 18px',
+            fontSize: '13px',
+            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.15)',
+          },
         }}
       />
       <BrowserRouter>

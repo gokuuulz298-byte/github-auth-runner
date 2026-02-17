@@ -16,6 +16,7 @@ const LimitedDiscounts = () => {
   const { userId } = useAuthContext();
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,6 +24,7 @@ const LimitedDiscounts = () => {
   const [discountToDelete, setDiscountToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     product_id: "",
+    category: "",
     discount_type: "percentage" as "fixed" | "percentage",
     discount_percentage: "",
     discount_amount: "",
@@ -34,6 +36,7 @@ const LimitedDiscounts = () => {
     if (userId) {
       fetchDiscounts();
       fetchProducts();
+      fetchCategories();
     }
   }, [userId]);
 
@@ -68,6 +71,7 @@ const LimitedDiscounts = () => {
         .from('products')
         .select('*')
         .eq('created_by', userId)
+        .eq('is_deleted', false)
         .order('name');
 
       if (error) throw error;
@@ -76,6 +80,27 @@ const LimitedDiscounts = () => {
       console.error(error);
     }
   };
+
+  const fetchCategories = async () => {
+    try {
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('created_by', userId)
+        .order('name');
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const filteredProducts = formData.category
+    ? products.filter(p => p.category === formData.category)
+    : products;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +147,7 @@ const LimitedDiscounts = () => {
         toast.success("Discount created successfully");
       }
 
-      setFormData({ product_id: "", discount_type: "percentage", discount_percentage: "", discount_amount: "", start_date: "", end_date: "" });
+      setFormData({ product_id: "", category: "", discount_type: "percentage", discount_percentage: "", discount_amount: "", start_date: "", end_date: "" });
       setShowForm(false);
       setEditingId(null);
       fetchDiscounts();
@@ -149,6 +174,7 @@ const LimitedDiscounts = () => {
     
     setFormData({
       product_id: discount.product_id,
+      category: products.find(p => p.id === discount.product_id)?.category || "",
       discount_type: discount.discount_type || 'percentage',
       discount_percentage: discount.discount_percentage?.toString() || "",
       discount_amount: discount.discount_amount?.toString() || "",
@@ -231,7 +257,7 @@ const LimitedDiscounts = () => {
             onClick={() => {
               setShowForm(!showForm);
               setEditingId(null);
-              setFormData({ product_id: "", discount_type: "percentage", discount_percentage: "", discount_amount: "", start_date: "", end_date: "" });
+              setFormData({ product_id: "", category: "", discount_type: "percentage", discount_percentage: "", discount_amount: "", start_date: "", end_date: "" });
             }}
           >
             <Plus className="h-4 w-4 sm:mr-2" />
@@ -250,6 +276,22 @@ const LimitedDiscounts = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
+                    <Label htmlFor="category">Category</Label>
+                    <select
+                      id="category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value, product_id: "" })}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">All Categories</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <Label htmlFor="product">Product</Label>
                     <select
                       id="product"
@@ -259,7 +301,7 @@ const LimitedDiscounts = () => {
                       required
                     >
                       <option value="">Select Product</option>
-                      {products.map((product) => (
+                      {filteredProducts.map((product) => (
                         <option key={product.id} value={product.id}>
                           {product.name} ({product.barcode}) - ₹{product.price}
                         </option>
@@ -337,7 +379,7 @@ const LimitedDiscounts = () => {
                     onClick={() => {
                       setShowForm(false);
                       setEditingId(null);
-                      setFormData({ product_id: "", discount_type: "percentage", discount_percentage: "", discount_amount: "", start_date: "", end_date: "" });
+                      setFormData({ product_id: "", category: "", discount_type: "percentage", discount_percentage: "", discount_amount: "", start_date: "", end_date: "" });
                     }}
                   >
                     Cancel
