@@ -967,6 +967,7 @@ export type Database = {
       staff: {
         Row: {
           allowed_modules: string[]
+          assigned_counter_id: string | null
           auth_user_id: string | null
           created_at: string | null
           created_by: string
@@ -980,6 +981,7 @@ export type Database = {
         }
         Insert: {
           allowed_modules?: string[]
+          assigned_counter_id?: string | null
           auth_user_id?: string | null
           created_at?: string | null
           created_by: string
@@ -993,6 +995,7 @@ export type Database = {
         }
         Update: {
           allowed_modules?: string[]
+          assigned_counter_id?: string | null
           auth_user_id?: string | null
           created_at?: string | null
           created_by?: string
@@ -1004,7 +1007,15 @@ export type Database = {
           show_in_bill?: boolean | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_assigned_counter_id_fkey"
+            columns: ["assigned_counter_id"]
+            isOneToOne: false
+            referencedRelation: "counters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppliers: {
         Row: {
@@ -1014,6 +1025,7 @@ export type Database = {
           email: string | null
           gst_number: string | null
           id: string
+          is_active: boolean | null
           mapped_products: string[] | null
           name: string
           notes: string | null
@@ -1027,6 +1039,7 @@ export type Database = {
           email?: string | null
           gst_number?: string | null
           id?: string
+          is_active?: boolean | null
           mapped_products?: string[] | null
           name: string
           notes?: string | null
@@ -1040,6 +1053,7 @@ export type Database = {
           email?: string | null
           gst_number?: string | null
           id?: string
+          is_active?: boolean | null
           mapped_products?: string[] | null
           name?: string
           notes?: string | null

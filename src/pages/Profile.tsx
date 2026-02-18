@@ -81,6 +81,7 @@ const Profile = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [counters, setCounters] = useState<{id: string; name: string}[]>([]);
   const [profile, setProfile] = useState<CompanyProfile>({
     company_name: "",
     company_name_tamil: "",
@@ -100,7 +101,7 @@ const Profile = () => {
       return;
     }
     if (userId) {
-      Promise.all([fetchProfile(), fetchWaiters(), fetchStaff()]).finally(() => {
+      Promise.all([fetchProfile(), fetchWaiters(), fetchStaff(), fetchCounters()]).finally(() => {
         setPageLoading(false);
       });
     }
@@ -123,21 +124,21 @@ const Profile = () => {
     }
   };
 
+  const fetchCounters = async () => {
+    if (!userId) return;
+    try {
+      const { data } = await supabase.from('counters').select('id, name').eq('created_by', userId).order('name');
+      setCounters(data || []);
+    } catch (error) { console.error(error); }
+  };
+
   const fetchStaff = async () => {
     if (!userId) return;
-
     try {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('created_by', userId)
-        .order('display_name');
-
+      const { data, error } = await supabase.from('staff').select('*').eq('created_by', userId).order('display_name');
       if (error) throw error;
       setStaff((data || []) as Staff[]);
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) { console.error(error); }
   };
 
   const fetchProfile = async () => {
@@ -716,7 +717,7 @@ const Profile = () => {
           {/* Team Management Tab */}
           <TabsContent value="team" className="space-y-6">
             {/* Staff Management */}
-            <StaffCard staff={staff} onRefresh={fetchStaff} isRestaurantMode={isRestaurantMode || false} />
+            <StaffCard staff={staff} counters={counters} onRefresh={fetchStaff} isRestaurantMode={isRestaurantMode || false} />
             
             {/* Waiter Management - Only show when restaurant mode is enabled */}
             {isRestaurantMode && (

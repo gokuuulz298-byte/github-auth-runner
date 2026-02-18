@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Package, Phone, Mail, MapPin, X, Eye, FileText, IndianRupee } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, Plus, Pencil, Search, Package, Phone, Mail, MapPin, X, Eye, FileText, ChevronDown, ChevronRight, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -48,8 +49,9 @@ const Suppliers = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [supplierToDeactivate, setSupplierToDeactivate] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   
   // Detail view state
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
@@ -132,9 +134,10 @@ const Suppliers = () => {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, barcode, buying_price')
+        .select('id, name, barcode, buying_price, category, is_raw_material')
         .eq('created_by', userId)
         .eq('is_deleted', false)
+        .order('category')
         .order('name');
 
       if (error) throw error;
@@ -259,24 +262,26 @@ const Suppliers = () => {
     setDialogOpen(true);
   };
 
-  const handleDelete = async () => {
-    if (!supplierToDelete) return;
-
+  const handleToggleActive = async (supplierId: string, currentlyActive: boolean) => {
     try {
       const { error } = await supabase
         .from('suppliers' as any)
-        .delete()
-        .eq('id', supplierToDelete);
+        .update({ is_active: !currentlyActive } as any)
+        .eq('id', supplierId);
 
-      if (error) throw error;
-      toast.success("Supplier deleted successfully!");
+      if (error) {
+        // Column might not exist yet, just remove from list for now
+        toast.error("Unable to toggle status. Feature requires database update.");
+        return;
+      }
+      toast.success(currentlyActive ? "Supplier deactivated" : "Supplier activated");
       fetchSuppliers();
-      setSelectedSupplier(null);
+      if (selectedSupplier?.id === supplierId) setSelectedSupplier(null);
     } catch (error) {
-      toast.error("Error deleting supplier");
+      toast.error("Failed to update supplier status");
     } finally {
-      setDeleteDialogOpen(false);
-      setSupplierToDelete(null);
+      setDeactivateDialogOpen(false);
+      setSupplierToDeactivate(null);
     }
   };
 
@@ -297,6 +302,22 @@ const Suppliers = () => {
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.phone.includes(searchQuery)
   );
+
+  // Group products by category for mapping UI
+  const groupedProducts = (() => {
+    const filtered = products.filter(p =>
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.barcode.includes(productSearch)
+    );
+    const groups: { [key: string]: typeof products } = {};
+    filtered.forEach(p => {
+      const cat = (p as any).category || (p as any).is_raw_material ? '🔩 Raw Materials' : 'Uncategorized';
+      const key = (p as any).is_raw_material ? '🔩 Raw Materials' : ((p as any).category || 'Uncategorized');
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(p);
+    });
+    return groups;
+  })();
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -450,33 +471,35 @@ const Suppliers = () => {
                           className="pl-10"
                         />
                       </div>
-                      <ScrollArea className="h-40 mt-2 border rounded-md p-2">
-                        {filteredProducts.length > 0 ? (
-                          filteredProducts.map(product => {
-                            const isSelected = selectedProducts.includes(product.id);
-                            return (
-                              <label
-                                key={product.id}
-                                htmlFor={`product-${product.id}`}
-                                className={`flex items-center gap-2 py-1.5 px-2 hover:bg-muted rounded cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
-                              >
-                                <Checkbox
-                                  id={`product-${product.id}`}
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleProduct(product.id)}
-                                />
-                                <span className="text-sm flex-1 pointer-events-none">
-                                  {product.name}
-                                  {product.is_raw_material && (
-                                    <span className="ml-1.5 text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">Raw</span>
-                                  )}
-                                </span>
-                                <Badge variant="outline" className="text-xs pointer-events-none">
-                                  {formatIndianCurrency(product.buying_price || 0)}
-                                </Badge>
-                              </label>
-                            );
-                          })
+                      <ScrollArea className="h-52 mt-2 border rounded-md p-2">
+                        {Object.keys(groupedProducts).length > 0 ? (
+                          Object.entries(groupedProducts).map(([category, categoryProducts]) => (
+                            <div key={category} className="mb-3">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 py-1 bg-muted/50 rounded mb-1">
+                                {category} ({categoryProducts.length})
+                              </p>
+                              {categoryProducts.map(product => {
+                                const isSelected = selectedProducts.includes(product.id);
+                                return (
+                                  <label
+                                    key={product.id}
+                                    htmlFor={`product-${product.id}`}
+                                    className={`flex items-center gap-2 py-1.5 px-2 hover:bg-muted rounded cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
+                                  >
+                                    <Checkbox
+                                      id={`product-${product.id}`}
+                                      checked={isSelected}
+                                      onCheckedChange={() => toggleProduct(product.id)}
+                                    />
+                                    <span className="text-sm flex-1 pointer-events-none">{product.name}</span>
+                                    <Badge variant="outline" className="text-xs pointer-events-none">
+                                      {formatIndianCurrency(product.buying_price || 0)}
+                                    </Badge>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ))
                         ) : (
                           <p className="text-sm text-muted-foreground text-center py-4">
                             No products found
@@ -572,14 +595,15 @@ const Suppliers = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive"
+                              className="h-8 w-8 text-muted-foreground"
+                              title="Deactivate supplier"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSupplierToDelete(supplier.id);
-                                setDeleteDialogOpen(true);
+                                setSupplierToDeactivate(supplier.id);
+                                setDeactivateDialogOpen(true);
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <PowerOff className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -737,18 +761,24 @@ const Suppliers = () => {
         </div>
       </main>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Supplier?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate Supplier?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the supplier record.
+              This will mark the supplier as inactive. You can reactivate them later. Existing purchase history will be preserved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              Delete
+            <AlertDialogAction 
+              onClick={() => {
+                const supplier = suppliers.find(s => s.id === supplierToDeactivate);
+                if (supplier) handleToggleActive(supplierToDeactivate!, true);
+              }}
+              className="bg-destructive text-destructive-foreground"
+            >
+              Deactivate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

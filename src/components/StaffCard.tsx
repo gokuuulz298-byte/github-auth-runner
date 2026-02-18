@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt, ChefHat, Users, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt, ChefHat, Users, Loader2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -29,10 +30,17 @@ interface Staff {
   is_active: boolean;
   show_in_bill: boolean;
   auth_user_id?: string;
+  assigned_counter_id?: string | null;
+}
+
+interface Counter {
+  id: string;
+  name: string;
 }
 
 interface StaffCardProps {
   staff: Staff[];
+  counters?: Counter[];
   onRefresh: () => void;
   isRestaurantMode?: boolean;
 }
@@ -68,7 +76,7 @@ const RESTAURANT_MODULES = [
   { id: "waiter", label: "Waiter Interface", icon: Users },
 ];
 
-const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProps) => {
+const StaffCard = ({ staff, counters = [], onRefresh, isRestaurantMode = false }: StaffCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
@@ -80,7 +88,10 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
     display_name: "",
     allowed_modules: [] as string[],
     show_in_bill: false,
+    assigned_counter_id: "" as string,
   });
+
+  const hasBillingModule = formData.allowed_modules.includes("modern-billing");
 
   const getAllModules = () => {
     const modules = [...BILLING_MODULES, ...MANAGEMENT_MODULES];
@@ -91,7 +102,7 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
   };
 
   const resetForm = () => {
-    setFormData({ email: "", password: "", display_name: "", allowed_modules: [], show_in_bill: false });
+    setFormData({ email: "", password: "", display_name: "", allowed_modules: [], show_in_bill: false, assigned_counter_id: "" });
     setIsAdding(false);
     setEditingId(null);
   };
@@ -164,12 +175,13 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
       const { error: staffError } = await supabase.from("staff").insert({
         created_by: user.id,
         email: emailLower,
-        password_hash: formData.password, // Store for reference (hashed by auth)
+        password_hash: formData.password,
         display_name: formData.display_name,
         allowed_modules: formData.allowed_modules,
         show_in_bill: formData.show_in_bill,
         auth_user_id: authData.user?.id || null,
-      });
+        assigned_counter_id: formData.assigned_counter_id || null,
+      } as any);
 
       if (staffError) {
         if (staffError.code === "23505") {
@@ -214,6 +226,7 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
         display_name: formData.display_name,
         allowed_modules: formData.allowed_modules,
         show_in_bill: formData.show_in_bill,
+        assigned_counter_id: formData.assigned_counter_id || null,
       };
       
       if (formData.password) {
@@ -300,6 +313,7 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
       display_name: member.display_name,
       allowed_modules: member.allowed_modules || [],
       show_in_bill: member.show_in_bill || false,
+      assigned_counter_id: member.assigned_counter_id || "",
     });
     setIsAdding(false);
   };
@@ -340,7 +354,7 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
               size="sm"
               onClick={() => {
                 setIsAdding(true);
-                setFormData({ email: "", password: "", display_name: "", allowed_modules: [], show_in_bill: false });
+                setFormData({ email: "", password: "", display_name: "", allowed_modules: [], show_in_bill: false, assigned_counter_id: "" });
               }}
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -483,6 +497,33 @@ const StaffCard = ({ staff, onRefresh, isRestaurantMode = false }: StaffCardProp
                 </div>
               </div>
             </div>
+
+            {/* Counter Assignment - shown when billing module selected */}
+            {hasBillingModule && counters.length > 0 && (
+              <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-medium">Lock to Counter</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  When assigned, this staff account will only see this counter in billing and cannot switch.
+                </p>
+                <Select
+                  value={formData.assigned_counter_id || "none"}
+                  onValueChange={(v) => setFormData({ ...formData, assigned_counter_id: v === "none" ? "" : v })}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="No counter restriction" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No restriction (can choose any)</SelectItem>
+                    {counters.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Show in Bill */}
             <div className="flex items-center gap-3">

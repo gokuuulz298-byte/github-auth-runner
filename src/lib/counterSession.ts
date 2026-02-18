@@ -1,15 +1,31 @@
 /**
  * Counter Session Management
  * Allows multiple users/sessions to work on different counters simultaneously
- * Each browser tab/session can be assigned to a different counter
+ * Each browser tab/window gets a unique TAB_ID stored in sessionStorage.
+ * The counter session key is namespaced by TAB_ID so that opening the same
+ * URL in multiple tabs results in completely independent sessions with no
+ * cross-tab conflicts.
  */
 
-const COUNTER_SESSION_KEY = 'billing_counter_session';
+// Each tab gets a unique ID so concurrent tabs have isolated sessions
+const getTabId = (): string => {
+  let tabId = sessionStorage.getItem('billing_tab_id');
+  if (!tabId) {
+    tabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    sessionStorage.setItem('billing_tab_id', tabId);
+  }
+  return tabId;
+};
+
+const getCounterSessionKey = (): string => {
+  return `billing_counter_session_${getTabId()}`;
+};
 
 export interface CounterSession {
   counterId: string;
   counterName: string;
   sessionId: string;
+  tabId: string;
   timestamp: number;
 }
 
@@ -21,24 +37,26 @@ export const generateSessionId = (): string => {
 };
 
 /**
- * Set the active counter for the current session
+ * Set the active counter for the current session (tab-isolated)
  */
 export const setCounterSession = (counterId: string, counterName: string): void => {
+  const tabId = getTabId();
   const session: CounterSession = {
     counterId,
     counterName,
     sessionId: generateSessionId(),
+    tabId,
     timestamp: Date.now(),
   };
   
-  sessionStorage.setItem(COUNTER_SESSION_KEY, JSON.stringify(session));
+  sessionStorage.setItem(getCounterSessionKey(), JSON.stringify(session));
 };
 
 /**
- * Get the active counter session
+ * Get the active counter session (tab-isolated)
  */
 export const getCounterSession = (): CounterSession | null => {
-  const sessionData = sessionStorage.getItem(COUNTER_SESSION_KEY);
+  const sessionData = sessionStorage.getItem(getCounterSessionKey());
   if (!sessionData) return null;
   
   try {
@@ -49,15 +67,22 @@ export const getCounterSession = (): CounterSession | null => {
 };
 
 /**
- * Clear the counter session
+ * Clear the counter session for the current tab
  */
 export const clearCounterSession = (): void => {
-  sessionStorage.removeItem(COUNTER_SESSION_KEY);
+  sessionStorage.removeItem(getCounterSessionKey());
 };
 
 /**
- * Check if a counter session is active
+ * Check if a counter session is active for the current tab
  */
 export const hasActiveCounterSession = (): boolean => {
   return getCounterSession() !== null;
+};
+
+/**
+ * Get the current tab's unique identifier
+ */
+export const getTabSessionId = (): string => {
+  return getTabId();
 };

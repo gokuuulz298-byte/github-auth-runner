@@ -306,16 +306,30 @@ const ModernBilling = () => {
       if (!userId) return;
 
       const { data, error } = await supabase.from("counters").select("*").eq("created_by", userId).order("name");
-
       if (error) throw error;
-      setCounters(data || []);
-      if (data && data.length > 0) {
-        const session = getCounterSession();
-        if (session && data.find((c) => c.id === session.counterId)) {
-          setSelectedCounter(session.counterId);
-        } else {
-          setSelectedCounter(data[0].id);
-          setCounterSession(data[0].id, data[0].name);
+
+      // Check if staff has an assigned counter lock
+      const staffInfo = await supabase.from("staff" as any).select("assigned_counter_id").eq("auth_user_id", (await supabase.auth.getUser()).data.user?.id || "").maybeSingle();
+      const assignedCounterId = (staffInfo.data as any)?.assigned_counter_id;
+
+      if (assignedCounterId) {
+        // Staff is locked to a specific counter
+        const assignedCounter = (data || []).find((c) => c.id === assignedCounterId);
+        if (assignedCounter) {
+          setCounters([assignedCounter]);
+          setSelectedCounter(assignedCounter.id);
+          setCounterSession(assignedCounter.id, assignedCounter.name);
+        }
+      } else {
+        setCounters(data || []);
+        if (data && data.length > 0) {
+          const session = getCounterSession();
+          if (session && data.find((c) => c.id === session.counterId)) {
+            setSelectedCounter(session.counterId);
+          } else {
+            setSelectedCounter(data[0].id);
+            setCounterSession(data[0].id, data[0].name);
+          }
         }
       }
     } catch (error) {

@@ -905,6 +905,7 @@ const AdvancedReports = () => {
               { value: 'products', label: 'Products', icon: Package },
               { value: 'profit', label: 'Profit', icon: TrendingUp },
               { value: 'expenses', label: 'Expenses', icon: Receipt },
+              { value: 'purchases', label: 'Purchases', icon: Truck },
               { value: 'customers', label: 'Customers', icon: Users },
               { value: 'payments', label: 'Payments', icon: CreditCard },
               { value: 'daywise', label: 'Day Wise', icon: CalendarDays },
@@ -1368,9 +1369,64 @@ const AdvancedReports = () => {
             </Card>
           </TabsContent>
 
+          {/* Purchases Tab */}
+          <TabsContent value="purchases" className="space-y-4">
+            <div className="p-3 rounded-lg border border-amber-200/50 bg-amber-50/50 dark:bg-amber-950/20 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              <span>Counter filter does not apply to purchases (purchases are not counter-specific).</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-200/30 dark:border-blue-800/30">
+                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">Total POs</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-600 mt-1">{metrics.purchaseCount}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-green-200/30 dark:border-green-800/30">
+                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">Received</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600 mt-1">{metrics.receivedPurchases}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-200/30 dark:border-amber-800/30">
+                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">Pending/Ordered</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-600 mt-1">{metrics.pendingPurchases}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-200/30 dark:border-purple-800/30">
+                <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">Total Paid</p>
+                <p className="text-lg sm:text-2xl font-bold text-purple-600 mt-1 truncate">{formatIndianCurrency(metrics.totalPurchases)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <ReportChartCard title="Purchases Trend" icon={Truck} iconColor="text-blue-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={purchasesTrend.length ? purchasesTrend : revenueTrend}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                    <Area type="monotone" dataKey="purchases" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} name="Purchases" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
+              <ReportChartCard title="Purchase vs Revenue" icon={BarChart3} iconColor="text-indigo-500">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={revenueTrend}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(value: number) => formatIndianCurrency(value)} />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#22c55e" radius={[4,4,0,0]} name="Revenue" />
+                    <Bar dataKey="profit" fill="#3b82f6" radius={[4,4,0,0]} name="Profit" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ReportChartCard>
+            </div>
+          </TabsContent>
+
           {/* Expenses Tab */}
           <TabsContent value="expenses" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="p-3 rounded-lg border border-amber-200/50 bg-amber-50/50 dark:bg-amber-950/20 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              <span>Counter filter does not apply to expenses. Showing all expenses for the selected time range.</span>
+            </div>
               <ReportChartCard title="Expenses by Category" icon={Receipt} iconColor="text-red-500">
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
