@@ -1427,6 +1427,7 @@ const AdvancedReports = () => {
               <Info className="h-4 w-4 flex-shrink-0" />
               <span>Counter filter does not apply to expenses. Showing all expenses for the selected time range.</span>
             </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <ReportChartCard title="Expenses by Category" icon={Receipt} iconColor="text-red-500">
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
