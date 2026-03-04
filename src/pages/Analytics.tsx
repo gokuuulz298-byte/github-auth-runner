@@ -221,6 +221,7 @@ const Analytics = () => {
     }
   };
 
+  // Optimized: fetch all 7 days in ONE query instead of 7 sequential calls
   const fetchWeeklyData = async () => {
     try {
       if (!userId) return;
@@ -230,53 +231,57 @@ const Analytics = () => {
         .select('*')
         .eq('created_by', userId);
 
+      const startDate = startOfDay(subDays(new Date(), 6));
+      const endDate = endOfDay(new Date());
+
+      let query = supabase
+        .from('invoices')
+        .select('total_amount, items_data, created_at')
+        .eq('created_by', userId)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+
+      if (selectedCounter !== "all") {
+        query = query.eq('counter_id', selectedCounter);
+      }
+
+      const { data: weekInvoices } = await query;
+
+      // Build 7-day structure
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = subDays(new Date(), 6 - i);
         return {
           date: format(date, 'MMM dd'),
           day: format(date, 'EEE'),
-          start: startOfDay(date),
-          end: endOfDay(date),
+          dateKey: format(date, 'yyyy-MM-dd'),
           sales: 0,
           profit: 0,
           revenue: 0,
         };
       });
 
-      for (const day of last7Days) {
-        let query = supabase
-          .from('invoices')
-          .select('total_amount, items_data')
-          .eq('created_by', userId)
-          .gte('created_at', day.start.toISOString())
-          .lte('created_at', day.end.toISOString());
+      // Group all invoices by day client-side (single pass)
+      weekInvoices?.forEach(invoice => {
+        const invoiceDate = format(new Date(invoice.created_at), 'yyyy-MM-dd');
+        const day = last7Days.find(d => d.dateKey === invoiceDate);
+        if (!day) return;
 
-        if (selectedCounter !== "all") {
-          query = query.eq('counter_id', selectedCounter);
-        }
+        day.sales += 1;
+        day.revenue += parseFloat(invoice.total_amount.toString());
 
-        const { data: invoices } = await query;
-
-        day.sales = invoices?.length || 0;
-        day.revenue = invoices?.reduce((sum, inv) => sum + parseFloat(inv.total_amount.toString()), 0) || 0;
-
-        let dayProfit = 0;
-        invoices?.forEach(invoice => {
-          const items = invoice.items_data as any[];
-          items.forEach((item: any) => {
-            const product = allProducts?.find(p => p.id === item.id);
-            if (product && product.buying_price) {
-              const taxRate = item.tax_rate || product.tax_rate || 0;
-              const isInclusive = item.is_inclusive !== false;
-              const baseSellingPrice = isInclusive && taxRate > 0 
-                ? item.price / (1 + taxRate / 100)
-                : item.price;
-              dayProfit += (baseSellingPrice - product.buying_price) * item.quantity;
-            }
-          });
+        const items = invoice.items_data as any[];
+        items.forEach((item: any) => {
+          const product = allProducts?.find(p => p.id === item.id);
+          if (product && product.buying_price) {
+            const taxRate = item.tax_rate || product.tax_rate || 0;
+            const isInclusive = item.is_inclusive !== false;
+            const baseSellingPrice = isInclusive && taxRate > 0
+              ? item.price / (1 + taxRate / 100)
+              : item.price;
+            day.profit += (baseSellingPrice - product.buying_price) * item.quantity;
+          }
         });
-        day.profit = dayProfit;
-      }
+      });
 
       setWeeklyData(last7Days);
     } catch (error) {

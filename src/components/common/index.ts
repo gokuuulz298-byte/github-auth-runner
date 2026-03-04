@@ -4,3 +4,4 @@ export { default as SkeletonTable } from "./SkeletonTable";
 export { default as EmptyState } from "./EmptyState";
 export { default as DeleteConfirmDialog } from "./DeleteConfirmDialog";
 export { default as PageLoader } from "./PageLoader";
+export { default as PaginationControls } from "./PaginationControls";
