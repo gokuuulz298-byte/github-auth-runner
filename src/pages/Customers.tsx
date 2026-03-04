@@ -9,9 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import { useDebounce } from "@/hooks/useDebounce";
+import { PaginationControls } from "@/components/common";
 import LoyaltySettingsCard from "@/components/LoyaltySettingsCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import LoadingButton from "@/components/LoadingButton";
+
+const PAGE_SIZE = 25;
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -23,6 +27,15 @@ const Customers = () => {
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", email: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const debouncedSearch = useDebounce(searchTerm, 400);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (!authLoading && userId) {
@@ -31,69 +44,37 @@ const Customers = () => {
     } else if (!authLoading && !user) {
       navigate('/auth');
     }
-  }, [authLoading, userId, user]);
+  }, [authLoading, userId, user, currentPage, debouncedSearch]);
 
   const fetchCustomers = async () => {
     if (!userId) return;
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = currentPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
         .from('customers')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false });
 
+      // Server-side search (debounced)
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,phone.ilike.%${debouncedSearch}%`);
+      }
+
+      query = query.range(from, to);
+
+      const { data, count, error } = await query;
       if (error) throw error;
       setCustomers(data || []);
-      
-      // After fetching customers, calculate their spending from invoices
-      await calculateCustomerSpending(data || []);
+      setTotalCount(count || 0);
     } catch (error) {
       console.error(error);
       toast.error("Error fetching customers");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const calculateCustomerSpending = async (customerList: any[]) => {
-    if (!userId) return;
-    
-    try {
-      // Fetch all invoices for this user
-      const { data: invoices } = await supabase
-        .from('invoices')
-        .select('customer_phone, total_amount')
-        .eq('created_by', userId);
-      
-      // Calculate spending per phone
-      const spendingByPhone: Record<string, { totalSpent: number; orderCount: number }> = {};
-      invoices?.forEach(inv => {
-        if (inv.customer_phone) {
-          if (!spendingByPhone[inv.customer_phone]) {
-            spendingByPhone[inv.customer_phone] = { totalSpent: 0, orderCount: 0 };
-          }
-          spendingByPhone[inv.customer_phone].totalSpent += parseFloat(inv.total_amount?.toString() || '0');
-          spendingByPhone[inv.customer_phone].orderCount += 1;
-        }
-      });
-      
-      // Merge with loyalty data
-      const updatedLoyalty: Record<string, any> = { ...loyaltyData };
-      customerList.forEach(customer => {
-        const spending = spendingByPhone[customer.phone];
-        if (spending) {
-          updatedLoyalty[customer.phone] = {
-            ...updatedLoyalty[customer.phone],
-            total_spent: spending.totalSpent,
-            points: updatedLoyalty[customer.phone]?.points || Math.floor(spending.totalSpent / 100), // 1 point per 100 spent
-            order_count: spending.orderCount
-          };
-        }
-      });
-      setLoyaltyData(updatedLoyalty);
-    } catch (error) {
-      console.error("Error calculating spending:", error);
     }
   };
 
@@ -138,10 +119,7 @@ const Customers = () => {
       toast.success("Customer added successfully");
       setDialogOpen(false);
       setNewCustomer({ name: "", phone: "", email: "" });
-      // Update state directly
-      if (data) {
-        setCustomers(prev => [...data, ...prev]);
-      }
+      fetchCustomers(); // Refetch to update count and pagination
     } catch (error) {
       console.error(error);
       toast.error("Error adding customer");
@@ -156,8 +134,7 @@ const Customers = () => {
       return;
     }
 
-    // Prepare CSV data
-    const headers = ['Name', 'Phone', 'Email', 'Loyalty Points', 'Total Spent', 'Orders'];
+    const headers = ['Name', 'Phone', 'Email', 'Loyalty Points', 'Total Spent'];
     const rows = customers.map(customer => {
       const loyalty = loyaltyData[customer.phone];
       return [
@@ -166,7 +143,6 @@ const Customers = () => {
         customer.email || '',
         loyalty?.points || 0,
         loyalty?.total_spent?.toFixed(2) || '0.00',
-        loyalty?.order_count || 0
       ];
     });
 
@@ -175,7 +151,6 @@ const Customers = () => {
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    // Download file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -188,12 +163,9 @@ const Customers = () => {
     toast.success(`Exported ${customers.length} customers`);
   };
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm)
-  );
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  if (authLoading || isLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5">
         <LoadingSpinner size="lg" text="Loading customers..." />
@@ -265,12 +237,11 @@ const Customers = () => {
       </header>
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 space-y-4">
-        {/* Loyalty Settings */}
         {userId && <LoyaltySettingsCard userId={userId} />}
         
         <Card>
           <CardHeader className="px-4 sm:px-6">
-            <CardTitle className="text-lg sm:text-xl">Customer List ({filteredCustomers.length})</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Customer List ({totalCount})</CardTitle>
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
             <div className="mb-4">
@@ -285,11 +256,15 @@ const Customers = () => {
               </div>
             </div>
 
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto">
-              {filteredCustomers.length === 0 ? (
+            <div className="space-y-2">
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner size="md" text="Loading..." />
+                </div>
+              ) : customers.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No customers found</p>
               ) : (
-                filteredCustomers.map((customer) => {
+                customers.map((customer) => {
                   const loyalty = loyaltyData[customer.phone];
                   return (
                     <div key={customer.id} className="p-3 sm:p-4 bg-muted/50 rounded-lg">
@@ -299,9 +274,6 @@ const Customers = () => {
                           <p className="text-xs sm:text-sm text-muted-foreground">Phone: {customer.phone}</p>
                           {customer.email && (
                             <p className="text-xs sm:text-sm text-muted-foreground truncate">Email: {customer.email}</p>
-                          )}
-                          {loyalty?.order_count > 0 && (
-                            <p className="text-xs text-muted-foreground">{loyalty.order_count} orders</p>
                           )}
                         </div>
                         <div className="text-left sm:text-right">
@@ -314,6 +286,14 @@ const Customers = () => {
                 })
               )}
             </div>
+
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
           </CardContent>
         </Card>
       </main>

@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import jsPDF from "jspdf";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import { useDebounce } from "@/hooks/useDebounce";
+import { PaginationControls } from "@/components/common";
+import { startOfDay, endOfDay } from "date-fns";
 
 interface Invoice {
   id: string;
@@ -22,6 +25,8 @@ interface Invoice {
   created_at: string;
 }
 
+const PAGE_SIZE = 25;
+
 const Invoices = () => {
   const navigate = useNavigate();
   const { userId, loading: authLoading, user } = useAuthContext();
@@ -31,6 +36,16 @@ const Invoices = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const debouncedSearch = useDebounce(searchQuery, 400);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedSearch, dateFilter]);
 
   useEffect(() => {
     if (!authLoading && userId) {
@@ -39,28 +54,52 @@ const Invoices = () => {
     } else if (!authLoading && !user) {
       navigate('/auth');
     }
-  }, [authLoading, userId, user]);
+  }, [authLoading, userId, user, currentPage, debouncedSearch, dateFilter]);
 
   const fetchInvoices = async () => {
     if (!userId) return;
-    
+
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = currentPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
         .from('invoices')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false });
 
+      // Server-side date filter
+      if (dateFilter !== "all") {
+        const filterDate = new Date(dateFilter);
+        query = query
+          .gte('created_at', startOfDay(filterDate).toISOString())
+          .lte('created_at', endOfDay(filterDate).toISOString());
+      }
+
+      // Server-side search filter (debounced)
+      if (debouncedSearch) {
+        query = query.ilike('bill_number', `%${debouncedSearch}%`);
+      }
+
+      // Paginate
+      query = query.range(from, to);
+
+      const { data, count, error } = await query;
       if (error) throw error;
       setInvoices(data || []);
+      setTotalCount(count || 0);
     } catch (error) {
       toast.error("Error fetching invoices");
       console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchCompanyProfile = async () => {
     if (!userId) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('company_profiles')
@@ -94,21 +133,18 @@ const Invoices = () => {
         console.error('Error fetching loyalty points:', error);
       }
     }
-    // Calculate required height based on content
     const headerHeight = 45;
     const itemsHeight = invoice.items_data.length * 5 + 15;
     const totalsHeight = 25;
     const footerHeight = 15;
     const requiredHeight = headerHeight + itemsHeight + totalsHeight + footerHeight + 10;
     
-    // Create PDF in thermal printer format (80mm width, dynamic height)
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: [80, Math.max(requiredHeight, 100)]
     });
     
-    // Company Header (thermal format)
     let currentY = 10;
     if (companyProfile) {
       doc.setFontSize(12);
@@ -137,12 +173,10 @@ const Invoices = () => {
       }
     }
     
-    // Separator line
     currentY += 2;
     doc.setLineWidth(0.3);
     doc.line(5, currentY, 75, currentY);
     
-    // Invoice details
     currentY += 5;
     doc.setFontSize(10);
     doc.setFont(undefined, 'bold');
@@ -157,7 +191,6 @@ const Invoices = () => {
     currentY += 4;
     doc.text(`Time: ${new Date(invoice.created_at).toLocaleTimeString()}`, 5, currentY);
     
-    // Customer details
     if (invoiceData.customer_name) {
       currentY += 5;
       doc.line(5, currentY, 75, currentY);
@@ -174,7 +207,6 @@ const Invoices = () => {
     currentY += 5;
     doc.line(5, currentY, 75, currentY);
     
-    // Products table
     currentY += 5;
     doc.setFont(undefined, 'bold');
     doc.setFontSize(7);
@@ -199,13 +231,11 @@ const Invoices = () => {
       currentY += 4;
     });
     
-    // Bottom line
     doc.line(5, currentY, 75, currentY);
     currentY += 4;
     
     const subtotal = invoice.total_amount - invoice.tax_amount;
     
-    // Totals
     doc.setFontSize(8);
     doc.text("Subtotal:", 5, currentY);
     doc.text(subtotal.toFixed(2), 68, currentY);
@@ -217,7 +247,6 @@ const Invoices = () => {
       currentY += 4;
     }
     
-    // Grand total
     doc.line(5, currentY, 75, currentY);
     currentY += 4;
     doc.setFont(undefined, 'bold');
@@ -225,7 +254,6 @@ const Invoices = () => {
     doc.text("TOTAL:", 5, currentY);
     doc.text(invoice.total_amount.toFixed(2), 68, currentY);
     
-    // Footer
     currentY += 8;
     doc.line(5, currentY, 75, currentY);
     currentY += 5;
@@ -238,29 +266,7 @@ const Invoices = () => {
     toast.success("Invoice downloaded!");
   };
 
-  const getFilteredInvoices = () => {
-    return invoices.filter(invoice => {
-      const invoiceDate = new Date(invoice.created_at);
-      
-      // Date filter
-      let dateMatch = true;
-      if (dateFilter !== "all") {
-        const filterDate = new Date(dateFilter);
-        const invDate = new Date(invoiceDate.getFullYear(), invoiceDate.getMonth(), invoiceDate.getDate());
-        const filtDate = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate());
-        dateMatch = invDate.getTime() === filtDate.getTime();
-      }
-      
-      // Search filter
-      const searchMatch = searchQuery
-        ? invoice.bill_number.toLowerCase().includes(searchQuery.toLowerCase())
-        : true;
-      
-      return dateMatch && searchMatch;
-    });
-  };
-
-  const filteredInvoices = getFilteredInvoices();
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -280,7 +286,7 @@ const Invoices = () => {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  All Invoices ({filteredInvoices.length})
+                  All Invoices ({totalCount})
                 </div>
                 <div className="flex gap-2">
                   <Input
@@ -326,7 +332,7 @@ const Invoices = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvoices.map((invoice) => (
+                  {invoices.map((invoice) => (
                     <TableRow 
                       key={invoice.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -367,7 +373,7 @@ const Invoices = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredInvoices.length === 0 && (
+                  {invoices.length === 0 && !isLoading && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No invoices found
@@ -377,6 +383,14 @@ const Invoices = () => {
                 </TableBody>
               </Table>
             </div>
+
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
           </CardContent>
         </Card>
       </main>
@@ -389,7 +403,6 @@ const Invoices = () => {
           </DialogHeader>
           {selectedInvoice && (
             <div className="space-y-6">
-              {/* Invoice Header */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-sm text-muted-foreground">Bill Number</p>
@@ -415,7 +428,6 @@ const Invoices = () => {
                 )}
               </div>
 
-              {/* Items Table */}
               <div>
                 <h3 className="font-semibold mb-3">Items</h3>
                 <div className="border rounded-lg overflow-hidden">
@@ -452,51 +464,47 @@ const Invoices = () => {
                 </div>
               </div>
 
-              {/* Totals */}
               <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
-                {/* GST Breakdown - Calculate based on is_inclusive flag */}
                 {(() => {
                   const items = selectedInvoice.items_data;
                   let baseSubtotal = 0;
                   let totalCGST = 0;
                   let totalSGST = 0;
                   let totalIGST = 0;
-                  
+
                   items.forEach((item: any) => {
-                    const itemTotal = item.price * item.quantity;
-                    const taxRate = (item.cgst || 0) + (item.sgst || 0) + (item.igst || 0);
-                    
-                    // Check if pricing is inclusive (MRP includes tax)
-                    if (item.is_inclusive) {
-                      // For inclusive pricing, extract tax from the price
-                      const baseAmount = itemTotal / (1 + taxRate / 100);
-                      baseSubtotal += baseAmount;
-                      if (item.cgst) totalCGST += baseAmount * (item.cgst / 100);
-                      if (item.sgst) totalSGST += baseAmount * (item.sgst / 100);
-                      if (item.igst) totalIGST += baseAmount * (item.igst / 100);
+                    const qty = item.quantity || 1;
+                    const price = item.price || 0;
+                    const lineTotal = price * qty;
+                    const taxRate = item.tax_rate || (item.cgst && item.sgst ? item.cgst + item.sgst : 0) || item.igst || 0;
+                    const isInclusive = item.is_inclusive !== false;
+
+                    if (isInclusive && taxRate > 0) {
+                      const base = lineTotal / (1 + taxRate / 100);
+                      baseSubtotal += base;
+                      if (item.igst) {
+                        totalIGST += lineTotal - base;
+                      } else {
+                        totalCGST += (lineTotal - base) / 2;
+                        totalSGST += (lineTotal - base) / 2;
+                      }
                     } else {
-                      // For exclusive pricing, add tax on top
-                      baseSubtotal += itemTotal;
-                      if (item.cgst) totalCGST += itemTotal * (item.cgst / 100);
-                      if (item.sgst) totalSGST += itemTotal * (item.sgst / 100);
-                      if (item.igst) totalIGST += itemTotal * (item.igst / 100);
+                      baseSubtotal += lineTotal;
+                      if (item.igst) {
+                        totalIGST += lineTotal * taxRate / 100;
+                      } else {
+                        totalCGST += lineTotal * taxRate / 200;
+                        totalSGST += lineTotal * taxRate / 200;
+                      }
                     }
                   });
-                  
-                  const calculatedTax = totalCGST + totalSGST + totalIGST;
-                  
+
                   return (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="text-muted-foreground">Base Amount</span>
                         <span>{formatIndianCurrency(baseSubtotal)}</span>
                       </div>
-                      {totalIGST > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">IGST</span>
-                          <span>{formatIndianCurrency(totalIGST)}</span>
-                        </div>
-                      )}
                       {totalCGST > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">CGST</span>
@@ -509,36 +517,40 @@ const Invoices = () => {
                           <span>{formatIndianCurrency(totalSGST)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-sm font-medium">
-                        <span className="text-muted-foreground">Total Tax</span>
-                        <span>{formatIndianCurrency(calculatedTax)}</span>
-                      </div>
+                      {totalIGST > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">IGST</span>
+                          <span>{formatIndianCurrency(totalIGST)}</span>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
+
                 {selectedInvoice.discount_amount > 0 && (
-                  <div className="flex justify-between text-sm text-destructive">
+                  <div className="flex justify-between text-sm text-green-600">
                     <span>Discount</span>
                     <span>-{formatIndianCurrency(selectedInvoice.discount_amount)}</span>
                   </div>
                 )}
-                <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                  <span>Total</span>
-                  <span>{formatIndianCurrency(selectedInvoice.total_amount)}</span>
+
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Grand Total</span>
+                    <span>{formatIndianCurrency(selectedInvoice.total_amount)}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Action Button */}
-              <Button 
-                className="w-full" 
-                onClick={() => {
-                  regenerateInvoice(selectedInvoice);
-                  setDetailDialogOpen(false);
-                }}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Invoice
-              </Button>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => regenerateInvoice(selectedInvoice)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
