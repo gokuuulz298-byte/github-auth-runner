@@ -77,7 +77,12 @@ const Expenses = () => {
       setLoading(true);
       fetchExpenses();
     }
-  }, [selectedMonth, userId]);
+  }, [selectedMonth, userId, currentPage]);
+
+  // Reset page when month changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [selectedMonth]);
 
   const fetchExpenses = async () => {
     try {
