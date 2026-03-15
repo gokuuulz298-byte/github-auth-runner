@@ -67,7 +67,6 @@ const InventoryMovements = () => {
 
   useEffect(() => {
     if (!authLoading && userId) {
-      // Parallel fetch for faster loading
       Promise.all([
         fetchMovements(),
         fetchRawMaterialMovements(),
@@ -75,7 +74,11 @@ const InventoryMovements = () => {
         fetchRawMaterials()
       ]).finally(() => setLoading(false));
     }
-  }, [authLoading, userId, dateRange]);
+  }, [authLoading, userId, dateRange, movementPage]);
+
+  useEffect(() => {
+    setMovementPage(0);
+  }, [dateRange, movementTypeFilter, referenceTypeFilter]);
 
   const getDateRange = () => {
     const now = new Date();
