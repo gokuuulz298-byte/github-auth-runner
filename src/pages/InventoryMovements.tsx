@@ -109,14 +109,16 @@ const InventoryMovements = () => {
         // Fallback if inner join fails - use filter
         const { data: allData } = await supabase
           .from('inventory_movements')
-          .select('*')
+          .select('*', { count: 'exact' })
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString())
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(movementPage * PAGE_SIZE, (movementPage + 1) * PAGE_SIZE - 1);
         setMovements((allData || []) as InventoryMovement[]);
         return;
       }
       setMovements((data || []) as InventoryMovement[]);
+      setMovementCount(count || 0);
     } catch (error) {
       console.error(error);
     }
