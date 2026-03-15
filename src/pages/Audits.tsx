@@ -582,7 +582,7 @@ const Audits = () => {
             ) : (
               viewMode === "grid" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto">
-                  {filteredAudits.map((audit) => {
+                  {paginatedAudits.map((audit) => {
                     const config = MODULE_CONFIG[audit.module] || { icon: FileText, label: audit.module, color: 'bg-gray-500' };
                     const Icon = config.icon;
                     return (
