@@ -59,6 +59,9 @@ const Expenses = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const PAGE_SIZE = 25;
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   
   const [formData, setFormData] = useState({
     expense_date: format(new Date(), "yyyy-MM-dd"),
