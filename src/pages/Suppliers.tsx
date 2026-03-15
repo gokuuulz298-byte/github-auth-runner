@@ -87,7 +87,12 @@ const Suppliers = () => {
       fetchProducts();
       fetchAllPendingAmounts();
     }
-  }, [authLoading, userId]);
+  }, [authLoading, userId, currentPage, debouncedSearch]);
+
+  // Reset page on search change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
