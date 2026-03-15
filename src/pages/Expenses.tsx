@@ -25,6 +25,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import PaginationControls from "@/components/common/PaginationControls";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Expense {
   id: string;
@@ -57,6 +59,9 @@ const Expenses = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const PAGE_SIZE = 25;
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   
   const [formData, setFormData] = useState({
     expense_date: format(new Date(), "yyyy-MM-dd"),
@@ -72,7 +77,12 @@ const Expenses = () => {
       setLoading(true);
       fetchExpenses();
     }
-  }, [selectedMonth, userId]);
+  }, [selectedMonth, userId, currentPage]);
+
+  // Reset page when month changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [selectedMonth]);
 
   const fetchExpenses = async () => {
     try {
@@ -82,16 +92,18 @@ const Expenses = () => {
       const start = startOfMonth(monthDate);
       const end = endOfMonth(monthDate);
 
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("expenses")
-        .select("*")
+        .select("*", { count: 'exact' })
         .eq("created_by", userId)
         .gte("expense_date", start.toISOString())
         .lte("expense_date", end.toISOString())
-        .order("expense_date", { ascending: false });
+        .order("expense_date", { ascending: false })
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
       setExpenses((data || []) as Expense[]);
+      setTotalCount(count || 0);
 
       const prevMonthDate = subMonths(monthDate, 1);
       const prevStart = startOfMonth(prevMonthDate);
@@ -418,6 +430,13 @@ const Expenses = () => {
                 ))}
               </div>
             )}
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(totalCount / PAGE_SIZE)}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
           </CardContent>
         </Card>
 

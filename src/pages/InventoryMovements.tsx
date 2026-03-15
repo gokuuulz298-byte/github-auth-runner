@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLoader } from "@/components/common";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import PaginationControls from "@/components/common/PaginationControls";
 
 interface InventoryMovement {
   id: string;
@@ -60,10 +61,12 @@ const InventoryMovements = () => {
   const [dateRange, setDateRange] = useState<string>("7d");
   const [activeTab, setActiveTab] = useState<string>("ledger");
   const [stockSearchTerm, setStockSearchTerm] = useState("");
+  const PAGE_SIZE = 25;
+  const [movementPage, setMovementPage] = useState(0);
+  const [movementCount, setMovementCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && userId) {
-      // Parallel fetch for faster loading
       Promise.all([
         fetchMovements(),
         fetchRawMaterialMovements(),
@@ -71,7 +74,11 @@ const InventoryMovements = () => {
         fetchRawMaterials()
       ]).finally(() => setLoading(false));
     }
-  }, [authLoading, userId, dateRange]);
+  }, [authLoading, userId, dateRange, movementPage]);
+
+  useEffect(() => {
+    setMovementPage(0);
+  }, [dateRange, movementTypeFilter, referenceTypeFilter]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -89,26 +96,29 @@ const InventoryMovements = () => {
       const { start, end } = getDateRange();
       
       // Fetch retail product movements only (join with products to exclude raw materials)
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('inventory_movements')
-        .select('*, products!inner(is_raw_material)')
+        .select('*, products!inner(is_raw_material)', { count: 'exact' })
         .eq('products.is_raw_material', false)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(movementPage * PAGE_SIZE, (movementPage + 1) * PAGE_SIZE - 1);
 
       if (error) {
         // Fallback if inner join fails - use filter
         const { data: allData } = await supabase
           .from('inventory_movements')
-          .select('*')
+          .select('*', { count: 'exact' })
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString())
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(movementPage * PAGE_SIZE, (movementPage + 1) * PAGE_SIZE - 1);
         setMovements((allData || []) as InventoryMovement[]);
         return;
       }
       setMovements((data || []) as InventoryMovement[]);
+      setMovementCount(count || 0);
     } catch (error) {
       console.error(error);
     }
@@ -465,6 +475,13 @@ const InventoryMovements = () => {
                   </TableBody>
                 </Table>
               </ScrollArea>
+              <PaginationControls
+                currentPage={movementPage}
+                totalPages={Math.ceil(movementCount / PAGE_SIZE)}
+                totalCount={movementCount}
+                pageSize={PAGE_SIZE}
+                onPageChange={setMovementPage}
+              />
             </Card>
           </TabsContent>
 

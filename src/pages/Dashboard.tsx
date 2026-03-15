@@ -104,31 +104,44 @@ const Dashboard = () => {
     }
 
     if (userId) {
-      fetchCompanyProfile();
-      fetchLowStockProducts();
+      fetchDashboardBundle();
       if (isStaff) {
         fetchStaffModules();
       }
     }
   }, [authLoading, user, userId, isStaff]);
 
-  const fetchLowStockProducts = async () => {
+  // Single RPC call replaces fetchCompanyProfile + fetchLowStockProducts (3 queries → 1)
+  const fetchDashboardBundle = async () => {
     if (!userId) return;
     
+    // Check cache first
+    const cached = sessionStorage.getItem(COMPANY_CACHE_KEY);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        setCompanyName(data.company_name || '');
+        setBillingSettings(data.billing_settings);
+        setLowStockProducts(data.low_stock_products || []);
+        return;
+      }
+    }
+    
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, stock_quantity, low_stock_threshold')
-        .eq('is_deleted', false);
-
-      if (error) throw error;
+      const { data, error } = await (supabase.rpc as any)('get_dashboard_bundle', { p_user_id: userId });
       
-      const lowStock = (data || []).filter(p => 
-        p.stock_quantity <= (p.low_stock_threshold || 10)
-      );
-      setLowStockProducts(lowStock);
+      if (error) throw error;
+      if (data) {
+        setCompanyName(data.company_name || '');
+        setBillingSettings(data.billing_settings);
+        setLowStockProducts(data.low_stock_products || []);
+        sessionStorage.setItem(COMPANY_CACHE_KEY, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+      }
     } catch (error) {
-      console.error("Error fetching low stock products:", error);
+      console.error("Error fetching dashboard bundle:", error);
     }
   };
 
@@ -147,41 +160,6 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error("Error fetching staff modules:", error);
-    }
-  };
-
-  const fetchCompanyProfile = async () => {
-    if (!userId) return;
-    
-    // Check cache first
-    const cached = sessionStorage.getItem(COMPANY_CACHE_KEY);
-    if (cached) {
-      const { data, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp < CACHE_DURATION) {
-        setCompanyName(data.company_name || '');
-        setBillingSettings(data.billing_settings);
-        return;
-      }
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from('company_profiles')
-        .select('company_name, billing_settings')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (!error && data) {
-        setCompanyName(data.company_name);
-        setBillingSettings(data.billing_settings);
-        // Cache the result
-        sessionStorage.setItem(COMPANY_CACHE_KEY, JSON.stringify({
-          data,
-          timestamp: Date.now()
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching company profile:", error);
     }
   };
 

@@ -19,6 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import LoadingButton from "@/components/LoadingButton";
+import PaginationControls from "@/components/common/PaginationControls";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Supplier {
   id: string;
@@ -71,6 +73,10 @@ const Suppliers = () => {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const PAGE_SIZE = 25;
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const debouncedSearch = useDebounce(searchQuery, 400);
   
   // Keyboard navigation
   const searchRef = useRef<HTMLInputElement>(null);
@@ -81,7 +87,12 @@ const Suppliers = () => {
       fetchProducts();
       fetchAllPendingAmounts();
     }
-  }, [authLoading, userId]);
+  }, [authLoading, userId, currentPage, debouncedSearch]);
+
+  // Reset page on search change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -105,11 +116,19 @@ const Suppliers = () => {
 
   const fetchSuppliers = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('suppliers' as any)
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('created_by', userId)
         .order('name');
+
+      // Server-side search
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,phone.ilike.%${debouncedSearch}%`);
+      }
+
+      const { data, error, count } = await query
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
       setSuppliers((data || []).map((s: any) => ({
@@ -123,6 +142,7 @@ const Suppliers = () => {
         mapped_products: (s.mapped_products as string[]) || [],
         created_at: s.created_at
       })));
+      setTotalCount(count || 0);
     } catch (error) {
       console.error(error);
     } finally {
@@ -298,10 +318,8 @@ const Suppliers = () => {
     setEditingSupplier(null);
   };
 
-  const filteredSuppliers = suppliers.filter(s =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.phone.includes(searchQuery)
-  );
+  // With server-side search, filteredSuppliers = suppliers directly
+  const filteredSuppliers = suppliers;
 
   // Group products by category for mapping UI
   const groupedProducts = (() => {
@@ -612,6 +630,13 @@ const Suppliers = () => {
                   );
                 })
               )}
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={Math.ceil(totalCount / PAGE_SIZE)}
+                totalCount={totalCount}
+                pageSize={PAGE_SIZE}
+                onPageChange={setCurrentPage}
+              />
             </div>
           </div>
 

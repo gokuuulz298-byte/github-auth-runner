@@ -13,6 +13,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import PaginationControls from "@/components/common/PaginationControls";
 
 interface AuditEntry {
   id: string;
@@ -62,6 +63,8 @@ const Audits = () => {
   const [selectedAudit, setSelectedAudit] = useState<AuditEntry | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const AUDIT_PAGE_SIZE = 25;
+  const [auditPage, setAuditPage] = useState(0);
 
   // Cache staff/waiter names for user resolution
   const [userNames, setUserNames] = useState<Record<string, string>>({});
@@ -424,6 +427,17 @@ const Audits = () => {
     return matchesModule && matchesOperation && matchesSearch;
   });
 
+  // Client-side pagination for audit display
+  const paginatedAudits = filteredAudits.slice(
+    auditPage * AUDIT_PAGE_SIZE,
+    (auditPage + 1) * AUDIT_PAGE_SIZE
+  );
+
+  // Reset page on filter changes
+  useEffect(() => {
+    setAuditPage(0);
+  }, [selectedModule, selectedOperation, searchTerm, dateRange]);
+
   const getModuleStats = () => {
     const stats: Record<string, { create: number; update: number; delete: number }> = {};
     audits.forEach(audit => {
@@ -568,7 +582,7 @@ const Audits = () => {
             ) : (
               viewMode === "grid" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto">
-                  {filteredAudits.map((audit) => {
+                  {paginatedAudits.map((audit) => {
                     const config = MODULE_CONFIG[audit.module] || { icon: FileText, label: audit.module, color: 'bg-gray-500' };
                     const Icon = config.icon;
                     return (
@@ -601,7 +615,7 @@ const Audits = () => {
                 </div>
               ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                {filteredAudits.map((audit) => {
+                {paginatedAudits.map((audit) => {
                   const config = MODULE_CONFIG[audit.module] || { icon: FileText, label: audit.module, color: 'bg-gray-500' };
                   const Icon = config.icon;
                   return (
@@ -632,6 +646,13 @@ const Audits = () => {
               </div>
               )
             )}
+            <PaginationControls
+              currentPage={auditPage}
+              totalPages={Math.ceil(filteredAudits.length / AUDIT_PAGE_SIZE)}
+              totalCount={filteredAudits.length}
+              pageSize={AUDIT_PAGE_SIZE}
+              onPageChange={setAuditPage}
+            />
           </CardContent>
         </Card>
 
