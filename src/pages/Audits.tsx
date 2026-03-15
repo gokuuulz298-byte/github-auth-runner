@@ -615,7 +615,7 @@ const Audits = () => {
                 </div>
               ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                {filteredAudits.map((audit) => {
+                {paginatedAudits.map((audit) => {
                   const config = MODULE_CONFIG[audit.module] || { icon: FileText, label: audit.module, color: 'bg-gray-500' };
                   const Icon = config.icon;
                   return (
