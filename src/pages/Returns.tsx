@@ -419,16 +419,8 @@ const Returns = () => {
     }
   };
 
-  const filteredReturns = returns.filter(r => {
-    const matchesSearch = r.return_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.reference_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.customer_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (r.supplier_name?.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesTab = activeTab === 'all' || r.return_type === activeTab;
-    
-    return matchesSearch && matchesTab;
-  });
+  // Server-side filtering now - returns are already filtered
+  const filteredReturns = returns;
 
   // Summary stats
   const stats = {
