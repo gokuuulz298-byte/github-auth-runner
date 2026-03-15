@@ -170,18 +170,87 @@ const ModernBilling = () => {
     }
   }, []);
 
-  // Fetch initial data - load all products upfront for faster category switching
+  // Single RPC call for all billing data (8 queries → 1)
   useEffect(() => {
     if (!userId) return;
-    fetchCategories();
-    fetchCompanyProfile();
-    fetchCounters();
-    fetchCoupons();
-    fetchProductDiscounts();
-    fetchActiveTemplate();
-    fetchAllProducts(); // Load all products once
-    fetchLoyaltySettings();
+    fetchBillingBundle();
   }, [userId]);
+
+  // Consolidated data bundle for initial load
+  const fetchBillingBundle = async () => {
+    try {
+      setProductsLoading(true);
+      const { data, error } = await (supabase.rpc as any)('get_billing_bundle', { p_user_id: userId });
+      if (error) throw error;
+      
+      if (data) {
+        // Products
+        setAllProducts(data.products || []);
+        setProducts(data.products || []);
+        
+        // Categories
+        setCategories(data.categories || []);
+        setSelectedCategory("");
+        
+        // Company profile
+        if (data.company_profile) {
+          setCompanyProfile(data.company_profile);
+          const settings = data.company_profile.billing_settings;
+          if (settings && typeof settings === "object") {
+            setBillingSettings({
+              ...settings.ModernBilling,
+              isRestaurant: settings.isRestaurant,
+              enableKitchenInterface: settings.enableKitchenInterface,
+              enableBilingualBill: settings.enableBilingualBill,
+            });
+          }
+        }
+        
+        // Counters with staff assignment check
+        const allCounters = data.counters || [];
+        const staffInfo = await supabase.from("staff").select("assigned_counter_id")
+          .eq("auth_user_id", (await supabase.auth.getUser()).data.user?.id || "").maybeSingle();
+        const assignedCounterId = (staffInfo.data as any)?.assigned_counter_id;
+        
+        if (assignedCounterId) {
+          const assigned = allCounters.find((c: any) => c.id === assignedCounterId);
+          if (assigned) {
+            setCounters([assigned]);
+            setSelectedCounter(assigned.id);
+            setCounterSession(assigned.id, assigned.name);
+          }
+        } else {
+          setCounters(allCounters);
+          if (allCounters.length > 0) {
+            const session = getCounterSession();
+            if (session && allCounters.find((c: any) => c.id === session.counterId)) {
+              setSelectedCounter(session.counterId);
+            } else {
+              setSelectedCounter(allCounters[0].id);
+              setCounterSession(allCounters[0].id, allCounters[0].name);
+            }
+          }
+        }
+        
+        setCoupons(data.coupons || []);
+        setProductDiscounts(data.product_discounts || []);
+        setActiveTemplate(data.active_template || null);
+        
+        if (data.loyalty_settings) {
+          setLoyaltySettings({
+            points_per_rupee: Number(data.loyalty_settings.points_per_rupee) || 1,
+            rupees_per_point_redeem: Number(data.loyalty_settings.rupees_per_point_redeem) || 1,
+            min_points_to_redeem: data.loyalty_settings.min_points_to_redeem || 100,
+            is_active: data.loyalty_settings.is_active ?? true,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching billing bundle:", error);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
   
   const fetchLoyaltySettings = async () => {
     try {

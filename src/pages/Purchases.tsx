@@ -129,7 +129,8 @@ const Purchases = () => {
         .from('purchases')
         .select('*')
         .eq('created_by', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
 
       if (error) throw error;
       setPurchases((data || []).map(p => ({
