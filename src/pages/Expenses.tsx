@@ -25,6 +25,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import PaginationControls from "@/components/common/PaginationControls";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Expense {
   id: string;
