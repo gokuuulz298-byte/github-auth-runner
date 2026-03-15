@@ -13,6 +13,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import PaginationControls from "@/components/common/PaginationControls";
 
 interface AuditEntry {
   id: string;
