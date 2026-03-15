@@ -61,6 +61,9 @@ const InventoryMovements = () => {
   const [dateRange, setDateRange] = useState<string>("7d");
   const [activeTab, setActiveTab] = useState<string>("ledger");
   const [stockSearchTerm, setStockSearchTerm] = useState("");
+  const PAGE_SIZE = 25;
+  const [movementPage, setMovementPage] = useState(0);
+  const [movementCount, setMovementCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && userId) {
