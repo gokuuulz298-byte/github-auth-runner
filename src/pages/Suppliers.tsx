@@ -318,10 +318,8 @@ const Suppliers = () => {
     setEditingSupplier(null);
   };
 
-  const filteredSuppliers = suppliers.filter(s =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.phone.includes(searchQuery)
-  );
+  // With server-side search, filteredSuppliers = suppliers directly
+  const filteredSuppliers = suppliers;
 
   // Group products by category for mapping UI
   const groupedProducts = (() => {
