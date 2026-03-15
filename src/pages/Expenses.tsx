@@ -92,16 +92,18 @@ const Expenses = () => {
       const start = startOfMonth(monthDate);
       const end = endOfMonth(monthDate);
 
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("expenses")
-        .select("*")
+        .select("*", { count: 'exact' })
         .eq("created_by", userId)
         .gte("expense_date", start.toISOString())
         .lte("expense_date", end.toISOString())
-        .order("expense_date", { ascending: false });
+        .order("expense_date", { ascending: false })
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
       setExpenses((data || []) as Expense[]);
+      setTotalCount(count || 0);
 
       const prevMonthDate = subMonths(monthDate, 1);
       const prevStart = startOfMonth(prevMonthDate);
