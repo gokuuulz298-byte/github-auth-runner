@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLoader } from "@/components/common";
 import { formatIndianCurrency } from "@/lib/numberFormat";
 import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
+import PaginationControls from "@/components/common/PaginationControls";
 
 interface InventoryMovement {
   id: string;
