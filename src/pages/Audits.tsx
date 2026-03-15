@@ -63,6 +63,8 @@ const Audits = () => {
   const [selectedAudit, setSelectedAudit] = useState<AuditEntry | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const AUDIT_PAGE_SIZE = 25;
+  const [auditPage, setAuditPage] = useState(0);
 
   // Cache staff/waiter names for user resolution
   const [userNames, setUserNames] = useState<Record<string, string>>({});
