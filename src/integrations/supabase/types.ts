@@ -1143,6 +1143,8 @@ export type Database = {
         Args: { p_counter_id: string; p_store_id: string }
         Returns: string
       }
+      get_billing_bundle: { Args: { p_user_id: string }; Returns: Json }
+      get_dashboard_bundle: { Args: { p_user_id: string }; Returns: Json }
       get_parent_user_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
