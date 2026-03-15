@@ -475,6 +475,13 @@ const InventoryMovements = () => {
                   </TableBody>
                 </Table>
               </ScrollArea>
+              <PaginationControls
+                currentPage={movementPage}
+                totalPages={Math.ceil(movementCount / PAGE_SIZE)}
+                totalCount={movementCount}
+                pageSize={PAGE_SIZE}
+                onPageChange={setMovementPage}
+              />
             </Card>
           </TabsContent>
 

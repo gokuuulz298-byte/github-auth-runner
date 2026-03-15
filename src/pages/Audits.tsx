@@ -646,6 +646,13 @@ const Audits = () => {
               </div>
               )
             )}
+            <PaginationControls
+              currentPage={auditPage}
+              totalPages={Math.ceil(filteredAudits.length / AUDIT_PAGE_SIZE)}
+              totalCount={filteredAudits.length}
+              pageSize={AUDIT_PAGE_SIZE}
+              onPageChange={setAuditPage}
+            />
           </CardContent>
         </Card>
 

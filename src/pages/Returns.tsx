@@ -782,6 +782,13 @@ const Returns = () => {
                 </Table>
               </div>
             )}
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(totalCount / PAGE_SIZE)}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
           </CardContent>
         </Card>
       </main>
