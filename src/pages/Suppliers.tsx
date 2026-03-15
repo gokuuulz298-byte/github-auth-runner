@@ -116,11 +116,19 @@ const Suppliers = () => {
 
   const fetchSuppliers = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('suppliers' as any)
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('created_by', userId)
         .order('name');
+
+      // Server-side search
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,phone.ilike.%${debouncedSearch}%`);
+      }
+
+      const { data, error, count } = await query
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
       setSuppliers((data || []).map((s: any) => ({
@@ -134,6 +142,7 @@ const Suppliers = () => {
         mapped_products: (s.mapped_products as string[]) || [],
         created_at: s.created_at
       })));
+      setTotalCount(count || 0);
     } catch (error) {
       console.error(error);
     } finally {
