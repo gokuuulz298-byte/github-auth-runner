@@ -96,13 +96,14 @@ const InventoryMovements = () => {
       const { start, end } = getDateRange();
       
       // Fetch retail product movements only (join with products to exclude raw materials)
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('inventory_movements')
-        .select('*, products!inner(is_raw_material)')
+        .select('*, products!inner(is_raw_material)', { count: 'exact' })
         .eq('products.is_raw_material', false)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(movementPage * PAGE_SIZE, (movementPage + 1) * PAGE_SIZE - 1);
 
       if (error) {
         // Fallback if inner join fails - use filter
