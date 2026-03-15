@@ -73,6 +73,10 @@ const Suppliers = () => {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const PAGE_SIZE = 25;
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const debouncedSearch = useDebounce(searchQuery, 400);
   
   // Keyboard navigation
   const searchRef = useRef<HTMLInputElement>(null);
