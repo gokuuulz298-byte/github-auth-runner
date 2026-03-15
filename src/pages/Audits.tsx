@@ -427,6 +427,17 @@ const Audits = () => {
     return matchesModule && matchesOperation && matchesSearch;
   });
 
+  // Client-side pagination for audit display
+  const paginatedAudits = filteredAudits.slice(
+    auditPage * AUDIT_PAGE_SIZE,
+    (auditPage + 1) * AUDIT_PAGE_SIZE
+  );
+
+  // Reset page on filter changes
+  useEffect(() => {
+    setAuditPage(0);
+  }, [selectedModule, selectedOperation, searchTerm, dateRange]);
+
   const getModuleStats = () => {
     const stats: Record<string, { create: number; update: number; delete: number }> = {};
     audits.forEach(audit => {
