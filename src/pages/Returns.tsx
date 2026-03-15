@@ -96,21 +96,37 @@ const Returns = () => {
     if (!authLoading && userId) {
       fetchReturns();
     }
-  }, [authLoading, userId]);
+  }, [authLoading, userId, currentPage, debouncedSearch, activeTab]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedSearch, activeTab]);
 
   const fetchReturns = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('returns')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('created_by', userId)
         .order('created_at', { ascending: false });
+
+      if (activeTab !== 'all') {
+        query = query.eq('return_type', activeTab);
+      }
+
+      if (debouncedSearch) {
+        query = query.or(`return_number.ilike.%${debouncedSearch}%,reference_number.ilike.%${debouncedSearch}%,customer_name.ilike.%${debouncedSearch}%,supplier_name.ilike.%${debouncedSearch}%`);
+      }
+
+      const { data, error, count } = await query
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
       setReturns((data || []).map(r => ({
         ...r,
         items_data: r.items_data as unknown as ReturnItem[]
       })) as Return[]);
+      setTotalCount(count || 0);
     } catch (error) {
       console.error(error);
       toast.error("Failed to fetch returns");
