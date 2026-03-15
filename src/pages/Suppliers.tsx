@@ -19,6 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import LoadingButton from "@/components/LoadingButton";
+import PaginationControls from "@/components/common/PaginationControls";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Supplier {
   id: string;
