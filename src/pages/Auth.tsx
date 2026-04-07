@@ -79,7 +79,7 @@ const Auth = () => {
     setWaiterLoading(true);
     try {
       // Waiter accounts use a deterministic email pattern for Supabase Auth
-      const waiterEmail = `${waiterUsername.trim().toLowerCase()}@waiter.eduvanca.local`;
+      const waiterEmail = `${waiterUsername.trim().toLowerCase()}@waiter.upcurv.local`;
       
       const { error } = await supabase.auth.signInWithPassword({
         email: waiterEmail,
@@ -167,7 +167,7 @@ const Auth = () => {
         </div>
         
         <h1 className="text-5xl xl:text-6xl font-bold text-white mb-6 leading-tight">
-          Eduvanca<br />
+          Upcurv<br />
           <span className="text-blue-200">Billing</span>
         </h1>
         
@@ -220,7 +220,7 @@ const Auth = () => {
             <CardDescription className="text-gray-600">
               {showForgotPassword 
                 ? "Enter your email to receive a reset link" 
-                : "Sign in to your Eduvanca account"
+                : "Sign in to your Upcurv account"
               }
             </CardDescription>
           </CardHeader>
