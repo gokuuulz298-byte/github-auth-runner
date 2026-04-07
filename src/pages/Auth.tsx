@@ -220,7 +220,7 @@ const Auth = () => {
             <CardDescription className="text-gray-600">
               {showForgotPassword 
                 ? "Enter your email to receive a reset link" 
-                : "Sign in to your Eduvanca account"
+                : "Sign in to your Upcurv account"
               }
             </CardDescription>
           </CardHeader>
