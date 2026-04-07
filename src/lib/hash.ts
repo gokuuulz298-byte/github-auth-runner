@@ -1,5 +1,5 @@
 /**
- * User Management Guide for Eduvanca Billing
+ * User Management Guide for Upcurv Billing
  * 
  * IMPORTANT: For security, user creation is handled through Supabase Dashboard.
  * 
