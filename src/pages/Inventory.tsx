@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -18,6 +18,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { saveProductsToIndexedDB, getAllProducts, deleteProductFromIndexedDB } from "@/lib/indexedDB";
 import BulkProductImport from "@/components/BulkProductImport";
+import PaginationControls from "@/components/common/PaginationControls";
+import { useDebounce } from "@/hooks/useDebounce";
+import { PAGE_SIZE } from "@/lib/cacheConfig";
 
 interface Product {
   id: string;
