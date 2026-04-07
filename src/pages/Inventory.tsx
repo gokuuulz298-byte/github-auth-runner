@@ -1161,7 +1161,7 @@ const Inventory = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredProducts.length === 0 && (
+                  {products.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={viewType === "raw_materials" ? 6 : (isRestaurant ? 7 : 10)} className="text-center py-8 text-muted-foreground">
                         No {viewType === "raw_materials" ? "raw materials" : "products"} found
@@ -1171,6 +1171,13 @@ const Inventory = () => {
                 </TableBody>
               </Table>
             </div>
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(totalCount / PAGE_SIZE)}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
           </CardContent>
         </Card>
       </main>
