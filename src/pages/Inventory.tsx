@@ -110,6 +110,24 @@ const Inventory = () => {
   }, [debouncedSearch, selectedCategory, viewType]);
 
   const fetchInventoryBundle = async () => {
+    const CACHE_KEY = 'inventory_bundle_cache';
+    const CACHE_DURATION = 5 * 60 * 1000;
+    
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { data: cachedData, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        setCategories(cachedData.categories || []);
+        if (cachedData.billing_settings) {
+          const settings = cachedData.billing_settings as BillingSettings;
+          setBillingSettings(settings);
+          setIsRestaurant(settings.isRestaurant || false);
+        }
+        setPageLoading(false);
+        return;
+      }
+    }
+    
     try {
       const { data, error } = await (supabase.rpc as any)('get_inventory_bundle', { p_user_id: userId });
       if (error) throw error;
@@ -120,6 +138,7 @@ const Inventory = () => {
           setBillingSettings(settings);
           setIsRestaurant(settings.isRestaurant || false);
         }
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
       }
     } catch (error) {
       console.error("Error fetching inventory bundle:", error);
