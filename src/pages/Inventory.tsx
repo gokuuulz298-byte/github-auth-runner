@@ -967,7 +967,7 @@ const Inventory = () => {
             onClick={() => setSelectedCategory("All")}
             className="whitespace-nowrap"
           >
-            All ({getCategoryCount("All")})
+            All
           </Button>
           {categories.map((category) => (
             <Button
@@ -976,7 +976,7 @@ const Inventory = () => {
               onClick={() => setSelectedCategory(category.name)}
               className="whitespace-nowrap"
             >
-              {category.name} ({getCategoryCount(category.name)})
+              {category.name}
             </Button>
           ))}
         </div>
