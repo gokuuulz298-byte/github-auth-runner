@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -18,6 +18,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { saveProductsToIndexedDB, getAllProducts, deleteProductFromIndexedDB } from "@/lib/indexedDB";
 import BulkProductImport from "@/components/BulkProductImport";
+import PaginationControls from "@/components/common/PaginationControls";
+import { useDebounce } from "@/hooks/useDebounce";
+import { PAGE_SIZE } from "@/lib/cacheConfig";
 
 interface Product {
   id: string;
@@ -46,8 +49,8 @@ const Inventory = () => {
   const navigate = useNavigate();
   const { userId, loading: authLoading } = useAuthContext();
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 400);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -58,6 +61,10 @@ const Inventory = () => {
   const [viewType, setViewType] = useState<"products" | "raw_materials">("products");
   const [stockAdjustProduct, setStockAdjustProduct] = useState<any>(null);
   const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   const [formData, setFormData] = useState({
     barcode: "",
@@ -71,7 +78,7 @@ const Inventory = () => {
     product_tax: "",
     cgst: "",
     sgst: "",
-    tax_rate: "",
+    tax_rate: "0",
     category: "",
     price_type: "fixed",
     unit: "piece",
@@ -83,34 +90,64 @@ const Inventory = () => {
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
 
+  // Single RPC call for categories + billing settings (replaces 3 queries → 1)
   useEffect(() => {
     if (!authLoading && userId) {
-      Promise.all([fetchProducts(), fetchCategories(), fetchBillingSettings()]).finally(() => {
-        setPageLoading(false);
-      });
+      fetchInventoryBundle();
     }
   }, [authLoading, userId]);
 
-  const fetchBillingSettings = async () => {
+  // Fetch paginated products whenever filters change
+  useEffect(() => {
+    if (!authLoading && userId) {
+      fetchProducts();
+    }
+  }, [authLoading, userId, currentPage, debouncedSearch, selectedCategory, viewType]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedSearch, selectedCategory, viewType]);
+
+  const fetchInventoryBundle = async () => {
+    const CACHE_KEY = 'inventory_bundle_cache';
+    const CACHE_DURATION = 5 * 60 * 1000;
+    
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { data: cachedData, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        setCategories(cachedData.categories || []);
+        if (cachedData.billing_settings) {
+          const settings = cachedData.billing_settings as BillingSettings;
+          setBillingSettings(settings);
+          setIsRestaurant(settings.isRestaurant || false);
+        }
+        setPageLoading(false);
+        return;
+      }
+    }
+    
     try {
-      const { data } = await supabase
-        .from('company_profiles')
-        .select('billing_settings')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (data?.billing_settings) {
-        const settings = data.billing_settings as BillingSettings;
-        setBillingSettings(settings);
-        setIsRestaurant(settings.isRestaurant || false);
+      const { data, error } = await (supabase.rpc as any)('get_inventory_bundle', { p_user_id: userId });
+      if (error) throw error;
+      if (data) {
+        setCategories(data.categories || []);
+        if (data.billing_settings) {
+          const settings = data.billing_settings as BillingSettings;
+          setBillingSettings(settings);
+          setIsRestaurant(settings.isRestaurant || false);
+        }
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching inventory bundle:", error);
+    } finally {
+      setPageLoading(false);
     }
   };
 
   useEffect(() => {
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
@@ -123,54 +160,6 @@ const Inventory = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let filtered = products;
-    
-    // Filter by view type (Products vs Raw Materials)
-    filtered = filtered.filter(product => {
-      const isRaw = (product as any).is_raw_material || false;
-      return viewType === "raw_materials" ? isRaw : !isRaw;
-    });
-    
-    // Filter by category
-    if (selectedCategory !== "All") {
-      filtered = filtered.filter(product => product.category === selectedCategory);
-    }
-    
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.barcode.includes(searchQuery)
-      );
-    }
-    
-    setFilteredProducts(filtered);
-  }, [searchQuery, products, selectedCategory, viewType]);
-
-  const getCategoryCount = (category: string) => {
-    const typeFiltered = products.filter(p => {
-      const isRaw = (p as any).is_raw_material || false;
-      return viewType === "raw_materials" ? isRaw : !isRaw;
-    });
-    if (category === "All") return typeFiltered.length;
-    return typeFiltered.filter(p => p.category === category).length;
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      setCategories(data || []);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const fetchProducts = async () => {
     try {
       if (isOnline) {
@@ -179,20 +168,48 @@ const Inventory = () => {
           return;
         }
 
-        const { data, error } = await supabase
+        const isRaw = viewType === "raw_materials";
+        const from = currentPage * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        let query = supabase
           .from('products')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('created_by', userId)
           .eq('is_deleted', false)
-          .order('created_at', { ascending: false });
+          .eq('is_raw_material', isRaw)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (selectedCategory !== "All") {
+          query = query.eq('category', selectedCategory);
+        }
+        if (debouncedSearch) {
+          query = query.or(`name.ilike.%${debouncedSearch}%,barcode.ilike.%${debouncedSearch}%`);
+        }
+
+        const { data, error, count } = await query;
 
         if (error) throw error;
         
         setProducts(data || []);
-        await saveProductsToIndexedDB(data || []);
+        setTotalCount(count || 0);
+        
+        // Save to IndexedDB for offline (only first page, background)
+        if (currentPage === 0 && !debouncedSearch && selectedCategory === "All") {
+          saveProductsToIndexedDB(data || []);
+        }
       } else {
         const localProducts = await getAllProducts();
-        setProducts(localProducts);
+        const isRaw = viewType === "raw_materials";
+        const filtered = localProducts.filter((p: any) => {
+          const matchType = isRaw ? (p.is_raw_material || false) : !(p.is_raw_material || false);
+          const matchCat = selectedCategory === "All" || p.category === selectedCategory;
+          const matchSearch = !debouncedSearch || p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || p.barcode.includes(debouncedSearch);
+          return matchType && matchCat && matchSearch;
+        });
+        setProducts(filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE));
+        setTotalCount(filtered.length);
       }
     } catch (error: any) {
       toast.error(`Error fetching products: ${error.message || 'Unknown error'}`);
@@ -969,7 +986,7 @@ const Inventory = () => {
             onClick={() => setSelectedCategory("All")}
             className="whitespace-nowrap"
           >
-            All ({getCategoryCount("All")})
+            All
           </Button>
           {categories.map((category) => (
             <Button
@@ -978,7 +995,7 @@ const Inventory = () => {
               onClick={() => setSelectedCategory(category.name)}
               className="whitespace-nowrap"
             >
-              {category.name} ({getCategoryCount(category.name)})
+              {category.name}
             </Button>
           ))}
         </div>
@@ -986,7 +1003,7 @@ const Inventory = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>
-              {viewType === "raw_materials" ? "Raw Materials" : "Products"} ({filteredProducts.length})
+              {viewType === "raw_materials" ? "Raw Materials" : "Products"} ({totalCount})
             </CardTitle>
             <TooltipProvider>
               <Tooltip>
@@ -1057,7 +1074,7 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map((product) => (
+                  {products.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell className="font-mono">{product.barcode}</TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
@@ -1163,7 +1180,7 @@ const Inventory = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredProducts.length === 0 && (
+                  {products.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={viewType === "raw_materials" ? 6 : (isRestaurant ? 7 : 10)} className="text-center py-8 text-muted-foreground">
                         No {viewType === "raw_materials" ? "raw materials" : "products"} found
@@ -1173,6 +1190,13 @@ const Inventory = () => {
                 </TableBody>
               </Table>
             </div>
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(totalCount / PAGE_SIZE)}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
           </CardContent>
         </Card>
       </main>
