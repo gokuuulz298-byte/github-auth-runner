@@ -167,7 +167,7 @@ const Auth = () => {
         </div>
         
         <h1 className="text-5xl xl:text-6xl font-bold text-white mb-6 leading-tight">
-          Eduvanca<br />
+          Upcurv<br />
           <span className="text-blue-200">Billing</span>
         </h1>
         
