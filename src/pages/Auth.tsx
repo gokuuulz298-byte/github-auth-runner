@@ -79,7 +79,7 @@ const Auth = () => {
     setWaiterLoading(true);
     try {
       // Waiter accounts use a deterministic email pattern for Supabase Auth
-      const waiterEmail = `${waiterUsername.trim().toLowerCase()}@waiter.eduvanca.local`;
+      const waiterEmail = `${waiterUsername.trim().toLowerCase()}@waiter.upcurv.local`;
       
       const { error } = await supabase.auth.signInWithPassword({
         email: waiterEmail,

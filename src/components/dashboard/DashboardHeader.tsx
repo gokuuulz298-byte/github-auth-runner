@@ -58,7 +58,7 @@ const DashboardHeader = memo(({
           <div className="p-1.5 bg-primary rounded-lg">
             <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
           </div>
-          <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground hidden sm:block">Eduvanca</h1>
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground hidden sm:block">Upcurv</h1>
           <CompanyBadge />
           {isStaff && (
             <Badge variant="secondary" className="gap-1 text-[10px] px-2 py-0.5">
