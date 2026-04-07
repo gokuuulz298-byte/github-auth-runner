@@ -1055,7 +1055,7 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map((product) => (
+                  {products.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell className="font-mono">{product.barcode}</TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
