@@ -1,4 +1,4 @@
-import { createClient } from './node_modules/@supabase/supabase-js/dist/module/index.js';
+import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
