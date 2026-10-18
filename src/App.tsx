@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import { Component, lazy, Suspense, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -16,21 +16,29 @@ const isChunkLoadError = (error: unknown) => {
   return /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|loading (?:css )?chunk .* failed|chunkloaderror/i.test(message);
 };
 
-const lazyWithRecovery = <T extends React.ComponentType<any>>(
+const lazyWithRecovery = <T extends ComponentType<any>>(
   importPage: () => Promise<{ default: T }>,
 ) => lazy(async () => {
   try {
     const page = await importPage();
     if (typeof window !== "undefined") {
-      sessionStorage.removeItem(`${CHUNK_RELOAD_PREFIX}${window.location.pathname}`);
+      try {
+        sessionStorage.removeItem(`${CHUNK_RELOAD_PREFIX}${window.location.pathname}`);
+      } catch {
+        // Storage can be disabled; successful page loading should still continue.
+      }
     }
     return page;
   } catch (error) {
     if (typeof window !== "undefined" && isChunkLoadError(error)) {
       const retryKey = `${CHUNK_RELOAD_PREFIX}${window.location.pathname}`;
-      if (!sessionStorage.getItem(retryKey)) {
-        sessionStorage.setItem(retryKey, "1");
-        window.location.reload();
+      try {
+        if (!sessionStorage.getItem(retryKey)) {
+          sessionStorage.setItem(retryKey, "1");
+          window.location.reload();
+        }
+      } catch {
+        // Leave recovery to the visible error screen when storage is disabled.
       }
     }
     throw error;
