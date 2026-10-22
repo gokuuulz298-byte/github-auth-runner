@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt, ChefHat, Users, Loader2, Lock } from "lucide-react";
+import { UserCog, Plus, Trash2, Edit2, Eye, EyeOff, Check, X, Receipt, Loader2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -60,23 +60,16 @@ const MANAGEMENT_MODULES = [
   { id: "discounts", label: "Limited Discounts" },
   { id: "barcodes", label: "Barcodes" },
   { id: "templates", label: "Templates" },
-  { id: "purchases", label: "Purchases" },
   { id: "expenses", label: "Expenses" },
   { id: "low-stocks", label: "Low Stocks" },
   { id: "advanced-reports", label: "Advanced Reports" },
   { id: "audits", label: "Audits" },
   { id: "returns", label: "Returns" },
   { id: "inventory-movements", label: "Stock Ledger" },
-  { id: "suppliers", label: "Suppliers" },
   { id: "profile", label: "Profile" },
 ];
 
-const RESTAURANT_MODULES = [
-  { id: "kitchen", label: "Kitchen Display", icon: ChefHat },
-  { id: "waiter", label: "Waiter Interface", icon: Users },
-];
-
-const StaffCard = ({ staff, counters = [], onRefresh, isRestaurantMode = false }: StaffCardProps) => {
+const StaffCard = ({ staff, counters = [], onRefresh }: StaffCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
