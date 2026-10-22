@@ -113,8 +113,6 @@ const Inventory = lazyWithRecovery(() => import("./pages/Inventory"));
 const Invoices = lazyWithRecovery(() => import("./pages/Invoices"));
 // ManualBilling removed per user request
 const ModernBilling = lazyWithRecovery(() => import("./pages/ModernBilling"));
-const Kitchen = lazyWithRecovery(() => import("./pages/Kitchen"));
-const WaiterInterface = lazyWithRecovery(() => import("./pages/WaiterInterface"));
 const Customers = lazyWithRecovery(() => import("./pages/Customers"));
 const Analytics = lazyWithRecovery(() => import("./pages/Analytics"));
 const AdvancedReports = lazyWithRecovery(() => import("./pages/AdvancedReports"));
@@ -126,13 +124,11 @@ const Coupons = lazyWithRecovery(() => import("./pages/Coupons"));
 const LimitedDiscounts = lazyWithRecovery(() => import("./pages/LimitedDiscounts"));
 const Barcodes = lazyWithRecovery(() => import("./pages/Barcodes"));
 const Templates = lazyWithRecovery(() => import("./pages/Templates"));
-const Purchases = lazyWithRecovery(() => import("./pages/Purchases"));
 const Expenses = lazyWithRecovery(() => import("./pages/Expenses"));
-const RestaurantTables = lazyWithRecovery(() => import("./pages/RestaurantTables"));
-const Suppliers = lazyWithRecovery(() => import("./pages/Suppliers"));
 const Audits = lazyWithRecovery(() => import("./pages/Audits"));
 const Returns = lazyWithRecovery(() => import("./pages/Returns"));
 const InventoryMovements = lazyWithRecovery(() => import("./pages/InventoryMovements"));
+
 
 // Optimized QueryClient with better caching
 const queryClient = new QueryClient({
@@ -183,8 +179,6 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 {/* Manual Billing route removed */}
                 <Route path="/modern-billing" element={<ModernBilling />} />
-                <Route path="/kitchen" element={<Kitchen />} />
-                <Route path="/waiter" element={<WaiterInterface />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/low-stocks" element={<LowStocks />} />
                 <Route path="/invoices" element={<Invoices />} />
@@ -198,13 +192,11 @@ const App = () => (
                 <Route path="/limited-discounts" element={<LimitedDiscounts />} />
                 <Route path="/barcodes" element={<Barcodes />} />
                 <Route path="/templates" element={<Templates />} />
-                <Route path="/purchases" element={<Purchases />} />
                 <Route path="/expenses" element={<Expenses />} />
-                <Route path="/restaurant-tables" element={<RestaurantTables />} />
-                <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/audits" element={<Audits />} />
                 <Route path="/returns" element={<Returns />} />
                 <Route path="/inventory-movements" element={<InventoryMovements />} />
+
                 
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
