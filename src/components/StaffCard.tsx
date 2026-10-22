@@ -42,7 +42,6 @@ interface StaffCardProps {
   staff: Staff[];
   counters?: Counter[];
   onRefresh: () => void;
-  isRestaurantMode?: boolean;
 }
 
 const BILLING_MODULES = [
