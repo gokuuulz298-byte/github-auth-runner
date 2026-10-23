@@ -86,11 +86,7 @@ const StaffCard = ({ staff, counters = [], onRefresh }: StaffCardProps) => {
   const hasBillingModule = formData.allowed_modules.includes("modern-billing");
 
   const getAllModules = () => {
-    const modules = [...BILLING_MODULES, ...MANAGEMENT_MODULES];
-    if (isRestaurantMode) {
-      modules.push(...RESTAURANT_MODULES);
-    }
-    return modules;
+    return [...BILLING_MODULES, ...MANAGEMENT_MODULES];
   };
 
   const resetForm = () => {
@@ -447,28 +443,6 @@ const StaffCard = ({ staff, counters = [], onRefresh }: StaffCardProps) => {
                   ))}
                 </div>
               </div>
-
-              {/* Restaurant Modules - Only show in restaurant mode */}
-              {isRestaurantMode && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Restaurant</p>
-                  <div className="grid grid-cols-2 gap-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                    {RESTAURANT_MODULES.map((module) => (
-                      <div key={module.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={module.id}
-                          checked={formData.allowed_modules.includes(module.id)}
-                          onCheckedChange={() => toggleModule(module.id)}
-                        />
-                        <Label htmlFor={module.id} className="text-xs cursor-pointer flex items-center gap-1">
-                          <module.icon className="h-3 w-3" />
-                          {module.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Management Modules */}
               <div className="space-y-2">
