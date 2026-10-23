@@ -99,6 +99,12 @@ const Profile = () => {
       return;
     }
     if (userId) {
+      Promise.all([fetchProfile(), fetchStaff(), fetchCounters()]).finally(() => {
+        setPageLoading(false);
+      });
+    }
+  }, [authLoading, userId, user]);
+
   const fetchCounters = async () => {
     if (!userId) return;
     try {
@@ -692,12 +698,7 @@ const Profile = () => {
           {/* Team Management Tab */}
           <TabsContent value="team" className="space-y-6">
             {/* Staff Management */}
-            <StaffCard staff={staff} counters={counters} onRefresh={fetchStaff} isRestaurantMode={isRestaurantMode || false} />
-            
-            {/* Waiter Management - Only show when restaurant mode is enabled */}
-            {isRestaurantMode && (
-              <WaiterCard waiters={waiters} onRefresh={fetchWaiters} />
-            )}
+            <StaffCard staff={staff} counters={counters} onRefresh={fetchStaff} />
           </TabsContent>
 
           {/* Account Security Tab */}
