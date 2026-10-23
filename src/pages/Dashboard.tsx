@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, 
   AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, 
-  QrCode, ChefHat, UserCog, Receipt, UtensilsCrossed, History, RotateCcw, ArrowUpDown
+  QrCode, Receipt, History, RotateCcw, ArrowUpDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -73,24 +73,15 @@ const Dashboard = () => {
     if (authLoading || !role) return null;
     
     if (isAdmin) {
-      return allMenuItems.filter(item => {
-        if (['kitchen', 'waiter', 'restaurant-tables'].includes(item.id)) {
-          return billingSettings?.isRestaurant;
-        }
-        return true;
-      });
+      return allMenuItems;
     }
     
     if (isStaff) {
       return allMenuItems.filter(item => staffModules.includes(item.id));
     }
     
-    if (isWaiter) {
-      return allMenuItems.filter(item => item.id === 'waiter');
-    }
-    
     return [];
-  }, [authLoading, role, isAdmin, isStaff, isWaiter, billingSettings, staffModules, allMenuItems]);
+  }, [authLoading, role, isAdmin, isStaff, billingSettings, staffModules, allMenuItems]);
 
   useEffect(() => {
     if (!authLoading && !user) {
