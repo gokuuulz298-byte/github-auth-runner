@@ -528,8 +528,6 @@ const Profile = () => {
     );
   };
 
-  const isRestaurantMode = profile.billing_settings?.isRestaurant;
-
   if (pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -590,19 +588,6 @@ const Profile = () => {
                         onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
                         required
                       />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="company_name_tamil">Company Name (Tamil)</Label>
-                      <Input
-                        id="company_name_tamil"
-                        value={profile.company_name_tamil || ""}
-                        onChange={(e) => setProfile({ ...profile, company_name_tamil: e.target.value })}
-                        placeholder="யூஜி ஸ்டோர்ஸ் (used in bilingual bills)"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Used in thermal bills when bilingual mode is enabled
-                      </p>
                     </div>
 
                     <div className="space-y-2">
