@@ -317,66 +317,6 @@ const Profile = () => {
 
     return (
       <div className="space-y-6">
-        {/* Modern Billing */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Modern Billing Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Tax Mode</Label>
-              <div className="flex gap-2 mt-2">
-                <Button
-                  type="button"
-                  variant={settings.ModernBilling.mode === "inclusive" ? "default" : "outline"}
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      ModernBilling: { ...settings.ModernBilling, mode: "inclusive" }
-                    })
-                  }
-                >
-                  Inclusive (MRP)
-                </Button>
-                <Button
-                  type="button"
-                  variant={settings.ModernBilling.mode === "exclusive" ? "default" : "outline"}
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      ModernBilling: { ...settings.ModernBilling, mode: "exclusive" }
-                    })
-                  }
-                >
-                  Exclusive (Add GST)
-                </Button>
-              </div>
-            </div>
-
-            {settings.ModernBilling.mode === "inclusive" && (
-              <div>
-                <Label>Show Tax Type</Label>
-                <select
-                  value={settings.ModernBilling.inclusiveBillType}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      ModernBilling: {
-                        ...settings.ModernBilling,
-                        inclusiveBillType: e.target.value as "split" | "nosplit"
-                      }
-                    })
-                  }
-                  className="border rounded p-2 w-full mt-1 bg-background"
-                >
-                  <option value="split">Show Tax Split (Base + GST)</option>
-                  <option value="mrp">No Tax Columns (MRP Inclusive)</option>
-                </select>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Manual Billing settings removed - module deprecated */}
 
         {/* Restaurant Settings - Temporarily hidden for retail-only release */}
@@ -488,19 +428,6 @@ const Profile = () => {
                 onCheckedChange={(v) => setSettings({ ...settings, autoPrint: v })}
               />
               <span>Auto-print on Complete Sale</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={settings.enableBilingualBill || false}
-                onCheckedChange={(v) => setSettings({ ...settings, enableBilingualBill: v })}
-              />
-              <div>
-                <span className="font-medium">Bilingual Bill (English + Tamil)</span>
-                <p className="text-xs text-muted-foreground">
-                  Show Tamil text below English on thermal bills
-                </p>
-              </div>
             </div>
 
             <div>
