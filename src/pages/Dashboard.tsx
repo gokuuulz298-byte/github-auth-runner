@@ -66,9 +66,6 @@ const Dashboard = () => {
     { icon: History, label: "Audits", path: "/audits", id: "audits", color: "from-slate-500 to-gray-600", description: "View all system activities and logs" },
     { icon: RotateCcw, label: "Returns", path: "/returns", id: "returns", color: "from-rose-500 to-red-500", description: "Manage product returns and refunds" },
     { icon: ArrowUpDown, label: "Stock Ledger", path: "/inventory-movements", id: "inventory-movements", color: "from-emerald-500 to-green-600", description: "Track all stock inflows and outflows" },
-    { icon: UtensilsCrossed, label: "Tables", path: "/restaurant-tables", id: "restaurant-tables", color: "from-amber-500 to-orange-500", description: "Manage restaurant table layouts" },
-    { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", id: "kitchen", color: "from-orange-500 to-red-500", description: "View and manage kitchen orders" },
-    { icon: UserCog, label: "Waiter Interface", path: "/waiter", id: "waiter", color: "from-teal-500 to-green-500", description: "Mobile-friendly order taking" },
   ], []);
 
   // Filter menu items based on role
