@@ -26,7 +26,7 @@ interface LowStockProduct {
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userId, role, isAdmin, isStaff, isWaiter, loading: authLoading, signOut } = useAuthContext();
+  const { user, userId, role, isAdmin, isStaff, loading: authLoading, signOut } = useAuthContext();
   
   const [companyName, setCompanyName] = useState<string>("");
   const [billingSettings, setBillingSettings] = useState<any>(null);
