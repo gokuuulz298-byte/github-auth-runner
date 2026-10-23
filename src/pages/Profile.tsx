@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Building2, Settings, Lock, UserCog, UserCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import LoadingButton from "@/components/LoadingButton";
-import WaiterCard from "@/components/WaiterCard";
 import StaffCard from "@/components/StaffCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -79,7 +78,6 @@ const Profile = () => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [counters, setCounters] = useState<{id: string; name: string}[]>([]);
   const [profile, setProfile] = useState<CompanyProfile>({
@@ -101,29 +99,6 @@ const Profile = () => {
       return;
     }
     if (userId) {
-      Promise.all([fetchProfile(), fetchWaiters(), fetchStaff(), fetchCounters()]).finally(() => {
-        setPageLoading(false);
-      });
-    }
-  }, [authLoading, userId, user]);
-
-  const fetchWaiters = async () => {
-    if (!userId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('waiters')
-        .select('id, username, display_name, is_active, created_by, auth_user_id, created_at, updated_at')
-        .eq('created_by', userId)
-        .order('display_name');
-
-      if (error) throw error;
-      setWaiters((data || []) as Waiter[]);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const fetchCounters = async () => {
     if (!userId) return;
     try {
