@@ -172,12 +172,6 @@ const Dashboard = () => {
     );
   }
 
-  // Redirect waiter directly
-  if (isWaiter) {
-    navigate('/waiter');
-    return null;
-  }
-
   return (
     <PageWrapper>
       <DashboardHeader
