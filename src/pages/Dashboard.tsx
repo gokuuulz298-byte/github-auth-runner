@@ -55,8 +55,6 @@ const Dashboard = () => {
     { icon: BarChart3, label: "Analytics", path: "/analytics", id: "analytics", color: "from-red-500 to-pink-500", description: "View sales and profit reports" },
     { icon: BarChart4, label: "Advanced Reports", path: "/advanced-reports", id: "advanced-reports", color: "from-red-600 to-orange-600", description: "Detailed monthly, category-wise reports" },
     { icon: Users, label: "Customers", path: "/customers", id: "customers", color: "from-indigo-500 to-purple-500", description: "Manage customer information" },
-    { icon: Package, label: "Purchases", path: "/purchases", id: "purchases", color: "from-emerald-500 to-teal-500", description: "Track purchase orders and stock inflow" },
-    { icon: Users, label: "Suppliers", path: "/suppliers", id: "suppliers", color: "from-violet-500 to-indigo-500", description: "Manage vendor contacts and products" },
     { icon: Receipt, label: "Expenses", path: "/expenses", id: "expenses", color: "from-red-500 to-rose-500", description: "Track business expenses and payments" },
     { icon: Building2, label: "Profile", path: "/profile", id: "profile", color: "from-blue-500 to-cyan-500", description: "Manage company profile and details" },
     { icon: FolderOpen, label: "Categories", path: "/categories", id: "categories", color: "from-teal-500 to-cyan-500", description: "Add and manage product categories" },
