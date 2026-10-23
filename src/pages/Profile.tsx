@@ -18,7 +18,6 @@ import { useAuthContext } from "@/hooks/useAuthContext";
 interface CompanyProfile {
   id?: string;
   company_name: string;
-  company_name_tamil?: string;
   phone: string;
   email: string;
   address: string;
@@ -82,7 +81,6 @@ const Profile = () => {
   const [counters, setCounters] = useState<{id: string; name: string}[]>([]);
   const [profile, setProfile] = useState<CompanyProfile>({
     company_name: "",
-    company_name_tamil: "",
     phone: "",
     email: "",
     address: "",
