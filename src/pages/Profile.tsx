@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Building2, Settings, Lock, UserCog, UserCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import LoadingButton from "@/components/LoadingButton";
-import WaiterCard from "@/components/WaiterCard";
 import StaffCard from "@/components/StaffCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -19,7 +18,6 @@ import { useAuthContext } from "@/hooks/useAuthContext";
 interface CompanyProfile {
   id?: string;
   company_name: string;
-  company_name_tamil?: string;
   phone: string;
   email: string;
   address: string;
@@ -79,12 +77,10 @@ const Profile = () => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [counters, setCounters] = useState<{id: string; name: string}[]>([]);
   const [profile, setProfile] = useState<CompanyProfile>({
     company_name: "",
-    company_name_tamil: "",
     phone: "",
     email: "",
     address: "",
@@ -101,28 +97,11 @@ const Profile = () => {
       return;
     }
     if (userId) {
-      Promise.all([fetchProfile(), fetchWaiters(), fetchStaff(), fetchCounters()]).finally(() => {
+      Promise.all([fetchProfile(), fetchStaff(), fetchCounters()]).finally(() => {
         setPageLoading(false);
       });
     }
   }, [authLoading, userId, user]);
-
-  const fetchWaiters = async () => {
-    if (!userId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('waiters')
-        .select('id, username, display_name, is_active, created_by, auth_user_id, created_at, updated_at')
-        .eq('created_by', userId)
-        .order('display_name');
-
-      if (error) throw error;
-      setWaiters((data || []) as Waiter[]);
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const fetchCounters = async () => {
     if (!userId) return;
@@ -336,66 +315,6 @@ const Profile = () => {
 
     return (
       <div className="space-y-6">
-        {/* Modern Billing */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Modern Billing Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Tax Mode</Label>
-              <div className="flex gap-2 mt-2">
-                <Button
-                  type="button"
-                  variant={settings.ModernBilling.mode === "inclusive" ? "default" : "outline"}
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      ModernBilling: { ...settings.ModernBilling, mode: "inclusive" }
-                    })
-                  }
-                >
-                  Inclusive (MRP)
-                </Button>
-                <Button
-                  type="button"
-                  variant={settings.ModernBilling.mode === "exclusive" ? "default" : "outline"}
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      ModernBilling: { ...settings.ModernBilling, mode: "exclusive" }
-                    })
-                  }
-                >
-                  Exclusive (Add GST)
-                </Button>
-              </div>
-            </div>
-
-            {settings.ModernBilling.mode === "inclusive" && (
-              <div>
-                <Label>Show Tax Type</Label>
-                <select
-                  value={settings.ModernBilling.inclusiveBillType}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      ModernBilling: {
-                        ...settings.ModernBilling,
-                        inclusiveBillType: e.target.value as "split" | "nosplit"
-                      }
-                    })
-                  }
-                  className="border rounded p-2 w-full mt-1 bg-background"
-                >
-                  <option value="split">Show Tax Split (Base + GST)</option>
-                  <option value="mrp">No Tax Columns (MRP Inclusive)</option>
-                </select>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Manual Billing settings removed - module deprecated */}
 
         {/* Restaurant Settings - Temporarily hidden for retail-only release */}
@@ -509,19 +428,6 @@ const Profile = () => {
               <span>Auto-print on Complete Sale</span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={settings.enableBilingualBill || false}
-                onCheckedChange={(v) => setSettings({ ...settings, enableBilingualBill: v })}
-              />
-              <div>
-                <span className="font-medium">Bilingual Bill (English + Tamil)</span>
-                <p className="text-xs text-muted-foreground">
-                  Show Tamil text below English on thermal bills
-                </p>
-              </div>
-            </div>
-
             <div>
               <Label>Default Payment Mode</Label>
               <select
@@ -546,8 +452,6 @@ const Profile = () => {
       </div>
     );
   };
-
-  const isRestaurantMode = profile.billing_settings?.isRestaurant;
 
   if (pageLoading) {
     return (
@@ -609,19 +513,6 @@ const Profile = () => {
                         onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
                         required
                       />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="company_name_tamil">Company Name (Tamil)</Label>
-                      <Input
-                        id="company_name_tamil"
-                        value={profile.company_name_tamil || ""}
-                        onChange={(e) => setProfile({ ...profile, company_name_tamil: e.target.value })}
-                        placeholder="யூஜி ஸ்டோர்ஸ் (used in bilingual bills)"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Used in thermal bills when bilingual mode is enabled
-                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -717,12 +608,7 @@ const Profile = () => {
           {/* Team Management Tab */}
           <TabsContent value="team" className="space-y-6">
             {/* Staff Management */}
-            <StaffCard staff={staff} counters={counters} onRefresh={fetchStaff} isRestaurantMode={isRestaurantMode || false} />
-            
-            {/* Waiter Management - Only show when restaurant mode is enabled */}
-            {isRestaurantMode && (
-              <WaiterCard waiters={waiters} onRefresh={fetchWaiters} />
-            )}
+            <StaffCard staff={staff} counters={counters} onRefresh={fetchStaff} />
           </TabsContent>
 
           {/* Account Security Tab */}

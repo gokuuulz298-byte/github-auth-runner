@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   Package, ShoppingCart, FileText, Users, BarChart3, BarChart4, 
   AlertTriangle, Building2, FolderOpen, LayoutGrid, Tag, Percent, 
-  QrCode, ChefHat, UserCog, Receipt, UtensilsCrossed, History, RotateCcw, ArrowUpDown
+  QrCode, Receipt, History, RotateCcw, ArrowUpDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -26,7 +26,7 @@ interface LowStockProduct {
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userId, role, isAdmin, isStaff, isWaiter, loading: authLoading, signOut } = useAuthContext();
+  const { user, userId, role, isAdmin, isStaff, loading: authLoading, signOut } = useAuthContext();
   
   const [companyName, setCompanyName] = useState<string>("");
   const [billingSettings, setBillingSettings] = useState<any>(null);
@@ -55,8 +55,6 @@ const Dashboard = () => {
     { icon: BarChart3, label: "Analytics", path: "/analytics", id: "analytics", color: "from-red-500 to-pink-500", description: "View sales and profit reports" },
     { icon: BarChart4, label: "Advanced Reports", path: "/advanced-reports", id: "advanced-reports", color: "from-red-600 to-orange-600", description: "Detailed monthly, category-wise reports" },
     { icon: Users, label: "Customers", path: "/customers", id: "customers", color: "from-indigo-500 to-purple-500", description: "Manage customer information" },
-    { icon: Package, label: "Purchases", path: "/purchases", id: "purchases", color: "from-emerald-500 to-teal-500", description: "Track purchase orders and stock inflow" },
-    { icon: Users, label: "Suppliers", path: "/suppliers", id: "suppliers", color: "from-violet-500 to-indigo-500", description: "Manage vendor contacts and products" },
     { icon: Receipt, label: "Expenses", path: "/expenses", id: "expenses", color: "from-red-500 to-rose-500", description: "Track business expenses and payments" },
     { icon: Building2, label: "Profile", path: "/profile", id: "profile", color: "from-blue-500 to-cyan-500", description: "Manage company profile and details" },
     { icon: FolderOpen, label: "Categories", path: "/categories", id: "categories", color: "from-teal-500 to-cyan-500", description: "Add and manage product categories" },
@@ -68,9 +66,6 @@ const Dashboard = () => {
     { icon: History, label: "Audits", path: "/audits", id: "audits", color: "from-slate-500 to-gray-600", description: "View all system activities and logs" },
     { icon: RotateCcw, label: "Returns", path: "/returns", id: "returns", color: "from-rose-500 to-red-500", description: "Manage product returns and refunds" },
     { icon: ArrowUpDown, label: "Stock Ledger", path: "/inventory-movements", id: "inventory-movements", color: "from-emerald-500 to-green-600", description: "Track all stock inflows and outflows" },
-    { icon: UtensilsCrossed, label: "Tables", path: "/restaurant-tables", id: "restaurant-tables", color: "from-amber-500 to-orange-500", description: "Manage restaurant table layouts" },
-    { icon: ChefHat, label: "Kitchen Display", path: "/kitchen", id: "kitchen", color: "from-orange-500 to-red-500", description: "View and manage kitchen orders" },
-    { icon: UserCog, label: "Waiter Interface", path: "/waiter", id: "waiter", color: "from-teal-500 to-green-500", description: "Mobile-friendly order taking" },
   ], []);
 
   // Filter menu items based on role
@@ -78,24 +73,15 @@ const Dashboard = () => {
     if (authLoading || !role) return null;
     
     if (isAdmin) {
-      return allMenuItems.filter(item => {
-        if (['kitchen', 'waiter', 'restaurant-tables'].includes(item.id)) {
-          return billingSettings?.isRestaurant;
-        }
-        return true;
-      });
+      return allMenuItems;
     }
     
     if (isStaff) {
       return allMenuItems.filter(item => staffModules.includes(item.id));
     }
     
-    if (isWaiter) {
-      return allMenuItems.filter(item => item.id === 'waiter');
-    }
-    
     return [];
-  }, [authLoading, role, isAdmin, isStaff, isWaiter, billingSettings, staffModules, allMenuItems]);
+  }, [authLoading, role, isAdmin, isStaff, billingSettings, staffModules, allMenuItems]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -184,12 +170,6 @@ const Dashboard = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
-  }
-
-  // Redirect waiter directly
-  if (isWaiter) {
-    navigate('/waiter');
-    return null;
   }
 
   return (
