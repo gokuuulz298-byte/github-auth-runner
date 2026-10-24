@@ -30,9 +30,9 @@ serve(async (req) => {
     }
 
     // Raw TCP connect to the print service / virtual printer (e.g. virtual-printer.online:9919)
+    let written = 0;
     const conn = await Deno.connect({ hostname: host, port: Number(port) });
     try {
-      let written = 0;
       while (written < bytes.length) {
         const n = await conn.write(bytes.subarray(written));
         if (n <= 0) break;
