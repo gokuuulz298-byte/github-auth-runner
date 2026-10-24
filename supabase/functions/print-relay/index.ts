@@ -25,7 +25,7 @@ serve(async (req) => {
     if (format === "base64") {
       const bin = atob(data);
       bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-    } else if (format === "hex") {
+    } else if (String(format || "").toLowerCase() === "hex") {
       const hex = data.replace(/(0x|\s)/gi, "");
       bytes = Uint8Array.from(hex.match(/.{1,2}/g) || [], (h) => parseInt(h, 16));
     } else {
