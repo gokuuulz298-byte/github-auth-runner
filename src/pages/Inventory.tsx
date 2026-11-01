@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode, Info, Loader2, X, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Search, Barcode, Loader2, X } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import StockAdjustmentDialog from "@/components/StockAdjustmentDialog";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -57,8 +57,6 @@ const Inventory = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [billingSettings, setBillingSettings] = useState<BillingSettings | null>(null);
-  const [isRestaurant, setIsRestaurant] = useState(false);
-  const [viewType, setViewType] = useState<"products" | "raw_materials">("products");
   const [stockAdjustProduct, setStockAdjustProduct] = useState<any>(null);
   const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
 
@@ -69,7 +67,6 @@ const Inventory = () => {
   const [formData, setFormData] = useState({
     barcode: "",
     name: "",
-    tamil_name: "",
     price: "",
     buying_price: "",
     stock_quantity: "",
@@ -83,9 +80,8 @@ const Inventory = () => {
     price_type: "fixed",
     unit: "piece",
     image_url: "",
-    is_raw_material: false,
+    is_inclusive: true,
   });
-  const [isTranslating, setIsTranslating] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
@@ -102,12 +98,12 @@ const Inventory = () => {
     if (!authLoading && userId) {
       fetchProducts();
     }
-  }, [authLoading, userId, currentPage, debouncedSearch, selectedCategory, viewType]);
+  }, [authLoading, userId, currentPage, debouncedSearch, selectedCategory]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(0);
-  }, [debouncedSearch, selectedCategory, viewType]);
+  }, [debouncedSearch, selectedCategory]);
 
   const fetchInventoryBundle = async () => {
     const CACHE_KEY = 'inventory_bundle_cache';
@@ -121,7 +117,6 @@ const Inventory = () => {
         if (cachedData.billing_settings) {
           const settings = cachedData.billing_settings as BillingSettings;
           setBillingSettings(settings);
-          setIsRestaurant(settings.isRestaurant || false);
         }
         setPageLoading(false);
         return;
@@ -136,7 +131,6 @@ const Inventory = () => {
         if (data.billing_settings) {
           const settings = data.billing_settings as BillingSettings;
           setBillingSettings(settings);
-          setIsRestaurant(settings.isRestaurant || false);
         }
         sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
       }
@@ -168,7 +162,6 @@ const Inventory = () => {
           return;
         }
 
-        const isRaw = viewType === "raw_materials";
         const from = currentPage * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
 
@@ -177,7 +170,6 @@ const Inventory = () => {
           .select('*', { count: 'exact' })
           .eq('created_by', userId)
           .eq('is_deleted', false)
-          .eq('is_raw_material', isRaw)
           .order('created_at', { ascending: false })
           .range(from, to);
 
@@ -201,12 +193,10 @@ const Inventory = () => {
         }
       } else {
         const localProducts = await getAllProducts();
-        const isRaw = viewType === "raw_materials";
         const filtered = localProducts.filter((p: any) => {
-          const matchType = isRaw ? (p.is_raw_material || false) : !(p.is_raw_material || false);
           const matchCat = selectedCategory === "All" || p.category === selectedCategory;
           const matchSearch = !debouncedSearch || p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || p.barcode.includes(debouncedSearch);
-          return matchType && matchCat && matchSearch;
+          return matchCat && matchSearch;
         });
         setProducts(filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE));
         setTotalCount(filtered.length);
@@ -260,7 +250,6 @@ const Inventory = () => {
       const productData = {
         barcode: formData.barcode,
         name: formData.name,
-        tamil_name: formData.tamil_name || null,
         price: parseFloat(formData.price),
         buying_price: parseFloat(formData.buying_price) || 0,
         stock_quantity: parseFloat(formData.stock_quantity),
@@ -275,7 +264,7 @@ const Inventory = () => {
         unit: formData.unit,
         image_url: formData.image_url || null,
         created_by: userId,
-        is_raw_material: formData.is_raw_material || viewType === "raw_materials",
+        is_inclusive: formData.is_inclusive !== false,
       };
 
       if (editingProduct) {
@@ -325,7 +314,6 @@ const Inventory = () => {
     setFormData({
       barcode: product.barcode,
       name: product.name,
-      tamil_name: (product as any).tamil_name || "",
       price: product.price.toString(),
       buying_price: (product as any).buying_price?.toString() || "0",
       stock_quantity: product.stock_quantity.toString(),
@@ -339,7 +327,7 @@ const Inventory = () => {
       price_type: product.price_type || "fixed",
       unit: (product as any).unit || "piece",
       image_url: (product as any).image_url || "",
-      is_raw_material: (product as any).is_raw_material || false,
+      is_inclusive: (product as any).is_inclusive ?? true,
     });
     setSelectedBarcode(product.barcode);
     setDialogOpen(true);
@@ -380,7 +368,6 @@ const Inventory = () => {
     setFormData({
       barcode: "",
       name: "",
-      tamil_name: "",
       price: "",
       buying_price: "",
       stock_quantity: "",
@@ -394,7 +381,7 @@ const Inventory = () => {
       price_type: "fixed",
       unit: "piece",
       image_url: "",
-      is_raw_material: viewType === "raw_materials",
+      is_inclusive: true,
     });
     setEditingProduct(null);
     setSelectedBarcode("");

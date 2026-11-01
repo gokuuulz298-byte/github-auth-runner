@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 interface PrintReceiptData {
   billNumber: string;
   companyName: string;
-  companyNameTamil?: string;
   address?: string;
   city?: string;
   state?: string;
@@ -14,7 +13,6 @@ interface PrintReceiptData {
   customerPhone?: string;
   items: Array<{
     name: string;
-    nameTamil?: string;
     quantity: number;
     price: number;
     price_type?: string;
@@ -25,87 +23,125 @@ interface PrintReceiptData {
   discount?: number;
   total: number;
   paymentMode: string;
-  isParcel?: boolean;
   loyaltyPoints?: number;
-  enableBilingual?: boolean;
   thankYouNote?: string;
   billingMode?: "inclusive" | "exclusive" | "no_tax";
   inclusiveBillType?: "mrp" | "split";
 }
 
-interface PrintServiceConfig {
+export interface PrintServiceConfig {
   host: string;
   port: number;
+  protocol: string;
 }
 
-// Default local print service config
-const DEFAULT_PRINT_SERVICE: PrintServiceConfig = {
-  host: "localhost",
-  port: 3001,
+export const PRINT_SERVICE_STORAGE_KEY = "upcurv_print_service";
+
+export const PRINT_SERVICE_DEFAULTS: PrintServiceConfig = {
+  host: "virtual-printer.online",
+  port: 9919,
+  protocol: "escpos",
 };
+
+export function getPrintServiceConfig(): PrintServiceConfig {
+  try {
+    const raw = localStorage.getItem(PRINT_SERVICE_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        host: parsed.host || PRINT_SERVICE_DEFAULTS.host,
+        port: Number(parsed.port) || PRINT_SERVICE_DEFAULTS.port,
+        protocol: parsed.protocol || PRINT_SERVICE_DEFAULTS.protocol,
+      };
+    }
+  } catch {
+    // fall through to defaults
+  }
+  return { ...PRINT_SERVICE_DEFAULTS };
+}
+
+export function savePrintServiceConfig(config: Partial<PrintServiceConfig>) {
+  const merged = { ...getPrintServiceConfig(), ...config };
+  localStorage.setItem(PRINT_SERVICE_STORAGE_KEY, JSON.stringify(merged));
+  return merged;
+}
 
 /**
  * Generate ESC/POS commands via edge function
  */
 export async function generateEscPosCommands(data: PrintReceiptData): Promise<string> {
-  try {
-    const { data: response, error } = await supabase.functions.invoke("print-receipt", {
-      body: data,
-    });
+  const { data: response, error } = await supabase.functions.invoke("print-receipt", {
+    body: data,
+  });
 
-    if (error) throw error;
+  if (error) throw error;
 
-    if (!response.success) {
-      throw new Error(response.error || "Failed to generate receipt");
-    }
-
-    return response.rawCommands;
-  } catch (error) {
-    console.error("Error generating ESC/POS commands:", error);
-    throw error;
+  if (!response.success) {
+    throw new Error(response.error || "Failed to generate receipt");
   }
+
+  return response.rawCommands;
+}
+
+function isLocalHost(host: string): boolean {
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host.endsWith(".localhost")
+  );
 }
 
 /**
- * Send ESC/POS commands to local print service
+ * Send ESC/POS commands to the configured print destination.
+ *
+ * - Local service (localhost): HTTP POST to /print
+ * - Remote printer (e.g. virtual-printer.online): relayed through the
+ *   `print-relay` edge function, which opens a raw TCP socket to the host.
  */
 export async function sendToLocalPrinter(
   commands: string,
-  config: PrintServiceConfig = DEFAULT_PRINT_SERVICE,
+  config: PrintServiceConfig = getPrintServiceConfig(),
 ): Promise<boolean> {
   try {
-    const response = await fetch(`http://${config.host}:${config.port}/print`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ commands }),
-    });
+    if (isLocalHost(config.host)) {
+      const response = await fetch(`http://${config.host}:${config.port}/print`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commands }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Print service error: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Print service error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return !!result.success;
     }
 
-    const result = await response.json();
-    return result.success;
+    // Remote printer → relay raw ESC/POS bytes through edge function
+    const { data: result, error } = await supabase.functions.invoke("print-relay", {
+      body: {
+        host: config.host,
+        port: config.port,
+        data: commands,
+      },
+    });
+
+    if (error) throw error;
+    if (!result?.success) {
+      throw new Error(result?.error || "Print relay failed");
+    }
+    return true;
   } catch (error) {
-    console.error("Error sending to local printer:", error);
-    // Don't throw - local service might not be running
+    console.error("Error sending to printer:", error);
+    // Don't throw - printer might not be reachable
     return false;
   }
 }
 
 /**
- * Print receipt using ESC/POS - combines generation and printing
- * 
- * FLOW:
- * 1. If bilingual (Tamil) is enabled:
- *    - Send HTML to local print service's /print-html endpoint
- *    - Local service converts HTML → PNG → ESC/POS GS v 0 (image command)
- *    - This is the ONLY way Tamil prints correctly on thermal printers
- * 
- * 2. If English only:
- *    - Send raw ESC/POS text commands to /print endpoint
+ * Print receipt using ESC/POS (English only).
  */
 export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
   try {
@@ -114,7 +150,6 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
     });
 
     if (error) {
-      console.error("Edge function error:", error);
       throw new Error(error.message || "Receipt generation failed");
     }
 
@@ -122,38 +157,7 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
       throw new Error(response?.error || "Receipt generation failed");
     }
 
-    // 🔥 BILINGUAL (TAMIL) → HTML IMAGE FLOW
-    // This is the ONLY way Tamil prints correctly on thermal printers
-    // The local print service converts HTML → PNG → ESC/POS image command
-    if (data.enableBilingual && response.receiptHtml) {
-      try {
-        const printResponse = await fetch("http://localhost:3001/print-html", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ html: response.receiptHtml }),
-        });
-
-        if (!printResponse.ok) {
-          const errorText = await printResponse.text();
-          console.error("Print-html endpoint failed:", errorText);
-          // Fall back to text printing
-          console.log("Falling back to text printing...");
-          const printed = await sendToLocalPrinter(response.rawCommands);
-          return { success: true, printed, mode: "text-fallback" };
-        }
-
-        const result = await printResponse.json();
-        return { success: true, printed: result.success, mode: "html-image" };
-      } catch (fetchError) {
-        console.error("Failed to reach print-html endpoint:", fetchError);
-        // Fall back to text printing if image endpoint fails
-        const printed = await sendToLocalPrinter(response.rawCommands);
-        return { success: true, printed, mode: "text-fallback" };
-      }
-    }
-
-    // ❄️ ENGLISH ONLY → ESC/POS TEXT FLOW
-    const printed = await sendToLocalPrinter(response.rawCommands);
+    const printed = await sendToLocalPrinter(response.rawCommands, getPrintServiceConfig());
     return { success: true, printed, mode: "text" };
   } catch (err: any) {
     console.error("printEscPosReceipt error:", err);
@@ -162,18 +166,42 @@ export async function printEscPosReceipt(data: PrintReceiptData): Promise<any> {
 }
 
 /**
- * Check if local print service is available
+ * Check if the print destination is available.
+ * Remote printers are assumed reachable; failures surface at print time.
  */
-export async function checkPrintServiceAvailable(config: PrintServiceConfig = DEFAULT_PRINT_SERVICE): Promise<boolean> {
+export async function checkPrintServiceAvailable(
+  config: PrintServiceConfig = getPrintServiceConfig(),
+): Promise<boolean> {
+  if (!isLocalHost(config.host)) return true;
   try {
     const response = await fetch(`http://${config.host}:${config.port}/status`, {
       method: "GET",
-      signal: AbortSignal.timeout(2000), // 2 second timeout
+      signal: AbortSignal.timeout(2000),
     });
     return response.ok;
   } catch {
     return false;
   }
+}
+
+/**
+ * Send a small test receipt to the configured print destination.
+ */
+export async function sendTestPrint(config: PrintServiceConfig = getPrintServiceConfig()): Promise<boolean> {
+  const timestamp = new Date().toLocaleString("en-IN");
+  const esc = "\x1B";
+  const commands =
+    `${esc}@` +
+    `${esc}a\x01` +
+    "UPCURV BILLING\n" +
+    "TEST PRINT\n" +
+    `${esc}a\x00` +
+    `${timestamp}\n` +
+    "If you can read this, the\n" +
+    "printer connection works!\n\n\n\n" +
+    `${esc}V\x00`;
+
+  return sendToLocalPrinter(commands, config);
 }
 
 /**
@@ -192,9 +220,11 @@ export function buildReceiptData(params: {
     total: number;
   };
   paymentMode: string;
+  /** Ignored — billing is English-only now. Kept for call-site compatibility. */
+  enableBilingual?: boolean;
+  /** Ignored — restaurant mode removed. Kept for call-site compatibility. */
   isParcel?: boolean;
   loyaltyPoints?: number;
-  enableBilingual?: boolean;
   billingMode?: "inclusive" | "exclusive" | "no_tax";
   inclusiveBillType?: "mrp" | "split";
 }): PrintReceiptData {
@@ -206,9 +236,7 @@ export function buildReceiptData(params: {
     cartItems,
     totals,
     paymentMode,
-    isParcel,
     loyaltyPoints,
-    enableBilingual,
     billingMode,
     inclusiveBillType,
   } = params;
@@ -216,7 +244,6 @@ export function buildReceiptData(params: {
   return {
     billNumber,
     companyName: companyProfile?.company_name || "STORE",
-    companyNameTamil: companyProfile?.company_name_tamil || undefined,
     address: companyProfile?.address,
     city: companyProfile?.city,
     state: companyProfile?.state,
@@ -227,8 +254,6 @@ export function buildReceiptData(params: {
     customerPhone,
     items: cartItems.map((item) => ({
       name: item.name,
-      // Use tamil_name from database if available
-      nameTamil: enableBilingual ? item.tamil_name || undefined : undefined,
       quantity: item.quantity,
       price: item.price,
       price_type: item.price_type,
@@ -239,21 +264,9 @@ export function buildReceiptData(params: {
     discount: totals.couponDiscountAmount,
     total: totals.total,
     paymentMode,
-    isParcel,
     loyaltyPoints,
-    enableBilingual,
     thankYouNote: companyProfile?.thank_you_note,
     billingMode,
     inclusiveBillType,
   };
-}
-
-/**
- * Simple transliteration for Tamil (romanized)
- * This creates readable phonetic Tamil for product names
- */
-function transliterate(text: string): string {
-  // For now, just return the same text as the edge function handles the common translations
-  // Product-specific Tamil names should be stored in the database
-  return text;
 }

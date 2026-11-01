@@ -14,6 +14,80 @@ import LoadingButton from "@/components/LoadingButton";
 import StaffCard from "@/components/StaffCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import {
+  getPrintServiceConfig,
+  savePrintServiceConfig,
+  sendTestPrint,
+  type PrintServiceConfig,
+} from "@/lib/escposPrinter";
+
+const PrinterConnectionCard = () => {
+  const [cfg, setCfg] = useState<PrintServiceConfig>(() => getPrintServiceConfig());
+  const [testing, setTesting] = useState(false);
+
+  const applyAndTest = async () => {
+    setTesting(true);
+    const saved = savePrintServiceConfig(cfg);
+    try {
+      const ok = await sendTestPrint(saved);
+      if (ok) toast.success("Test print sent! Check the printer document list.");
+      else toast.error("Print failed — check host and port.");
+    } catch (err: any) {
+      toast.error(err.message || "Print failed");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Printer Connection</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Thermal printer destination for billing receipts (ESC/POS)
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="printHost">Host</Label>
+            <Input
+              id="printHost"
+              value={cfg.host}
+              onChange={(e) => setCfg({ ...cfg, host: e.target.value })}
+              placeholder="virtual-printer.online"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="printPort">Port</Label>
+            <Input
+              id="printPort"
+              type="number"
+              value={cfg.port}
+              onChange={(e) => setCfg({ ...cfg, port: Number(e.target.value) })}
+              placeholder="9919"
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <div>
+          <Label>Protocol</Label>
+          <div className="mt-1 border rounded p-2 bg-muted/40 text-sm text-muted-foreground max-w-xs">
+            ESC/POS emulation
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          For testing, use virtual-printer.online with port 9919 — open the site, create a
+          printer, and receipts will appear in its Documents list.
+        </p>
+        <LoadingButton onClick={applyAndTest} isLoading={testing} className="w-full sm:w-auto">
+          Test Print
+        </LoadingButton>
+      </CardContent>
+    </Card>
+  );
+};
 
 interface CompanyProfile {
   id?: string;
@@ -446,12 +520,16 @@ const Profile = () => {
           </CardContent>
         </Card>
 
+        {/* Printer Connection (testing via virtual-printer.online) */}
+        <PrinterConnectionCard />
+
         <LoadingButton onClick={save} isLoading={isSaving} className="w-full sm:w-auto">
           Save All Settings
         </LoadingButton>
       </div>
     );
   };
+
 
   if (pageLoading) {
     return (
