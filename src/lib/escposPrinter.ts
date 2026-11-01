@@ -220,6 +220,10 @@ export function buildReceiptData(params: {
     total: number;
   };
   paymentMode: string;
+  /** Ignored — billing is English-only now. Kept for call-site compatibility. */
+  enableBilingual?: boolean;
+  /** Ignored — restaurant mode removed. Kept for call-site compatibility. */
+  isParcel?: boolean;
   loyaltyPoints?: number;
   billingMode?: "inclusive" | "exclusive" | "no_tax";
   inclusiveBillType?: "mrp" | "split";
