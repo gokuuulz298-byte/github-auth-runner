@@ -387,97 +387,6 @@ const Inventory = () => {
     setSelectedBarcode("");
   };
 
-  // Transliterate product name to Tamil phonetically (NOT translate)
-  const transliterateToTamil = async () => {
-    if (!formData.name.trim()) {
-      toast.error("Please enter product name first");
-      return;
-    }
-
-    setIsTranslating(true);
-    try {
-      // Phonetic transliteration map for common sounds
-      const transliterationRules: { [key: string]: string } = {
-        // Double vowels first
-        'aa': 'ஆ', 'ee': 'ஈ', 'ii': 'ஈ', 'oo': 'ஊ', 'uu': 'ஊ', 'ai': 'ஐ', 'au': 'ஔ',
-        // Consonant + vowel combinations
-        'ka': 'கா', 'ki': 'கி', 'ku': 'கு', 'ke': 'கே', 'ko': 'கோ',
-        'ga': 'கா', 'gi': 'கி', 'gu': 'கு', 'ge': 'கே', 'go': 'கோ',
-        'cha': 'சா', 'chi': 'சி', 'chu': 'சு', 'che': 'சே', 'cho': 'சோ',
-        'ja': 'ஜா', 'ji': 'ஜி', 'ju': 'ஜு', 'je': 'ஜே', 'jo': 'ஜோ',
-        'ta': 'டா', 'ti': 'டி', 'tu': 'டு', 'te': 'டே', 'to': 'டோ',
-        'tha': 'தா', 'thi': 'தி', 'thu': 'து', 'the': 'தே', 'tho': 'தோ',
-        'da': 'டா', 'di': 'டி', 'du': 'டு', 'de': 'டே', 'do': 'டோ',
-        'na': 'நா', 'ni': 'நி', 'nu': 'நு', 'ne': 'நே', 'no': 'நோ',
-        'pa': 'பா', 'pi': 'பி', 'pu': 'பு', 'pe': 'பே', 'po': 'போ',
-        'ba': 'பா', 'bi': 'பி', 'bu': 'பு', 'be': 'பே', 'bo': 'போ',
-        'ma': 'மா', 'mi': 'மி', 'mu': 'மு', 'me': 'மே', 'mo': 'மோ',
-        'ya': 'யா', 'yi': 'யி', 'yu': 'யு', 'ye': 'யே', 'yo': 'யோ',
-        'ra': 'ரா', 'ri': 'ரி', 'ru': 'ரு', 're': 'ரே', 'ro': 'ரோ',
-        'la': 'லா', 'li': 'லி', 'lu': 'லு', 'le': 'லே', 'lo': 'லோ',
-        'va': 'வா', 'vi': 'வி', 'vu': 'வு', 've': 'வே', 'vo': 'வோ',
-        'sa': 'சா', 'si': 'சி', 'su': 'சு', 'se': 'சே', 'so': 'சோ',
-        'sha': 'ஷா', 'shi': 'ஷி', 'shu': 'ஷு', 'she': 'ஷே', 'sho': 'ஷோ',
-        'ha': 'ஹா', 'hi': 'ஹி', 'hu': 'ஹு', 'he': 'ஹே', 'ho': 'ஹோ',
-        'fa': 'ஃபா', 'fi': 'ஃபி', 'fu': 'ஃபு', 'fe': 'ஃபே', 'fo': 'ஃபோ',
-        // Single consonants
-        'k': 'க்', 'g': 'க்', 'c': 'ச்', 'j': 'ஜ்', 't': 'ட்', 'd': 'ட்',
-        'n': 'ந்', 'p': 'ப்', 'b': 'ப்', 'm': 'ம்', 'y': 'ய்', 'r': 'ர்',
-        'l': 'ல்', 'v': 'வ்', 'w': 'வ்', 's': 'ஸ்', 'h': 'ஹ்', 'f': 'ஃப்',
-        // Vowels
-        'a': 'அ', 'i': 'இ', 'u': 'உ', 'e': 'எ', 'o': 'ஒ',
-        // Common words transliterated (phonetic - how they sound)
-        'milk': 'மில்க்', 'nice': 'நைஸ்', 'aavin': 'ஆவின்', 'amul': 'அமுல்',
-        'biscuit': 'பிஸ்கட்', 'bread': 'பிரெட்', 'butter': 'பட்டர்',
-        'chocolate': 'சாக்லேட்', 'coffee': 'காஃபி', 'tea': 'டீ',
-        'rice': 'ரைஸ்', 'sugar': 'சுகர்', 'salt': 'சால்ட்',
-      };
-      
-      // Process each word in the name
-      const words = formData.name.toLowerCase().split(/\s+/);
-      const transliteratedWords: string[] = [];
-      
-      for (const word of words) {
-        // Check if word exists in map
-        if (transliterationRules[word]) {
-          transliteratedWords.push(transliterationRules[word]);
-          continue;
-        }
-        
-        // Character-by-character transliteration
-        let result = '';
-        let i = 0;
-        while (i < word.length) {
-          let matched = false;
-          // Try 3, 2, 1 character matches
-          for (let len = 3; len >= 1; len--) {
-            const substr = word.substring(i, i + len);
-            if (transliterationRules[substr]) {
-              result += transliterationRules[substr];
-              i += len;
-              matched = true;
-              break;
-            }
-          }
-          if (!matched) {
-            result += word[i];
-            i++;
-          }
-        }
-        transliteratedWords.push(result);
-      }
-      
-      const tamilName = transliteratedWords.join(' ');
-      setFormData({ ...formData, tamil_name: tamilName });
-      toast.success("Transliterated to Tamil successfully!");
-    } catch (error) {
-      console.error("Transliteration error:", error);
-      toast.error("Transliteration failed. Please enter manually.");
-    } finally {
-      setIsTranslating(false);
-    }
-  };
-
   const fetchHsnGst = async (hsnCode: string) => {
     try {
       if (!hsnCode || hsnCode.length < 4) {
@@ -523,13 +432,6 @@ const Inventory = () => {
     );
   }
 
-  const getTaxMode = () => {
-    const mode = billingSettings?.ModernBilling?.mode || billingSettings?.ManualBilling?.mode || 'inclusive';
-    const billType = billingSettings?.ModernBilling?.inclusiveBillType || billingSettings?.ManualBilling?.inclusiveBillType || 'split';
-    return { mode, billType };
-  };
-
-  const { mode: taxMode, billType } = getTaxMode();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -540,25 +442,6 @@ const Inventory = () => {
           </Button>
           <h1 className="text-lg sm:text-2xl font-bold">Inventory</h1>
           
-          {/* Products / Raw Materials Switcher */}
-          <div className="flex border rounded-lg p-1 bg-muted/50 ml-2">
-            <Button
-              variant={viewType === "products" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewType("products")}
-              className="h-7 px-3 text-xs"
-            >
-              Products
-            </Button>
-            <Button
-              variant={viewType === "raw_materials" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewType("raw_materials")}
-              className="h-7 px-3 text-xs"
-            >
-              Raw Materials
-            </Button>
-          </div>
           
           {!isOnline && (
             <span className="ml-auto bg-warning text-warning-foreground px-3 py-1 rounded-full text-sm">
@@ -587,13 +470,13 @@ const Inventory = () => {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Add {viewType === "raw_materials" ? "Raw Material" : "Product"}
+                Add Product
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
-                  {editingProduct ? "Edit Item" : `Add New ${viewType === "raw_materials" ? "Raw Material" : "Product"}`}
+                  {editingProduct ? "Edit Item" : "Add New Product"}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -611,7 +494,7 @@ const Inventory = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="name">{viewType === "raw_materials" ? "Material" : "Product"} Name</Label>
+                  <Label htmlFor="name">Product Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
