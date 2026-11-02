@@ -49,7 +49,7 @@ const Inventory = () => {
   const navigate = useNavigate();
   const { userId, loading: authLoading } = useAuthContext();
   // Retail-only mode: single products view (raw materials & restaurant mode removed)
-  const viewType: "products" | "raw_materials" = "products";
+  const viewType: string = "products";
   const isRestaurant = false;
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
