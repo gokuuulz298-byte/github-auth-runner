@@ -48,6 +48,9 @@ interface BillingSettings {
 const Inventory = () => {
   const navigate = useNavigate();
   const { userId, loading: authLoading } = useAuthContext();
+  // Retail-only mode: single products view (raw materials & restaurant mode removed)
+  const viewType: string = "products";
+  const isRestaurant = false;
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 400);
@@ -57,8 +60,6 @@ const Inventory = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [billingSettings, setBillingSettings] = useState<BillingSettings | null>(null);
-  const [stockAdjustProduct, setStockAdjustProduct] = useState<any>(null);
-  const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
@@ -503,33 +504,6 @@ const Inventory = () => {
                   />
                 </div>
 
-                {/* Tamil Name - only for products */}
-                {viewType === "products" && (
-                  <div>
-                    <Label htmlFor="tamil_name">Tamil Name (தமிழ் பெயர்)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="tamil_name"
-                        value={formData.tamil_name}
-                        onChange={(e) => setFormData({ ...formData, tamil_name: e.target.value })}
-                        placeholder="தமிழில் பெயர் உள்ளிடவும்"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={transliterateToTamil}
-                        disabled={isTranslating || !formData.name.trim()}
-                        className="whitespace-nowrap"
-                      >
-                        {isTranslating ? "Converting..." : "Auto Transliterate"}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      For bilingual bills - enter Tamil name or use Auto Transliterate (phonetic: milk = மில்க்)
-                    </p>
-                  </div>
-                )}
 
                 {/* Image - only for products */}
                 {viewType === "products" && (
@@ -837,6 +811,19 @@ const Inventory = () => {
                   </>
                 )}
 
+                {/* Per-product tax inclusion toggle */}
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <Label htmlFor="is_inclusive">Tax Included in Price</Label>
+                    <p className="text-xs text-muted-foreground">On: selling price includes GST · Off: GST added on top of price</p>
+                  </div>
+                  <Switch
+                    id="is_inclusive"
+                    checked={formData.is_inclusive}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_inclusive: checked })}
+                  />
+                </div>
+
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingProduct 
@@ -875,34 +862,9 @@ const Inventory = () => {
             <CardTitle>
               {viewType === "raw_materials" ? "Raw Materials" : "Products"} ({totalCount})
             </CardTitle>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md cursor-help">
-                    <Info className="h-3 w-3" />
-                    <span>Tax Mode: {taxMode === 'inclusive' ? 'Inclusive' : 'Exclusive'}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p className="font-semibold mb-1">Profit & Margin Calculation</p>
-                  {taxMode === 'inclusive' ? (
-                    <div className="text-xs space-y-1">
-                      <p><strong>Inclusive GST:</strong> MRP includes tax</p>
-                      <p>• Base Price = MRP ÷ (1 + Tax%)</p>
-                      <p>• Profit = Base Price − Buying Price</p>
-                      <p>• Margin = (Profit ÷ Buying Price) × 100</p>
-                    </div>
-                  ) : (
-                    <div className="text-xs space-y-1">
-                      <p><strong>Exclusive GST:</strong> Tax added on top</p>
-                      <p>• Profit = Selling Price − Buying Price</p>
-                      <p>• Margin = (Profit ÷ Buying Price) × 100</p>
-                    </div>
-                  )}
-                  <p className="text-[10px] mt-2 text-muted-foreground">Change this in Profile → Billing Settings</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+              Tax inclusion is set per product
+            </span>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -918,23 +880,7 @@ const Inventory = () => {
                       <TableHead>{viewType === "raw_materials" ? "Purchase Price" : "Buying Price"}</TableHead>
                     )}
                     {/* Hide Profit column in restaurant mode */}
-                    {viewType === "products" && !isRestaurant && (
-                      <TableHead className="flex items-center gap-1">
-                        Profit
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="h-3 w-3 text-muted-foreground" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {taxMode === 'inclusive' 
-                                ? 'Base Price (excl. tax) − Buying Price' 
-                                : 'Selling Price − Buying Price'}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </TableHead>
-                    )}
+                    {viewType === "products" && !isRestaurant && <TableHead>Profit</TableHead>}
                     {/* Hide Margin column in restaurant mode */}
                     {viewType === "products" && !isRestaurant && <TableHead>Margin %</TableHead>}
                     <TableHead>Stock</TableHead>
@@ -965,7 +911,7 @@ const Inventory = () => {
                           {(() => {
                             const taxRate = product.tax_rate || 0;
                             const buyingPrice = (product as any).buying_price || 0;
-                            const basePrice = taxMode === 'inclusive' && taxRate > 0 
+                            const basePrice = ((product as any).is_inclusive ?? true) && taxRate > 0 
                               ? product.price / (1 + taxRate / 100) 
                               : product.price;
                             const profit = basePrice - buyingPrice;
@@ -984,7 +930,7 @@ const Inventory = () => {
                           {(() => {
                             const taxRate = product.tax_rate || 0;
                             const buyingPrice = (product as any).buying_price || 0;
-                            const basePrice = taxMode === 'inclusive' && taxRate > 0 
+                            const basePrice = ((product as any).is_inclusive ?? true) && taxRate > 0 
                               ? product.price / (1 + taxRate / 100) 
                               : product.price;
                             const profit = basePrice - buyingPrice;
@@ -1011,25 +957,6 @@ const Inventory = () => {
                       )}
                       {viewType === "products" && <TableCell>{product.tax_rate}%</TableCell>}
                       <TableCell className="text-right">
-                        {viewType === "raw_materials" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setStockAdjustProduct({
-                                id: product.id,
-                                name: product.name,
-                                stock_quantity: product.stock_quantity,
-                                buying_price: (product as any).buying_price,
-                                unit: (product as any).unit,
-                              });
-                              setStockAdjustOpen(true);
-                            }}
-                            title="Adjust Stock"
-                          >
-                            <ArrowUpDown className="h-4 w-4 text-blue-600" />
-                          </Button>
-                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1088,14 +1015,6 @@ const Inventory = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Stock Adjustment Dialog for Raw Materials */}
-      <StockAdjustmentDialog
-        open={stockAdjustOpen}
-        onOpenChange={setStockAdjustOpen}
-        product={stockAdjustProduct}
-        userId={userId}
-        onSuccess={fetchProducts}
-      />
     </div>
   );
 };
