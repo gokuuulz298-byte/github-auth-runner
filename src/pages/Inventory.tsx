@@ -811,6 +811,19 @@ const Inventory = () => {
                   </>
                 )}
 
+                {/* Per-product tax inclusion toggle */}
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <Label htmlFor="is_inclusive">Tax Included in Price</Label>
+                    <p className="text-xs text-muted-foreground">On: selling price includes GST · Off: GST added on top of price</p>
+                  </div>
+                  <Switch
+                    id="is_inclusive"
+                    checked={formData.is_inclusive}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_inclusive: checked })}
+                  />
+                </div>
+
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingProduct 
