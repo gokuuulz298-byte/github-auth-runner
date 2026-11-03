@@ -48,9 +48,6 @@ const ModernBilling = () => {
   const [productQuantities, setProductQuantities] = useState<{ [key: string]: number }>({});
   const [billingSettings, setBillingSettings] = useState<any>(null);
   const [paymentMode, setPaymentMode] = useState<string>("cash");
-  const [isParcel, setIsParcel] = useState<boolean>(false);
-  const [showOrderMonitor, setShowOrderMonitor] = useState<boolean>(false);
-  const [showLiveOrders, setShowLiveOrders] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
   const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1);
