@@ -70,16 +70,85 @@ const ModernBilling = () => {
   const [weightDialogOpen, setWeightDialogOpen] = useState<boolean>(false);
   const [selectedWeightProduct, setSelectedWeightProduct] = useState<any>(null);
 
-  // Keyboard navigation handler - only active when toggle is enabled
+  // Keyboard navigation handler - covers products grid, category list and cart panel
   useEffect(() => {
     if (!keyboardNavEnabled) return;
 
+    const isTypingTarget = (t: EventTarget | null) =>
+      t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (isTypingTarget(e.target)) return;
+
+      // Tab cycles between zones: products -> cart -> categories -> products
+      if (e.key === "Tab") {
+        e.preventDefault();
+        setNavZone((zone) => (zone === "products" ? "cart" : zone === "cart" ? "categories" : "products"));
         return;
       }
 
+      if (navZone === "categories") {
+        switch (e.key) {
+          case "ArrowUp":
+            e.preventDefault();
+            setCategoryIndex((prev) => (prev <= -1 ? -1 : prev - 1));
+            break;
+          case "ArrowDown":
+            e.preventDefault();
+            setCategoryIndex((prev) => (prev >= categories.length - 1 ? prev : prev + 1));
+            break;
+          case "Enter":
+            e.preventDefault();
+            setSelectedCategory(categoryIndex < 0 ? "" : categories[categoryIndex]?.name || "");
+            setSearchTerm("");
+            break;
+          case "Escape":
+            setNavZone("products");
+            break;
+        }
+        return;
+      }
+
+      if (navZone === "cart") {
+        switch (e.key) {
+          case "ArrowUp":
+            e.preventDefault();
+            setCartItemIndex((prev) => (prev <= 0 ? 0 : prev - 1));
+            break;
+          case "ArrowDown":
+            e.preventDefault();
+            setCartItemIndex((prev) => (prev >= cartItems.length - 1 ? prev : prev + 1));
+            break;
+          case "+":
+          case "=":
+            e.preventDefault();
+            if (cartItemIndex >= 0 && cartItemIndex < cartItems.length) {
+              handleUpdateQuantity(cartItems[cartItemIndex].id, cartItems[cartItemIndex].quantity + 1);
+            }
+            break;
+          case "-":
+            e.preventDefault();
+            if (cartItemIndex >= 0 && cartItemIndex < cartItems.length) {
+              handleUpdateQuantity(cartItems[cartItemIndex].id, cartItems[cartItemIndex].quantity - 1);
+            }
+            break;
+          case "Enter":
+          case "Delete":
+          case "Backspace":
+            e.preventDefault();
+            if (cartItemIndex >= 0 && cartItemIndex < cartItems.length) {
+              handleRemoveItem(cartItems[cartItemIndex].id);
+              setCartItemIndex(-1);
+            }
+            break;
+          case "Escape":
+            setNavZone("products");
+            break;
+        }
+        return;
+      }
+
+      // Products zone
       switch (e.key) {
         case "ArrowUp":
           e.preventDefault();
@@ -157,7 +226,30 @@ const ModernBilling = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [keyboardNavEnabled, products, selectedProductIndex, cartItems, productQuantities]);
+  }, [keyboardNavEnabled, navZone, products, categories, selectedProductIndex, categoryIndex, cartItems, cartItemIndex, productQuantities]);
+
+  // Auto-scroll the highlighted item into view in the active zone
+  useEffect(() => {
+    if (!keyboardNavEnabled) return;
+    if (navZone === "products" && selectedProductIndex >= 0) {
+      document
+        .querySelector(`[data-product-index="${selectedProductIndex}"]`)
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } else if (navZone === "categories") {
+      const selector = categoryIndex < 0 ? '[data-category-index="all"]' : `[data-category-index="${categoryIndex}"]`;
+      document.querySelector(selector)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } else if (navZone === "cart" && cartItemIndex >= 0) {
+      document
+        .querySelector(`[data-cart-index="${cartItemIndex}"]`)
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [keyboardNavEnabled, navZone, selectedProductIndex, categoryIndex, cartItemIndex]);
+
+  // Keep keyboard selections valid when the product list or cart changes
+  useEffect(() => {
+    if (selectedProductIndex >= products.length) setSelectedProductIndex(-1);
+    if (cartItemIndex >= cartItems.length) setCartItemIndex(-1);
+  }, [products, cartItems, selectedProductIndex, cartItemIndex]);
 
   // Initialize counter session
   useEffect(() => {
