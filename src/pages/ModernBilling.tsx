@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatIndianNumber } from "@/lib/numberFormat";
-import { Switch } from "@/components/ui/switch";
 import { setCounterSession, getCounterSession } from "@/lib/counterSession";
 import { saveInvoiceToIndexedDB } from "@/lib/indexedDB";
 import jsPDF from "jspdf";
@@ -312,9 +311,6 @@ const ModernBilling = () => {
       if (settings && typeof settings === "object") {
         setBillingSettings({
           ...settings.ModernBilling,
-          isRestaurant: settings.isRestaurant,
-          enableKitchenInterface: settings.enableKitchenInterface,
-          enableBilingualBill: settings.enableBilingualBill,
         });
       }
     }
@@ -469,9 +465,6 @@ const ModernBilling = () => {
         const settings = data.billing_settings as any;
         setBillingSettings({
           ...settings.ModernBilling,
-          isRestaurant: settings.isRestaurant,
-          enableKitchenInterface: settings.enableKitchenInterface,
-          enableBilingualBill: settings.enableBilingualBill,
         });
       }
     } catch (error) {
@@ -632,7 +625,7 @@ const ModernBilling = () => {
     }
 
     // Calculate GST details based on is_inclusive flag
-    const isInclusive = billingSettings?.mode === "inclusive";
+    const isInclusive = (product as any).is_inclusive ?? true;
     let gstRate = 0;
     if (product.igst > 0) {
       gstRate = Number(product.igst);
@@ -644,13 +637,8 @@ const ModernBilling = () => {
     let basePrice = priceAfterDiscount;
 
     if (isInclusive && gstRate > 0) {
-      if (billingSettings?.inclusiveBillType === "mrp") {
-        basePrice = priceAfterDiscount;
-        finalPrice = priceAfterDiscount;
-      } else {
-        basePrice = priceAfterDiscount / (1 + gstRate / 100);
-        finalPrice = priceAfterDiscount;
-      }
+      basePrice = priceAfterDiscount / (1 + gstRate / 100);
+      finalPrice = priceAfterDiscount;
     } else if (!isInclusive && gstRate > 0) {
       basePrice = priceAfterDiscount;
       finalPrice = priceAfterDiscount * (1 + gstRate / 100);
@@ -664,7 +652,6 @@ const ModernBilling = () => {
       const newItem: CartItem = {
         id: product.id,
         name: product.name,
-        tamil_name: product.tamil_name || "",
         price: basePrice,
         originalPrice: discountInfo ? originalPrice : undefined,
         quantity: quantity,
@@ -733,64 +720,6 @@ const ModernBilling = () => {
     // 🟢 If inclusive MRP mode selected, skip all tax additions
     // 🟢 If inclusive MRP mode selected, do not add tax to total,
     // but still calculate it internally for analytics.
-    if (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "mrp") {
-      const effectiveSGST = cartItems.reduce((sum, item) => {
-        const total = item.price * item.quantity;
-        const sgstRate = item.sgst || 0;
-        const totalTaxRate = (item.cgst || 0) + sgstRate;
-        if (totalTaxRate === 0) return sum;
-        return sum + (total - total / (1 + totalTaxRate / 100)) * (sgstRate / totalTaxRate);
-      }, 0);
-
-      const effectiveCGST = cartItems.reduce((sum, item) => {
-        const total = item.price * item.quantity;
-        const cgstRate = item.cgst || 0;
-        const totalTaxRate = cgstRate + (item.sgst || 0);
-        if (totalTaxRate === 0) return sum;
-        return sum + (total - total / (1 + totalTaxRate / 100)) * (cgstRate / totalTaxRate);
-      }, 0);
-
-      const effectiveTaxAmount = effectiveSGST + effectiveCGST;
-
-      // Apply coupon discount even in MRP mode
-      const coupon = coupons.find((c) => c.id === selectedCoupon);
-      let couponDiscountAmount = 0;
-      if (coupon) {
-        if (coupon.discount_type === "percentage") {
-          couponDiscountAmount = (subtotal * Number(coupon.discount_value)) / 100;
-        } else {
-          couponDiscountAmount = Number(coupon.discount_value);
-        }
-      }
-
-      const afterCouponDiscount = subtotal - couponDiscountAmount;
-      
-      // Calculate loyalty discount
-      let loyaltyDiscountAmount = 0;
-      if (redeemLoyalty && loyaltySettings?.is_active && pointsToRedeem > 0) {
-        loyaltyDiscountAmount = pointsToRedeem * loyaltySettings.rupees_per_point_redeem;
-      }
-
-      return {
-        subtotal, // MRP subtotal
-        productTaxAmount: effectiveTaxAmount, // Tax for analytics
-        productSGST: effectiveSGST,
-        productCGST: effectiveCGST,
-        productIGST: 0,
-        subtotalWithProductTax: subtotal, // MRP already includes GST
-        couponDiscountAmount, // Now applying coupon in MRP mode
-        loyaltyDiscountAmount,
-        pointsRedeemed: redeemLoyalty ? pointsToRedeem : 0,
-        afterCouponDiscount,
-        additionalTaxAmount: 0,
-        totalSGST: effectiveSGST,
-        totalCGST: effectiveCGST,
-        totalIGST: 0,
-        taxAmount: effectiveTaxAmount,
-        total: Math.max(0, afterCouponDiscount - loyaltyDiscountAmount), // MRP total minus coupon minus loyalty
-        gstNote: "MRP Inclusive – Taxes included in price",
-      };
-    }
 
     const coupon = coupons.find((c) => c.id === selectedCoupon);
     let couponDiscountAmount = 0;
@@ -950,21 +879,6 @@ const ModernBilling = () => {
 
       if (insertError) throw insertError;
 
-      // Send to kitchen if parcel and kitchen interface enabled
-      if (isParcel && billingSettings?.enableKitchenInterface) {
-        await supabase.from("kitchen_orders").insert([
-          {
-            bill_number: billNumber,
-            order_type: "takeaway",
-            items_data: JSON.parse(JSON.stringify(cartItems)),
-            customer_name: customerName || null,
-            customer_phone: customerPhone || null,
-            status: "pending",
-            total_amount: totals.total,
-            created_by: userId!,
-          },
-        ]);
-      }
 
       // Update or create loyalty points and customer
       if (customerPhone) {
@@ -1056,11 +970,7 @@ const ModernBilling = () => {
               total: totals.total,
             },
             paymentMode,
-            isParcel,
             loyaltyPoints,
-            enableBilingual: billingSettings?.enableBilingualBill,
-            billingMode: billingSettings?.mode || "inclusive",
-            inclusiveBillType: billingSettings?.inclusiveBillType || "split",
           });
 
           const printResult = await printEscPosReceipt(receiptData);
@@ -1081,6 +991,22 @@ const ModernBilling = () => {
           console.error("ESC/POS print error:", printError);
           toast.warning("ESC/POS print failed. Invoice saved to history.");
         }
+      } else if (invoiceFormat === "a4") {
+        generateA4Invoice(
+          billNumber,
+          totals.subtotal,
+          totals.productSGST,
+          totals.productCGST,
+          totals.productIGST,
+          totals.couponDiscountAmount,
+          totals.additionalSGST || 0,
+          totals.additionalCGST || 0,
+          totals.totalSGST,
+          totals.totalCGST,
+          totals.totalIGST,
+          totals.taxAmount,
+          totals.total,
+        );
       }
 
       toast.success("Sale completed! Invoice saved.");
@@ -1110,7 +1036,6 @@ const ModernBilling = () => {
     taxAmount: number,
     total: number,
     requiredHeight: number,
-    inclusiveBillType: "split" | "mrp",
   ) => {
     const doc = new jsPDF({
       unit: "mm",
@@ -1124,17 +1049,6 @@ const ModernBilling = () => {
 
     let currentY = 8;
 
-    // TAKEAWAY header if parcel
-    if (isParcel && billingSettings?.isRestaurant) {
-      doc.setFontSize(11);
-      doc.setFont(undefined, "bold");
-      doc.text("*** TAKEAWAY ***", centerX, currentY, { align: "center" });
-      currentY += 5;
-      doc.setFontSize(7);
-      doc.setFont(undefined, "normal");
-      doc.text(`Bill No: ${billNumber}`, centerX, currentY, { align: "center" });
-      currentY += 4;
-    }
 
     if (companyProfile) {
       doc.setFontSize(11);
@@ -1214,7 +1128,7 @@ const ModernBilling = () => {
     const colTax = 60;
     const colAmt = rightMargin;
 
-    const showTaxCol = billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "split";
+    const showTaxCol = cartItems.some((item) => (item.tax_rate || 0) > 0);
 
     doc.text("Item", colItem, currentY);
     doc.text("Qty", colQty, currentY);
@@ -1332,19 +1246,11 @@ const ModernBilling = () => {
     currentY += 3;
     doc.setFont(undefined, "normal");
     doc.setFontSize(6);
-    const gstNote = inclusiveBillType === "mrp" ? "MRP Inclusive – Taxes included" : "Base + GST shown";
+    const gstNote = cartItems.some((item) => item.is_inclusive)
+      ? "Prices inclusive of GST (where applicable)"
+      : "GST charged extra as applicable";
     doc.text(gstNote, centerX, currentY, { align: "center" });
 
-    // Bilingual support - Tamil translations (using transliteration since jsPDF doesn't support Tamil Unicode)
-    if (billingSettings?.enableBilingualBill) {
-      currentY += 2.5;
-      doc.setFontSize(5);
-      doc.setTextColor(100, 100, 100); // Gray color for Tamil
-      const tamilGstNote =
-        inclusiveBillType === "mrp" ? "(MRP Ulladakkam - Vari Serkkappattadhu)" : "(Adippadai + GST Kaattappattadhu)";
-      doc.text(tamilGstNote, centerX, currentY, { align: "center" });
-      doc.setTextColor(0, 0, 0); // Reset to black
-    }
 
     currentY += 3;
     doc.setFont(undefined, "italic");
@@ -1352,14 +1258,6 @@ const ModernBilling = () => {
     const thankYouNote = companyProfile?.thank_you_note || "Thank you for your business!";
     doc.text(thankYouNote, centerX, currentY, { align: "center" });
 
-    // Bilingual thank you note
-    if (billingSettings?.enableBilingualBill) {
-      currentY += 2.5;
-      doc.setFontSize(6);
-      doc.setTextColor(100, 100, 100); // Gray color for Tamil
-      doc.text("(Ungal Vanigathirkku Nandri!)", centerX, currentY, { align: "center" });
-      doc.setTextColor(0, 0, 0); // Reset to black
-    }
 
     // Auto-print functionality
     if (billingSettings?.autoPrint) {
@@ -1391,7 +1289,6 @@ const ModernBilling = () => {
     totalIGST: number,
     taxAmount: number,
     total: number,
-    inclusiveBillType: "split" | "mrp",
   ) => {
     const doc = new jsPDF({
       unit: "mm",
@@ -1462,16 +1359,6 @@ const ModernBilling = () => {
 
     currentY = headerHeight + 8;
 
-    // Takeaway badge if parcel
-    if (isParcel && billingSettings?.isRestaurant) {
-      doc.setFillColor(255, 147, 0);
-      doc.roundedRect(leftMargin, currentY, 35, 8, 2, 2, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
-      doc.setFont(undefined, "bold");
-      doc.text("TAKEAWAY", leftMargin + 17.5, currentY + 5.5, { align: "center" });
-      currentY += 12;
-    }
 
     // Invoice title and number
     doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
@@ -1559,7 +1446,7 @@ const ModernBilling = () => {
     currentY += 48;
 
     // Products table
-    const showTaxCol = billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "split";
+    const showTaxCol = cartItems.some((item) => (item.tax_rate || 0) > 0);
 
     // Table header
     doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
@@ -1698,10 +1585,7 @@ const ModernBilling = () => {
     doc.setTextColor(100, 100, 100);
     doc.setFont(undefined, "normal");
     doc.setFontSize(8);
-    const gstNote =
-      inclusiveBillType === "mrp"
-        ? "Note: All prices are MRP inclusive of GST"
-        : "Note: GST calculated as per applicable rates";
+    const gstNote = "Note: GST calculated as per applicable rates";
     doc.text(gstNote, centerX, currentY, { align: "center" });
 
     currentY += 8;
@@ -1745,51 +1629,6 @@ const ModernBilling = () => {
             <h1 className="text-xl sm:text-2xl font-bold">Modern Billing</h1>
           </div>
           <div className="flex items-center gap-2">
-            {billingSettings?.enableKitchenInterface && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowOrderMonitor(!showOrderMonitor)}
-                title="Order Status Monitor"
-                className="relative"
-              >
-                <Monitor className="h-4 w-4" />
-              </Button>
-            )}
-            {billingSettings?.isRestaurant && (
-              <Sheet open={showLiveOrders} onOpenChange={setShowLiveOrders}>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" title="Live Orders from Waiters" className="relative">
-                    <ClipboardList className="h-4 w-4" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[400px] sm:w-[450px] p-0">
-                  <LiveOrdersPanel
-                    onGenerateBill={(order) => {
-                      const orderItems = order.items_data.map((item: any) => ({
-                        id: item.id,
-                        name: item.name,
-                        price: item.price,
-                        quantity: item.quantity,
-                        sgst: item.sgst || 0,
-                        cgst: item.cgst || 0,
-                        igst: item.igst || 0,
-                        taxRate: item.taxRate || 0,
-                        basePrice: item.basePrice || item.price,
-                        totalPrice: item.price * item.quantity,
-                        barcode: item.barcode || "",
-                        tax_rate: item.tax_rate || 0,
-                      }));
-                      setCartItems(orderItems);
-                      setCustomerName(order.customer_name || "");
-                      setIsParcel(order.order_type === "takeaway");
-                      setShowLiveOrders(false);
-                      toast.success("Order loaded to cart - Complete the sale to generate bill");
-                    }}
-                  />
-                </SheetContent>
-              </Sheet>
-            )}
             <BarcodeScanner
               onScan={(barcode) => {
                 const product = allProducts.find((p) => p.barcode === barcode);
@@ -1837,8 +1676,6 @@ const ModernBilling = () => {
         </div>
       )}
 
-      {/* Order Status Monitor */}
-      <OrderStatusMonitor isOpen={showOrderMonitor} onClose={() => setShowOrderMonitor(false)} />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Sidebar - Categories + Search - Resizable on desktop, horizontal on mobile */}
@@ -1940,13 +1777,16 @@ const ModernBilling = () => {
 
                 {/* Category Buttons */}
                 <div className="space-y-0.5">
-                  {categories.map((category) => {
+                  {categories.map((category, catIndex) => {
                     const count = allProducts.filter((p) => p.category === category.name).length;
                     return (
                       <Button
                         key={category.id}
+                        data-category-index={catIndex}
                         variant={selectedCategory === category.name ? "default" : "ghost"}
-                        className="w-full justify-between text-xs h-7 px-2"
+                        className={`w-full justify-between text-xs h-7 px-2 ${
+                          navZone === "categories" && categoryIndex === catIndex ? "ring-2 ring-primary" : ""
+                        }`}
                         onClick={() => {
                           setSelectedCategory(category.name);
                           setSearchTerm("");
@@ -2015,7 +1855,7 @@ const ModernBilling = () => {
                     }
                     const isInCart = cartItems.some((item) => item.id === product.id);
                     const cartQty = cartItems.find((item) => item.id === product.id)?.quantity || 0;
-                    const isSelected = index === selectedProductIndex;
+                    const isSelected = navZone === "products" && index === selectedProductIndex;
 
                     const displayQty = isInCart ? cartQty : productQuantities[product.id] || 1;
                     const stockQty = product.stock_quantity ?? Infinity;
@@ -2024,6 +1864,7 @@ const ModernBilling = () => {
                     return (
                       <Card
                         key={product.id}
+                        data-product-index={index}
                         className={`hover:shadow-md transition-all overflow-hidden border-2 ${
                           isOutOfStock
                             ? "opacity-50 cursor-not-allowed border-gray-300 dark:border-gray-700"
@@ -2260,19 +2101,17 @@ const ModernBilling = () => {
                 </select>
               </div>
 
-              {/* Parcel Option - only show if restaurant mode enabled */}
-              {billingSettings?.isRestaurant && (
-                <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-950/30 rounded border border-orange-200 dark:border-orange-800">
-                  <Switch checked={isParcel} onCheckedChange={setIsParcel} />
-                  <Label className="text-sm cursor-pointer font-medium">Takeaway / Parcel Order</Label>
-                </div>
-              )}
 
               {/* Cart Items */}
               <div className="border-t pt-3 sm:pt-4 space-y-2">
                 <h3 className="font-semibold text-sm sm:text-base">Cart Items ({cartItems.length})</h3>
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded gap-2">
+                  <div
+                    key={item.id}
+                    data-cart-index={cartIdx}
+                    className={`flex items-center justify-between p-2 bg-muted/50 rounded gap-2 ${
+                      navZone === "cart" && cartIdx === cartItemIndex ? "ring-2 ring-primary" : ""
+                    }`}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -2321,8 +2160,7 @@ const ModernBilling = () => {
                     <span>₹{formatIndianNumber(Number(totals.subtotal.toFixed(2)))}</span>
                   </div>
                   {/* Show tax details for exclusive mode OR inclusive with split */}
-                  {(billingSettings?.mode === "exclusive" ||
-                    (billingSettings?.mode === "inclusive" && billingSettings?.inclusiveBillType === "split")) && (
+                  {cartItems.length > 0 && (
                     <>
                       {intraStateTrade && totals.productIGST > 0 && (
                         <div className="flex justify-between text-muted-foreground">
