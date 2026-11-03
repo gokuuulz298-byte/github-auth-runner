@@ -52,6 +52,9 @@ const ModernBilling = () => {
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
   const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1);
   const [keyboardNavEnabled, setKeyboardNavEnabled] = useState<boolean>(false);
+  const [navZone, setNavZone] = useState<"products" | "categories" | "cart">("products");
+  const [categoryIndex, setCategoryIndex] = useState<number>(-1); // -1 = "All"
+  const [cartItemIndex, setCartItemIndex] = useState<number>(-1);
   
   // Loyalty redemption state
   const [loyaltySettings, setLoyaltySettings] = useState<{
