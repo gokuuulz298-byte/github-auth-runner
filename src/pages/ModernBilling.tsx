@@ -646,7 +646,7 @@ const ModernBilling = () => {
 
     if (existingItem) {
       setCartItems(
-        cartItems.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item)),
+        cartItems.map((item, cartIdx) => (item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item)),
       );
     } else {
       const newItem: CartItem = {
@@ -679,9 +679,9 @@ const ModernBilling = () => {
       setCartItems(cartItems.filter((item) => item.id !== id));
     } else if (newQuantity > maxStock) {
       toast.error(`Only ${maxStock} units available`);
-      setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantity: maxStock } : item)));
+      setCartItems(cartItems.map((item, cartIdx) => (item.id === id ? { ...item, quantity: maxStock } : item)));
     } else {
-      setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)));
+      setCartItems(cartItems.map((item, cartIdx) => (item.id === id ? { ...item, quantity: newQuantity } : item)));
     }
   };
 
@@ -2105,7 +2105,7 @@ const ModernBilling = () => {
               {/* Cart Items */}
               <div className="border-t pt-3 sm:pt-4 space-y-2">
                 <h3 className="font-semibold text-sm sm:text-base">Cart Items ({cartItems.length})</h3>
-                {cartItems.map((item) => (
+                {cartItems.map((item, cartIdx) => (
                   <div
                     key={item.id}
                     data-cart-index={cartIdx}
