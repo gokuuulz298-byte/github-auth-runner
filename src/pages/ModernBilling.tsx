@@ -2111,7 +2111,7 @@ const ModernBilling = () => {
                     data-cart-index={cartIdx}
                     className={`flex items-center justify-between p-2 bg-muted/50 rounded gap-2 ${
                       navZone === "cart" && cartIdx === cartItemIndex ? "ring-2 ring-primary" : ""
-                    }`}
+                    }`}>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
